@@ -1,0 +1,44 @@
+{
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/Util/BoringSSL/Zeroization_boring.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/Zeroization_boring.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/Zeroization_boring.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/Zeroization_boring.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/Zeroization_boring.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/Zeroization_boring.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/Util/BoringSSL/_CryptoModuleAnchor.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/_CryptoModuleAnchor.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/_CryptoModuleAnchor.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/_CryptoModuleAnchor.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/_CryptoModuleAnchor.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/_CryptoModuleAnchor.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/Util/PrettyBytes.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/PrettyBytes.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/PrettyBytes.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/PrettyBytes.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/PrettyBytes.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/PrettyBytes.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/Util/SafeCompare.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SafeCompare.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SafeCompare.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SafeCompare.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SafeCompare.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SafeCompare.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/Util/SecureBytes.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SecureBytes.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SecureBytes.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SecureBytes.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SecureBytes.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SecureBytes.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/Util/Zeroization.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/Zeroization.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/Zeroization.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/Zeroization.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/Zeroization.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/Zeroization.swiftdeps"
+  }
+}

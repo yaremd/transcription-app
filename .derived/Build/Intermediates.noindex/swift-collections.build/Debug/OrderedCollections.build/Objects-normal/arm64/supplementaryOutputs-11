@@ -1,0 +1,30 @@
+{
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-collections/Sources/OrderedCollections/OrderedSet/OrderedSet+Partial SetAlgebra isSubset.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra isSubset.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra isSubset.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra isSubset.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra isSubset.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra isSubset.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-collections/Sources/OrderedCollections/OrderedSet/OrderedSet+Partial SetAlgebra isSuperset.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra isSuperset.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra isSuperset.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra isSuperset.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra isSuperset.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra isSuperset.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-collections/Sources/OrderedCollections/OrderedSet/OrderedSet+Partial SetAlgebra subtract.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra subtract.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra subtract.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra subtract.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra subtract.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra subtract.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-collections/Sources/OrderedCollections/OrderedSet/OrderedSet+Partial SetAlgebra subtracting.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra subtracting.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra subtracting.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra subtracting.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra subtracting.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedSet+Partial SetAlgebra subtracting.swiftdeps"
+  }
+}

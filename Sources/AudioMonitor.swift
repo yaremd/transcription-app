@@ -1,0 +1,363 @@
+import Foundation
+import Combine
+
+struct TranscriptLine: Identifiable {
+    let id = UUID()
+    let speaker: String
+    let text: String
+}
+
+enum TranscriptLanguage: String, CaseIterable, Identifiable {
+    case ukrainian
+    case english
+    case auto
+
+    var id: String { rawValue }
+
+    /// ISO code Whisper expects; nil = auto-detect.
+    var code: String? {
+        switch self {
+        case .ukrainian: return "uk"
+        case .english: return "en"
+        case .auto: return nil
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .ukrainian: return "Ukrainian"
+        case .english: return "English"
+        case .auto: return "Auto-detect"
+        }
+    }
+
+    /// How to instruct the notes model to write.
+    var notesHint: String {
+        switch self {
+        case .ukrainian: return "Ukrainian"
+        case .english: return "English"
+        case .auto: return "the same language as the transcript"
+        }
+    }
+}
+
+enum TranscriptionSpeed: String, CaseIterable, Identifiable {
+    case fast
+    case accurate
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .fast: return "Fast"
+        case .accurate: return "Accurate"
+        }
+    }
+
+    /// Model preference order. Fast favors the distilled turbo model; Accurate
+    /// favors full large-v3. Both are multilingual; "small" is a last resort.
+    var modelCandidates: [String] {
+        switch self {
+        case .fast: return ["large-v3_turbo", "large-v3", "small"]
+        case .accurate: return ["large-v3", "large-v3_turbo", "small"]
+        }
+    }
+}
+
+/// Coordinates capture + on-device transcription for both the mic ("You") and
+/// system audio ("Others"), plus local-LLM notes generation. Publishes
+/// everything the UI needs. All @Published mutations happen on the main thread.
+final class AudioMonitor: ObservableObject {
+    @Published var isRunning = false
+    @Published var isPaused = false
+    @Published var micLevel: Float = 0
+    @Published var systemLevel: Float = 0
+    @Published var statusMessage = "Press Start. You and the call will both be transcribed."
+    @Published var modelStatus = ""
+    @Published var errorMessage: String?
+    @Published var transcript: [TranscriptLine] = []
+    @Published var liveLines: [String: String] = [:]
+    @Published var language: TranscriptLanguage = .auto {
+        didSet { Task { await transcriber.setLanguage(language.code) } }
+    }
+    @Published var speed: TranscriptionSpeed = .fast {
+        didSet { Task { await transcriber.reset() } }   // reload the matching model on next Start
+    }
+
+    // Notes (Stage 3)
+    @Published var notes: String = ""
+    @Published var isGeneratingNotes = false
+    @Published var notesError: String?
+
+    // Human-in-the-loop rough notes + selected template (Stage 4)
+    @Published var userNotes: String = ""
+    @Published var template: NotesTemplate = .general
+
+    /// Describes where notes are generated, for the UI.
+    var notesEngineLabel: String {
+        settings.usingCloudNotes ? "your cloud model" : "\(AudioMonitor.notesModel), on your Mac"
+    }
+
+    static let notesModel = "gpt-oss:20b"
+
+    // Persistence — hands finished sessions to the on-disk MeetingStore.
+    private let store: MeetingStore
+    private let vocabulary: VocabularyStore
+    private let settings: AppSettings
+    private var sessionStart = Date()
+    private var sessionEnd = Date()
+    private var currentMeetingID = UUID()
+    private var discarding = false
+
+    init(store: MeetingStore, vocabulary: VocabularyStore, settings: AppSettings) {
+        self.store = store
+        self.vocabulary = vocabulary
+        self.settings = settings
+    }
+
+    private let speakerYou = "You"
+    private let speakerOthers = "Others"
+
+    private let mic = MicCapturer()
+    private let system = SystemAudioCapturer()
+    private let transcriber = Transcriber()
+    private let notesGenerator = NotesGenerator()
+    private var micStream: TranscriptionStream?
+    private var systemStream: TranscriptionStream?
+    private var micMeterLast = Date.distantPast
+    private var systemMeterLast = Date.distantPast
+
+    func toggle() { isRunning ? stop() : start() }
+
+    func start() {
+        errorMessage = nil
+        transcript = []
+        liveLines = [:]
+        notes = ""
+        notesError = nil
+        userNotes = ""
+        isPaused = false
+        discarding = false
+        sessionStart = Date()
+        sessionEnd = sessionStart
+        currentMeetingID = UUID()
+        micLevel = 0
+        systemLevel = 0
+        isRunning = true
+        statusMessage = "Getting ready…"
+
+        // Load (and warm up) the model BEFORE capturing, so the first phrase
+        // isn't lost and the first transcription isn't slow. After the first
+        // time in a session the model is already loaded, so this is instant.
+        Task { [weak self] in
+            guard let self else { return }
+            if !(await self.transcriber.isLoaded) {
+                await MainActor.run { self.modelStatus = "Preparing model (first run downloads + warms it up)…" }
+                do {
+                    try await self.transcriber.load(candidates: self.speed.modelCandidates)
+                } catch {
+                    await MainActor.run {
+                        self.appendError("Model load failed: \(error.localizedDescription)")
+                        self.modelStatus = ""
+                        self.statusMessage = "Couldn't start."
+                        self.isRunning = false
+                    }
+                    return
+                }
+            }
+            await self.transcriber.setLanguage(self.language.code)
+            await self.transcriber.setVocabulary(self.vocabulary.terms)
+            let name = await self.transcriber.loadedModel
+            await MainActor.run {
+                guard self.isRunning else { return }   // user pressed Stop while loading
+                self.modelStatus = "Ready: \(name ?? "model")"
+                self.beginCapture()
+            }
+        }
+    }
+
+    private func beginCapture() {
+        micStream = makeStream(for: speakerYou)
+        systemStream = makeStream(for: speakerOthers)
+
+        mic.onSamples = { [weak self] samples in self?.handleMic(samples) }
+        system.onSamples = { [weak self] samples in self?.handleSystem(samples) }
+        system.onError = { [weak self] message in
+            DispatchQueue.main.async { self?.appendError(message) }
+        }
+
+        do {
+            try mic.start()
+        } catch {
+            appendError("Microphone: \(error.localizedDescription)")
+        }
+        system.start()
+        statusMessage = "Listening… speak, and play the call for the \"Others\" side."
+    }
+
+    func stop() {
+        teardownCapture(flush: true)
+        sessionEnd = Date()
+        persistCurrentSession()
+        statusMessage = transcript.isEmpty ? "Stopped." : "Stopped. Tap \"Generate Notes\" for a summary."
+    }
+
+    /// Pause/resume without ending the session: the capture engines keep running
+    /// but incoming audio is ignored while paused, so nothing is transcribed.
+    func pauseResume() {
+        guard isRunning else { return }
+        isPaused.toggle()
+        if isPaused {
+            micLevel = 0
+            systemLevel = 0
+            statusMessage = "Paused."
+        } else {
+            statusMessage = "Listening…"
+        }
+    }
+
+    /// Abandon the current session: stop capture, delete anything already saved
+    /// for it, and clear the transcript/notes. Nothing is persisted.
+    func discard() {
+        discarding = true
+        let idToRemove = currentMeetingID
+        teardownCapture(flush: false)
+        if let existing = store.meetings.first(where: { $0.id == idToRemove }) {
+            store.delete(existing)
+        }
+        transcript = []
+        liveLines = [:]
+        notes = ""
+        userNotes = ""
+        statusMessage = "Discarded."
+    }
+
+    private func teardownCapture(flush: Bool) {
+        isRunning = false   // set first so an in-flight model-load Task won't start capture
+        isPaused = false
+        mic.stop()
+        system.stop()
+        if flush {
+            micStream?.flush()
+            systemStream?.flush()
+        }
+        micStream = nil
+        systemStream = nil
+        micLevel = 0
+        systemLevel = 0
+    }
+
+    /// Sends the finished transcript to the local LLM and produces notes.
+    func generateNotes() {
+        let text = transcript
+            .map { "\($0.speaker): \($0.text)" }
+            .joined(separator: "\n")
+        guard !text.isEmpty else {
+            notesError = "There's no transcript to summarize yet."
+            return
+        }
+        notes = ""
+        notesError = nil
+        isGeneratingNotes = true
+        let hint = language.notesHint
+        let jotted = userNotes
+        let tmpl = template
+        let backend: NotesBackend = settings.usingCloudNotes
+            ? .cloudOpenAICompatible(baseURL: settings.cloudBaseURL, apiKey: settings.cloudAPIKey, model: settings.cloudModel)
+            : .localOllama(model: AudioMonitor.notesModel)
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let result = try await self.notesGenerator.generate(transcript: text, userNotes: jotted, template: tmpl, languageHint: hint, backend: backend)
+                await MainActor.run {
+                    self.notes = result
+                    self.isGeneratingNotes = false
+                    self.persistCurrentSession()   // save the generated notes into the stored meeting
+                }
+            } catch {
+                await MainActor.run { self.notesError = error.localizedDescription; self.isGeneratingNotes = false }
+            }
+        }
+    }
+
+    /// Builds a Meeting from the current session and saves it (idempotent by id).
+    /// Called after Stop, when a late transcript line arrives, and after notes are
+    /// generated. Preserves an existing title/notes so a re-save never clobbers them.
+    private func persistCurrentSession() {
+        guard !transcript.isEmpty else { return }
+        let lines = transcript.map { StoredLine(speaker: $0.speaker, text: $0.text) }
+        let existing = store.meetings.first { $0.id == currentMeetingID }
+        let jottedToStore: String? = userNotes.isEmpty ? existing?.userNotes : userNotes
+        let meeting = Meeting(
+            id: currentMeetingID,
+            title: existing?.title ?? Meeting.defaultTitle(for: sessionStart),
+            date: sessionStart,
+            duration: max(0, sessionEnd.timeIntervalSince(sessionStart)),
+            language: language.rawValue,
+            lines: lines,
+            notes: notes.isEmpty ? (existing?.notes ?? "") : notes,
+            userNotes: jottedToStore,
+            templateID: template.id)
+        store.save(meeting)
+    }
+
+    private func makeStream(for speaker: String) -> TranscriptionStream {
+        let stream = TranscriptionStream(label: speaker, transcriber: transcriber)
+        stream.onLive = { [weak self] text in
+            DispatchQueue.main.async { self?.liveLines[speaker] = text }
+        }
+        stream.onCommit = { [weak self] text in
+            DispatchQueue.main.async {
+                guard let self, !self.discarding else { return }   // dropped session: ignore late lines
+                self.transcript.append(TranscriptLine(speaker: speaker, text: text))
+                self.liveLines[speaker] = nil
+                if !self.isRunning { self.persistCurrentSession() }  // a late line landed after Stop
+            }
+        }
+        return stream
+    }
+
+    private func handleMic(_ samples: [Float]) {
+        if isPaused { return }
+        let now = Date()
+        if now.timeIntervalSince(micMeterLast) > 0.033 {
+            micMeterLast = now
+            let level = AudioMonitor.displayLevel(AudioMonitor.rms(of: samples))
+            DispatchQueue.main.async { self.micLevel = level }
+        }
+        micStream?.append(samples)
+    }
+
+    private func handleSystem(_ samples: [Float]) {
+        if isPaused { return }
+        let now = Date()
+        if now.timeIntervalSince(systemMeterLast) > 0.033 {
+            systemMeterLast = now
+            let level = AudioMonitor.displayLevel(AudioMonitor.rms(of: samples))
+            DispatchQueue.main.async { self.systemLevel = level }
+        }
+        systemStream?.append(samples)
+    }
+
+    private func appendError(_ message: String) {
+        if let existing = errorMessage {
+            errorMessage = existing + "\n" + message
+        } else {
+            errorMessage = message
+        }
+    }
+
+    static func rms(of samples: [Float]) -> Float {
+        guard !samples.isEmpty else { return 0 }
+        var sum: Float = 0
+        for v in samples { sum += v * v }
+        return (sum / Float(samples.count)).squareRoot()
+    }
+
+    static func displayLevel(_ rms: Float) -> Float {
+        guard rms > 0 else { return 0 }
+        let db = 20 * log10(rms)
+        let clamped = max(-60, min(0, db))
+        return (clamped + 60) / 60
+    }
+}

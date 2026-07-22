@@ -1,0 +1,37 @@
+{
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-collections/Sources/OrderedCollections/OrderedDictionary/OrderedDictionary+Deprecations.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Deprecations.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Deprecations.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Deprecations.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Deprecations.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Deprecations.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-collections/Sources/OrderedCollections/OrderedDictionary/OrderedDictionary+Descriptions.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Descriptions.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Descriptions.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Descriptions.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Descriptions.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Descriptions.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-collections/Sources/OrderedCollections/OrderedDictionary/OrderedDictionary+Elements.SubSequence.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Elements.SubSequence.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Elements.SubSequence.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Elements.SubSequence.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Elements.SubSequence.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Elements.SubSequence.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-collections/Sources/OrderedCollections/OrderedDictionary/OrderedDictionary+Elements.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Elements.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Elements.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Elements.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Elements.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Elements.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-collections/Sources/OrderedCollections/OrderedDictionary/OrderedDictionary+Equatable.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Equatable.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Equatable.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Equatable.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Equatable.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-collections.build/Debug/OrderedCollections.build/Objects-normal/arm64/OrderedDictionary+Equatable.swiftdeps"
+  }
+}

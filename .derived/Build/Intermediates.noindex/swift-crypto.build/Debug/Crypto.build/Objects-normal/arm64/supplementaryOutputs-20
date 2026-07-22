@@ -1,0 +1,51 @@
+{
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/HPKE-KDF.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KDF.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KDF.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KDF.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KDF.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KDF.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/HPKE-KexKeyDerivation.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KexKeyDerivation.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KexKeyDerivation.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KexKeyDerivation.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KexKeyDerivation.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KexKeyDerivation.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/HPKE-LabeledExtract.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-LabeledExtract.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-LabeledExtract.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-LabeledExtract.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-LabeledExtract.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-LabeledExtract.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/HPKE-Utils.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-Utils.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-Utils.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-Utils.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-Utils.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-Utils.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/KEM/Conformances/DHKEM.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/DHKEM.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/DHKEM.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/DHKEM.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/DHKEM.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/DHKEM.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/KEM/Conformances/HPKE-KEM-Curve25519.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KEM-Curve25519.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KEM-Curve25519.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KEM-Curve25519.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KEM-Curve25519.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-KEM-Curve25519.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/KEM/Conformances/HPKE-NIST-EC-KEMs.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-NIST-EC-KEMs.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-NIST-EC-KEMs.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-NIST-EC-KEMs.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-NIST-EC-KEMs.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HPKE-NIST-EC-KEMs.swiftdeps"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/Keys/EC/X25519Keys.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/X25519Keys.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/X25519Keys.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/X25519Keys.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/X25519Keys.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/X25519Keys.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/Keys/Symmetric/SymmetricKeys.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SymmetricKeys.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SymmetricKeys.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SymmetricKeys.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SymmetricKeys.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/SymmetricKeys.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/Message Authentication Codes/HMAC/HMAC.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HMAC.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HMAC.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HMAC.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HMAC.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/HMAC.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/Message Authentication Codes/MACFunctions.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/MACFunctions.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/MACFunctions.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/MACFunctions.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/MACFunctions.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/MACFunctions.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/Message Authentication Codes/MessageAuthenticationCode.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/MessageAuthenticationCode.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/MessageAuthenticationCode.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/MessageAuthenticationCode.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/MessageAuthenticationCode.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/MessageAuthenticationCode.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/PRF/AES.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/AES.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/AES.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/AES.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/AES.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/AES.swiftdeps"
+  },
+  "/Users/yarem/Documents/Transcription web app/.spm/checkouts/swift-crypto/Sources/Crypto/Signatures/BoringSSL/ECDSASignature_boring.swift" : {
+    "const-values" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/ECDSASignature_boring.swiftconstvalues",
+    "dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/ECDSASignature_boring.d",
+    "diagnostics" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/ECDSASignature_boring.dia",
+    "object" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/ECDSASignature_boring.o",
+    "swift-dependencies" : "/Users/yarem/Documents/Transcription web app/.derived/Build/Intermediates.noindex/swift-crypto.build/Debug/Crypto.build/Objects-normal/arm64/ECDSASignature_boring.swiftdeps"
+  }
+}

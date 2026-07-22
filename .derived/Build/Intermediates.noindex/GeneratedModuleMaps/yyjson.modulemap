@@ -1,0 +1,4 @@
+module yyjson {
+umbrella header "/Users/yarem/Documents/Transcription web app/.spm/checkouts/yyjson/src/yyjson.h"
+export *
+}

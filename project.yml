@@ -1,0 +1,38 @@
+name: LocalScribe
+options:
+  bundleIdPrefix: com.yarem
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+packages:
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit
+    from: "0.9.0"
+settings:
+  base:
+    MARKETING_VERSION: "0.1"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: "5FB728FKA4"
+    ENABLE_HARDENED_RUNTIME: "NO"
+targets:
+  LocalScribe:
+    type: application
+    platform: macOS
+    sources:
+      - Sources
+    dependencies:
+      - package: WhisperKit
+    info:
+      path: Support/Info.plist
+      properties:
+        NSMicrophoneUsageDescription: "LocalScribe listens to your microphone to transcribe your side of the conversation, entirely on your Mac."
+        LSApplicationCategoryType: "public.app-category.productivity"
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yarem.LocalScribe
+        PRODUCT_NAME: LocalScribe
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
