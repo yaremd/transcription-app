@@ -25,34 +25,43 @@ struct RootView: View {
                 Section {
                     Label {
                         HStack {
-                            Text("New Recording")
+                            Text("New Recording").font(Theme.body)
                             if monitor.isRunning {
                                 Spacer()
-                                Circle().fill(.red).frame(width: 8, height: 8)
+                                Circle()
+                                    .fill(Theme.red)
+                                    .frame(width: 7, height: 7)
+                                    .shadow(color: Theme.red.opacity(0.5), radius: 3)
                             }
                         }
                     } icon: {
-                        Image(systemName: "mic.circle.fill")
+                        Image(systemName: "mic")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
                     }
                     .tag(Panel.record)
 
                     Label {
                         HStack {
-                            Text("Action Items")
+                            Text("Action Items").font(Theme.body)
                             if openActionCount > 0 {
                                 Spacer()
                                 Text("\(openActionCount)")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(Theme.meta)
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     } icon: {
                         Image(systemName: "checklist")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
                     }
                     .tag(Panel.tasks)
                 }
 
                 if !filteredMeetings.isEmpty {
-                    Section("Meetings") {
+                    Section {
                         ForEach(filteredMeetings) { meeting in
                             MeetingRow(meeting: meeting)
                                 .tag(Panel.meeting(meeting.id))
@@ -64,31 +73,43 @@ struct RootView: View {
                                     }
                                 }
                         }
+                    } header: {
+                        SectionLabel("Meetings")
                     }
                 } else if !searchText.isEmpty {
-                    Section("Meetings") {
-                        Text("No matches").foregroundStyle(.secondary)
+                    Section {
+                        Text("No matches")
+                            .font(Theme.sub)
+                            .foregroundStyle(.tertiary)
+                    } header: {
+                        SectionLabel("Meetings")
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.sidebar)
             .searchable(text: $searchText, placement: .sidebar, prompt: "Search meetings")
             .navigationTitle("LocalScribe")
             .frame(minWidth: 240)
         } detail: {
-            switch selection {
-            case .tasks:
-                TasksView()
-            case .meeting(let id):
-                if let meeting = store.meetings.first(where: { $0.id == id }) {
-                    MeetingDetailView(meeting: meeting)
-                } else {
-                    ContentUnavailableView("Meeting not found",
-                                           systemImage: "questionmark.folder")
+            Group {
+                switch selection {
+                case .tasks:
+                    TasksView()
+                case .meeting(let id):
+                    if let meeting = store.meetings.first(where: { $0.id == id }) {
+                        MeetingDetailView(meeting: meeting)
+                    } else {
+                        ContentUnavailableView("Meeting not found",
+                                               systemImage: "questionmark.folder")
+                    }
+                default:
+                    RecordingView(monitor: monitor)
                 }
-            default:
-                RecordingView(monitor: monitor)
             }
+            .background(Theme.background)
         }
+        .tint(Theme.accent)
         .onAppear {
             if !settings.hasOnboarded { showOnboarding = true }
         }
@@ -128,27 +149,27 @@ private struct MeetingRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(meeting.title).lineLimit(1)
-            HStack(spacing: 6) {
+            Text(meeting.title)
+                .font(Theme.body)
+                .lineLimit(1)
+            HStack(spacing: 5) {
                 Text(meeting.date, style: .date)
+                    .font(Theme.meta)
+                    .foregroundStyle(.tertiary)
                 if meeting.hasNotes {
-                    Image(systemName: "doc.text").imageScale(.small)
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
                 }
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
             if let tags = meeting.tags, !tags.isEmpty {
                 HStack(spacing: 4) {
-                    ForEach(tags.prefix(4), id: \.self) { tag in
-                        Text(tag)
-                            .font(.caption2)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 1)
-                            .background(.quaternary, in: Capsule())
+                    ForEach(tags.prefix(3), id: \.self) { tag in
+                        TagChip(text: tag)
                     }
                 }
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 1)
     }
 }
