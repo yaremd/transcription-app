@@ -21,12 +21,15 @@ enum MicError: LocalizedError {
 ///
 /// Voice processing (Apple's echo cancellation + noise suppression) is enabled
 /// so call audio played through speakers doesn't also land in the transcript
-/// as "You". On some Macs/audio routes the voice-processing unit initializes
-/// fine but delivers pure digital silence — the app looks deaf while the call
-/// side keeps transcribing. A watchdog therefore checks the first seconds of
-/// every session: if only silence arrived, capture restarts on the raw mic
-/// (the path that always works); if even that is silent, the user is told
-/// exactly which System Settings to check instead of watching a dead meter.
+/// as "You". On some Macs/audio routes the voice-processing unit runs but eats
+/// the input — sometimes pure digital silence, sometimes low-level junk with
+/// the speech removed — so a fixed loudness threshold can't tell "broken" from
+/// "quiet room". Instead, while voice processing is unverified, a second plain
+/// engine taps the same microphone as a *witness*: if the witness hears real
+/// sound and the processed path stays ~20× quieter, voice processing is
+/// provably eating audio and capture restarts on the raw mic. If even the raw
+/// path delivers nothing, the user is told exactly which System Settings to
+/// check instead of watching a dead meter.
 final class MicCapturer {
     var onSamples: (([Float]) -> Void)?
     /// Non-fatal condition worth a status-line mention (e.g. AEC fallback).
@@ -35,27 +38,39 @@ final class MicCapturer {
     var onError: ((String) -> Void)?
 
     private var engine: AVAudioEngine?
+    private var referenceEngine: AVAudioEngine?
     private var resampler = AudioResampler()
     private var configObserver: NSObjectProtocol?
     private let log = Logger(subsystem: "com.yarem.LocalScribe", category: "Mic")
 
     /// Cleared for the rest of the app run once voice processing is caught
-    /// silencing the input; later sessions then start on the raw mic at once.
+    /// eating the input; later sessions then start on the raw mic at once.
     private var voiceProcessingTrusted = true
     private var voiceProcessingActive = false
     private var sessionActive = false
+    private var referenceRunning = false
 
-    // Written from the audio thread, read by the watchdog on the main thread.
+    // Written from the audio threads, read by the watchdog on the main thread.
     private let meterLock = NSLock()
-    private var peakSinceStart: Float = 0
+    private var tapPeak: Float = 0          // loudest sample the processed tap saw
+    private var referencePeak: Float = 0    // loudest sample the raw witness saw
+    private var samplesDelivered = false    // resampled audio actually left the tap
 
     private var watchdog: Timer?
     private var watchdogStart = Date()
 
-    /// Anything below this for the whole watchdog window is digital silence,
-    /// not a quiet room — a live mic always delivers some noise floor.
-    private let silencePeak: Float = 1e-4
-    private let watchdogWindow = 2.5
+    /// The witness heard something clearly real (speech, typing, room life).
+    private let rawSpeechPeak: Float = 5e-3
+    /// Processed path this many times quieter than the witness = eaten audio.
+    private let mutedRatio: Float = 20
+    /// Processed path at least this loud = clearly passing audio.
+    private let alivePeak: Float = 1e-3
+    /// Below this on every path = the device itself is delivering nothing.
+    private let deadPeak: Float = 1e-4
+    private let minJudgeSeconds = 3.0
+    private let deadDeviceSeconds = 15.0
+    /// Without a witness, silence this long decides on its own.
+    private let heuristicSeconds = 3.5
 
     func start() throws {
         let status = AVCaptureDevice.authorizationStatus(for: .audio)
@@ -68,6 +83,7 @@ final class MicCapturer {
 
     func stop() {
         sessionActive = false
+        stopReference()
         tearDownEngine()
     }
 
@@ -77,6 +93,7 @@ final class MicCapturer {
     /// start/stop cycles reliably, and a fallback restart must not inherit a
     /// converter or tap sized for the previous device format.
     private func startEngine() throws {
+        stopReference()
         tearDownEngine()
 
         let engine = AVAudioEngine()
@@ -111,10 +128,11 @@ final class MicCapturer {
             }
             throw MicError.noInput
         }
-        log.info("mic starting: vp=\(self.voiceProcessingActive) format=\(format.sampleRate)Hz x\(format.channelCount)ch")
 
         meterLock.lock()
-        peakSinceStart = 0
+        tapPeak = 0
+        referencePeak = 0
+        samplesDelivered = false
         meterLock.unlock()
 
         // The tap captures this resampler instance directly so a restart can
@@ -123,12 +141,21 @@ final class MicCapturer {
         self.resampler = resampler
         input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
             guard let self else { return }
-            self.notePeak(of: buffer)
+            self.notePeak(of: buffer, into: \.tapPeak)
             guard let samples = resampler.resample(buffer) else { return }
+            self.meterLock.lock()
+            self.samplesDelivered = true
+            self.meterLock.unlock()
             self.onSamples?(samples)
         }
         engine.prepare()
         try engine.start()
+
+        // Only an unverified voice-processing path needs the raw witness.
+        if voiceProcessingActive {
+            startReference()
+        }
+        log.notice("mic starting: vp=\(self.voiceProcessingActive) witness=\(self.referenceRunning) format=\(format.sampleRate, format: .fixed(precision: 0))Hz x\(format.channelCount)ch")
 
         // The input node follows the system default device. When that changes
         // (AirPods connect, an interface unplugs) the engine stops delivering;
@@ -137,7 +164,7 @@ final class MicCapturer {
             forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
         ) { [weak self] _ in
             guard let self, self.sessionActive else { return }
-            self.log.info("audio route changed; restarting capture")
+            self.log.notice("audio route changed; restarting capture")
             do { try self.startEngine() } catch {
                 self.onError?("The microphone stopped after an audio device change: \(error.localizedDescription)")
             }
@@ -159,9 +186,41 @@ final class MicCapturer {
         self.engine = nil
     }
 
+    /// A second, plain engine on the same microphone. It exists only to answer
+    /// "is there actually sound in the room?" while voice processing is judged,
+    /// and is torn down the moment a verdict lands.
+    private func startReference() {
+        stopReference()
+        let reference = AVAudioEngine()
+        let input = reference.inputNode
+        let format = input.inputFormat(forBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else { return }
+        input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
+            self?.notePeak(of: buffer, into: \.referencePeak)
+        }
+        reference.prepare()
+        do {
+            try reference.start()
+            referenceEngine = reference
+            referenceRunning = true
+        } catch {
+            input.removeTap(onBus: 0)
+            referenceRunning = false
+            log.warning("witness engine unavailable: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func stopReference() {
+        guard let reference = referenceEngine else { referenceRunning = false; return }
+        reference.inputNode.removeTap(onBus: 0)
+        if reference.isRunning { reference.stop() }
+        referenceEngine = nil
+        referenceRunning = false
+    }
+
     // MARK: - Silence watchdog
 
-    private func notePeak(of buffer: AVAudioPCMBuffer) {
+    private func notePeak(of buffer: AVAudioPCMBuffer, into key: ReferenceWritableKeyPath<MicCapturer, Float>) {
         guard let data = buffer.floatChannelData, buffer.frameLength > 0 else { return }
         var peak: Float = 0
         let samples = data[0]
@@ -170,7 +229,7 @@ final class MicCapturer {
             if v > peak { peak = v }
         }
         meterLock.lock()
-        if peak > peakSinceStart { peakSinceStart = peak }
+        if peak > self[keyPath: key] { self[keyPath: key] = peak }
         meterLock.unlock()
     }
 
@@ -178,14 +237,19 @@ final class MicCapturer {
         watchdog?.invalidate()
         watchdogStart = Date()
         watchdog = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            self?.checkForSilence()
+            self?.judge()
         }
     }
 
-    private func checkForSilence() {
+    private func disarmWatchdog() {
+        watchdog?.invalidate()
+        watchdog = nil
+        stopReference()
+    }
+
+    private func judge() {
         guard sessionActive else {
-            watchdog?.invalidate()
-            watchdog = nil
+            disarmWatchdog()
             return
         }
 
@@ -197,37 +261,72 @@ final class MicCapturer {
         }
 
         meterLock.lock()
-        let peak = peakSinceStart
+        let processed = tapPeak
+        let raw = referencePeak
+        let delivered = samplesDelivered
         meterLock.unlock()
+        let elapsed = Date().timeIntervalSince(watchdogStart)
 
-        if peak >= silencePeak {
-            // The mic is audibly alive; nothing left to watch this session.
-            watchdog?.invalidate()
-            watchdog = nil
+        // The device is audible but nothing ever left the tap: the resampler
+        // can't handle this format. A restart rebuilds it; without voice
+        // processing the format is the plain device one, which always converts.
+        if elapsed >= minJudgeSeconds && !delivered && processed >= alivePeak {
+            log.error("pipeline dead: tap peak \(processed, format: .fixed(precision: 5)) but no samples delivered")
+            restartWithoutVoiceProcessing(reason: "the audio pipeline stalled")
             return
         }
-        guard Date().timeIntervalSince(watchdogStart) >= watchdogWindow else { return }
 
         if voiceProcessingActive {
-            // Echo cancellation delivered nothing but digital silence — the
-            // known macOS failure this watchdog exists for.
-            log.error("voice processing delivered only silence; falling back to raw mic")
-            voiceProcessingTrusted = false
-            do {
-                try startEngine()
-                onNotice?("Echo cancellation was blocking your mic — turned it off. Listening on the raw microphone now; if the call plays through speakers, headphones will avoid echo.")
-            } catch {
-                onError?("The microphone couldn't be restarted: \(error.localizedDescription)")
+            if referenceRunning {
+                if delivered && processed >= max(alivePeak, raw / mutedRatio) {
+                    log.notice("voice processing verified: processed \(processed, format: .fixed(precision: 5)) raw \(raw, format: .fixed(precision: 5))")
+                    disarmWatchdog()
+                } else if elapsed >= minJudgeSeconds && raw >= rawSpeechPeak && processed < raw / mutedRatio {
+                    log.error("voice processing eating audio: processed \(processed, format: .fixed(precision: 5)) vs raw \(raw, format: .fixed(precision: 5))")
+                    restartWithoutVoiceProcessing(reason: "echo cancellation was blocking your mic")
+                } else if elapsed >= deadDeviceSeconds && raw < deadPeak && processed < deadPeak {
+                    log.error("no signal on any path: raw \(raw, format: .fixed(precision: 6))")
+                    disarmWatchdog()
+                    reportDeadInput()
+                }
+                // Otherwise the room is still quiet — keep the witness running
+                // until someone speaks; only sound can prove either verdict.
+            } else {
+                // No witness available: fall back to a plain loudness deadline.
+                if delivered && processed >= alivePeak {
+                    disarmWatchdog()
+                } else if elapsed >= heuristicSeconds {
+                    log.error("voice processing silent past deadline (no witness): peak \(processed, format: .fixed(precision: 5))")
+                    restartWithoutVoiceProcessing(reason: "echo cancellation was blocking your mic")
+                }
             }
         } else {
-            watchdog?.invalidate()
-            watchdog = nil
-            log.error("raw mic delivered only silence")
-            if AVCaptureDevice.authorizationStatus(for: .audio) != .authorized {
-                onError?(MicError.permissionDenied.errorDescription ?? "Microphone access is blocked.")
-            } else {
-                onError?("No sound is reaching the app from the microphone. Check System Settings → Sound → Input: the right microphone should be selected and its input volume up.")
+            // Raw path: any real noise floor at all counts as alive.
+            if delivered && processed >= deadPeak {
+                disarmWatchdog()
+            } else if elapsed >= heuristicSeconds {
+                log.error("raw mic delivered nothing: peak \(processed, format: .fixed(precision: 6))")
+                disarmWatchdog()
+                reportDeadInput()
             }
+        }
+    }
+
+    private func restartWithoutVoiceProcessing(reason: String) {
+        voiceProcessingTrusted = false
+        do {
+            try startEngine()
+            onNotice?("Note: \(reason) — switched to the raw microphone. Listening. (If the call plays through speakers, headphones avoid echo.)")
+        } catch {
+            onError?("The microphone couldn't be restarted: \(error.localizedDescription)")
+        }
+    }
+
+    private func reportDeadInput() {
+        if AVCaptureDevice.authorizationStatus(for: .audio) != .authorized {
+            onError?(MicError.permissionDenied.errorDescription ?? "Microphone access is blocked.")
+        } else {
+            onError?("No sound is reaching the app from the microphone. Check System Settings → Sound → Input: the right microphone should be selected and its input volume up.")
         }
     }
 }
