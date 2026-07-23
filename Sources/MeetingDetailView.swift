@@ -18,6 +18,7 @@ struct MeetingDetailView: View {
     @State private var reshaping = false
     @State private var generating = false
     @State private var generateError: String?
+    @State private var templateID = NotesTemplate.general.id
     @State private var question = ""
     @State private var answer = ""
     @State private var asking = false
@@ -75,6 +76,7 @@ struct MeetingDetailView: View {
             newAction = ""
             actionsError = nil
             generateError = nil
+            templateID = meeting.templateID ?? NotesTemplate.general.id
         }
     }
 
@@ -134,6 +136,14 @@ struct MeetingDetailView: View {
                         .fixedSize()
                     }
                     if !meeting.lines.isEmpty {
+                        Picker("Template", selection: $templateID) {
+                            ForEach(NotesTemplate.all) { t in Text(t.name).tag(t.id) }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .controlSize(.small)
+                        .fixedSize()
+                        .help("Notes template")
                         Button(meeting.hasNotes ? "Regenerate" : "Generate Notes", action: generateNotes)
                             .buttonStyle(meeting.hasNotes
                                          ? LinearButtonStyle(kind: .quiet, compact: true)
@@ -284,7 +294,8 @@ struct MeetingDetailView: View {
         let hint = languageHint
         let transcript = meeting.transcriptText
         let jotted = meeting.userNotes ?? ""
-        let template = NotesTemplate.all.first { $0.id == meeting.templateID } ?? .general
+        let chosenTemplateID = templateID
+        let template = NotesTemplate.all.first { $0.id == chosenTemplateID } ?? .general
         Task {
             do {
                 let result = try await generator.generate(transcript: transcript, userNotes: jotted,
@@ -292,6 +303,7 @@ struct MeetingDetailView: View {
                 await MainActor.run {
                     var updated = meeting
                     updated.notes = result
+                    updated.templateID = chosenTemplateID
                     store.save(updated)
                     notesText = result
                     generating = false

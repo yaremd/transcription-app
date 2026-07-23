@@ -124,11 +124,20 @@ struct RootView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
+                // A filled, labeled button — the app's one primary action
+                // should never need hunting for.
                 Button(action: newMeeting) {
-                    Label("New Meeting", systemImage: "plus")
+                    HStack(spacing: 5) {
+                        Image(systemName: monitor.isRunning ? "record.circle" : "plus")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(monitor.isRunning ? "Recording…" : "New Meeting")
+                    }
                 }
+                .buttonStyle(monitor.isRunning
+                             ? LinearButtonStyle(kind: .primary, tint: Theme.red, compact: true)
+                             : LinearButtonStyle(kind: .primary, compact: true))
                 .keyboardShortcut("n", modifiers: .command)
-                .help("New meeting — starts listening right away (⌘N)")
+                .help(monitor.isRunning ? "Back to the live meeting" : "New meeting — starts listening right away (⌘N)")
             }
         }
         .tint(Theme.accent)
