@@ -2,7 +2,8 @@ import AVFoundation
 
 /// Converts arbitrary PCM buffers to 16 kHz mono Float32 (Whisper's input
 /// format), handling sample-rate conversion and stereo->mono downmix. One
-/// instance per capture source (input format is stable for a session).
+/// instance per capture source; if the source's format changes (audio device
+/// switched mid-session) the converter is rebuilt instead of failing silently.
 final class AudioResampler {
     private let targetFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32,
@@ -11,11 +12,13 @@ final class AudioResampler {
         interleaved: false
     )!
     private var converter: AVAudioConverter?
+    private var converterInputFormat: AVAudioFormat?
 
     func resample(_ input: AVAudioPCMBuffer) -> [Float]? {
         guard input.frameLength > 0 else { return nil }
-        if converter == nil {
+        if converter == nil || converterInputFormat != input.format {
             converter = AVAudioConverter(from: input.format, to: targetFormat)
+            converterInputFormat = input.format
         }
         guard let converter else { return nil }
 
