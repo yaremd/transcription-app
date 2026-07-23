@@ -54,14 +54,26 @@ enum TranscriptionSpeed: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Model preference order. Fast favors the distilled turbo model; Accurate
-    /// favors full large-v3. Both are multilingual; "small" is a last resort.
+    /// Model preference order. Fast favors OpenAI's large-v3-turbo (v20240930,
+    /// a 4-decoder-layer distillation — several times faster to decode than
+    /// full large-v3 with nearly the same quality); Accurate favors full
+    /// large-v3. Note "large-v3_turbo" is NOT the turbo model — it's full
+    /// large-v3 in a different compilation. All are multilingual; "small" is a
+    /// last resort.
     var modelCandidates: [String] {
         switch self {
-        case .fast: return ["large-v3_turbo", "large-v3", "small"]
+        case .fast: return ["large-v3-v20240930_turbo", "large-v3-v20240930", "large-v3_turbo", "small"]
         case .accurate: return ["large-v3", "large-v3_turbo", "small"]
         }
     }
+}
+
+/// Mic/system level meters, isolated from AudioMonitor so their ~30 Hz updates
+/// only re-render the meter bars — not the whole recording view with the
+/// growing transcript in it.
+final class AudioLevels: ObservableObject {
+    @Published var mic: Float = 0
+    @Published var system: Float = 0
 }
 
 /// Coordinates capture + on-device transcription for both the mic ("You") and
@@ -70,13 +82,13 @@ enum TranscriptionSpeed: String, CaseIterable, Identifiable {
 final class AudioMonitor: ObservableObject {
     @Published var isRunning = false
     @Published var isPaused = false
-    @Published var micLevel: Float = 0
-    @Published var systemLevel: Float = 0
     @Published var statusMessage = "Press Start. You and the call will both be transcribed."
     @Published var modelStatus = ""
     @Published var errorMessage: String?
     @Published var transcript: [TranscriptLine] = []
     @Published var liveLines: [String: String] = [:]
+    let levels = AudioLevels()
+    private var liveUtterance: [String: Int] = [:]   // which utterance each live line shows
     @Published var language: TranscriptLanguage = .auto {
         didSet { Task { await transcriber.setLanguage(language.code) } }
     }
@@ -133,6 +145,7 @@ final class AudioMonitor: ObservableObject {
         errorMessage = nil
         transcript = []
         liveLines = [:]
+        liveUtterance = [:]
         notes = ""
         notesError = nil
         userNotes = ""
@@ -141,8 +154,8 @@ final class AudioMonitor: ObservableObject {
         sessionStart = Date()
         sessionEnd = sessionStart
         currentMeetingID = UUID()
-        micLevel = 0
-        systemLevel = 0
+        levels.mic = 0
+        levels.system = 0
         isRunning = true
         statusMessage = "Getting ready…"
 
@@ -165,6 +178,7 @@ final class AudioMonitor: ObservableObject {
                     return
                 }
             }
+            await self.transcriber.beginSession()
             await self.transcriber.setLanguage(self.language.code)
             await self.transcriber.setVocabulary(self.vocabulary.terms)
             let name = await self.transcriber.loadedModel
@@ -204,12 +218,15 @@ final class AudioMonitor: ObservableObject {
 
     /// Pause/resume without ending the session: the capture engines keep running
     /// but incoming audio is ignored while paused, so nothing is transcribed.
+    /// Pausing finalizes whatever was just said, so the text lands immediately.
     func pauseResume() {
         guard isRunning else { return }
         isPaused.toggle()
         if isPaused {
-            micLevel = 0
-            systemLevel = 0
+            micStream?.flush()
+            systemStream?.flush()
+            levels.mic = 0
+            levels.system = 0
             statusMessage = "Paused."
         } else {
             statusMessage = "Listening…"
@@ -243,8 +260,8 @@ final class AudioMonitor: ObservableObject {
         }
         micStream = nil
         systemStream = nil
-        micLevel = 0
-        systemLevel = 0
+        levels.mic = 0
+        levels.system = 0
     }
 
     /// Sends the finished transcript to the local LLM and produces notes.
@@ -302,15 +319,27 @@ final class AudioMonitor: ObservableObject {
     }
 
     private func makeStream(for speaker: String) -> TranscriptionStream {
-        let stream = TranscriptionStream(label: speaker, transcriber: transcriber)
-        stream.onLive = { [weak self] text in
-            DispatchQueue.main.async { self?.liveLines[speaker] = text }
+        let stream = TranscriptionStream(label: speaker) { [transcriber] samples, mode in
+            await transcriber.transcribe(samples, source: speaker, mode: mode)
         }
-        stream.onCommit = { [weak self] text in
+        stream.onLive = { [weak self] id, text in
             DispatchQueue.main.async {
-                guard let self, !self.discarding else { return }   // dropped session: ignore late lines
+                guard let self, self.isRunning, !self.discarding else { return }
+                self.liveLines[speaker] = text
+                self.liveUtterance[speaker] = id
+            }
+        }
+        stream.onCommit = { [weak self] id, text in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                // Clear the live preview only if it still shows this utterance —
+                // never wipe the preview of the next utterance already underway.
+                if let shown = self.liveUtterance[speaker], shown <= id {
+                    self.liveLines[speaker] = nil
+                    self.liveUtterance[speaker] = nil
+                }
+                guard let text, !self.discarding else { return }   // silence, or dropped session
                 self.transcript.append(TranscriptLine(speaker: speaker, text: text))
-                self.liveLines[speaker] = nil
                 if !self.isRunning { self.persistCurrentSession() }  // a late line landed after Stop
             }
         }
@@ -323,7 +352,7 @@ final class AudioMonitor: ObservableObject {
         if now.timeIntervalSince(micMeterLast) > 0.033 {
             micMeterLast = now
             let level = AudioMonitor.displayLevel(AudioMonitor.rms(of: samples))
-            DispatchQueue.main.async { self.micLevel = level }
+            DispatchQueue.main.async { self.levels.mic = level }
         }
         micStream?.append(samples)
     }
@@ -334,7 +363,7 @@ final class AudioMonitor: ObservableObject {
         if now.timeIntervalSince(systemMeterLast) > 0.033 {
             systemMeterLast = now
             let level = AudioMonitor.displayLevel(AudioMonitor.rms(of: samples))
-            DispatchQueue.main.async { self.systemLevel = level }
+            DispatchQueue.main.async { self.levels.system = level }
         }
         systemStream?.append(samples)
     }

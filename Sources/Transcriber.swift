@@ -11,6 +11,7 @@ actor Transcriber {
     private(set) var loadedModel: String?
     private var vocabularyPrompt = ""      // custom terms joined into a Whisper prompt
     private var cachedPromptTokens: [Int]?
+    private var detectedLanguage: [String: String] = [:]   // per source, in auto mode
 
     /// Sets the custom vocabulary that biases transcription toward the user's
     /// names/jargon. Tokenized lazily on the next transcribe (it needs the loaded
@@ -27,6 +28,11 @@ actor Transcriber {
 
     func setLanguage(_ code: String?) {
         language = code
+    }
+
+    /// Clears per-recording state; call when a new session starts.
+    func beginSession() {
+        detectedLanguage = [:]
     }
 
     /// Unloads the current model so the next load() can pick a different one
@@ -53,12 +59,29 @@ actor Transcriber {
                                    userInfo: [NSLocalizedDescriptionKey: "No transcription model could be loaded."])
     }
 
-    func transcribe(_ samples: [Float]) async -> String {
-        guard let pipe, !samples.isEmpty else { return "" }
+    /// `source` keys the auto-detected language ("You" may speak a different
+    /// language than the call audio). Live passes skip everything optional so
+    /// the preview keeps up; final passes spend more effort on accuracy.
+    func transcribe(_ samples: [Float], source: String, mode: TranscribeMode) async -> String {
+        guard let pipe, samples.count >= 1600 else { return "" }   // need ≥ 0.1s of audio
+
         var options = DecodingOptions()
         options.task = .transcribe
-        options.language = language            // nil = let Whisper detect
-        options.detectLanguage = (language == nil)
+        options.skipSpecialTokens = true
+        options.withoutTimestamps = true   // timestamps are unused; decoding is faster without them
+        options.suppressBlank = true
+        switch mode {
+        case .live:
+            // No retry ladder, and reuse the already-detected language instead
+            // of re-detecting on every half-second pass.
+            options.temperatureFallbackCount = 0
+            options.language = language ?? detectedLanguage[source]
+            options.detectLanguage = (options.language == nil)
+        case .final:
+            options.temperatureFallbackCount = 2
+            options.language = language
+            options.detectLanguage = (language == nil)   // re-detect per utterance: tracks mixed-language meetings
+        }
         if !vocabularyPrompt.isEmpty {
             if cachedPromptTokens == nil, let tok = pipe.tokenizer {
                 cachedPromptTokens = tok.encode(text: " " + vocabularyPrompt)
@@ -66,14 +89,57 @@ actor Transcriber {
             }
             options.promptTokens = cachedPromptTokens
         }
+
         do {
             let results = try await pipe.transcribe(audioArray: samples, decodeOptions: options)
-            return results
+            if language == nil, let detected = results.first?.language, !detected.isEmpty {
+                detectedLanguage[source] = detected
+            }
+            let text = results
+                .flatMap { $0.segments }
+                .filter { Self.isTrustworthy($0) }
                 .map { $0.text }
                 .joined(separator: " ")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return Self.cleaned(text)
         } catch {
             return ""
         }
+    }
+
+    // MARK: - Output quality filters
+
+    /// Drops segments the decoder itself marked as dubious: probable silence
+    /// (high no-speech probability with weak confidence) and degenerate
+    /// repetition loops (high compression ratio).
+    private static func isTrustworthy(_ segment: TranscriptionSegment) -> Bool {
+        if segment.noSpeechProb > 0.8 && segment.avgLogprob < -0.7 { return false }
+        if segment.compressionRatio > 2.6 { return false }
+        return true
+    }
+
+    /// Stock phrases Whisper invents on near-silence (learned from YouTube
+    /// outros). Compared against the *whole* normalized output, so a real
+    /// "thank you" inside a sentence is never touched.
+    private static let hallucinationPhrases: Set<String> = [
+        "thank you for watching", "thanks for watching", "subscribe to the channel",
+        "please subscribe", "see you in the next video",
+        "дякую за перегляд", "підписуйтесь на канал", "до зустрічі в наступному відео",
+        "субтитри створені спільнотою amara org", "субтитри створював dimatorzok",
+        "спасибо за просмотр", "продолжение следует", "субтитры сделал dimatorzok",
+    ]
+
+    private static func cleaned(_ raw: String) -> String {
+        // Whisper wraps non-speech events in brackets: [музика], [applause], …
+        var text = raw.replacingOccurrences(of: #"\[[^\]\n]{1,40}\]"#,
+                                            with: " ", options: .regularExpression)
+        text = text.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let normalized = text.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        if normalized.isEmpty || hallucinationPhrases.contains(normalized) { return "" }
+        return text
     }
 }

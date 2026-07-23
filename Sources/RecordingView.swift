@@ -73,10 +73,9 @@ struct RecordingView: View {
     }
 
     private var meters: some View {
-        VStack(spacing: 8) {
-            MeterRow(label: "You (microphone)", level: monitor.micLevel, tint: .blue)
-            MeterRow(label: "Others (call / system audio)", level: monitor.systemLevel, tint: .green)
-        }
+        // Separate subview observing AudioLevels: the ~30 Hz meter updates
+        // re-render only the bars, not the whole transcript.
+        MetersView(levels: monitor.levels)
     }
 
     private var transcriptArea: some View {
@@ -184,6 +183,17 @@ struct RecordingView: View {
     }
 }
 
+private struct MetersView: View {
+    @ObservedObject var levels: AudioLevels
+
+    var body: some View {
+        VStack(spacing: 8) {
+            MeterRow(label: "You (microphone)", level: levels.mic, tint: .blue)
+            MeterRow(label: "Others (call / system audio)", level: levels.system, tint: .green)
+        }
+    }
+}
+
 private struct MeterRow: View {
     let label: String
     let level: Float
@@ -213,15 +223,38 @@ struct TranscriptRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(speaker.uppercased())
-                .font(.caption2).bold()
-                .foregroundStyle(speaker == "You" ? Color.blue : Color.green)
+            HStack(spacing: 5) {
+                Text(speaker.uppercased())
+                    .font(.caption2).bold()
+                    .foregroundStyle(speaker == "You" ? Color.blue : Color.green)
+                if live {
+                    PulsingDot(color: speaker == "You" ? .blue : .green)
+                }
+            }
             Text(text)
                 .font(.body)
                 .foregroundStyle(live ? .secondary : .primary)
                 .textSelection(.enabled)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Small breathing dot marking the line still being spoken.
+private struct PulsingDot: View {
+    let color: Color
+    @State private var dim = false
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 5, height: 5)
+            .opacity(dim ? 0.25 : 0.9)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
+                    dim = true
+                }
+            }
     }
 }
 
