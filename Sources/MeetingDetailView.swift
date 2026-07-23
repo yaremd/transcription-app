@@ -32,15 +32,15 @@ struct MeetingDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 header
                 tagsSection
-                Divider()
+                ThemeDivider()
                 transcriptSection
-                Divider()
+                ThemeDivider()
                 notesSection
-                Divider()
+                ThemeDivider()
                 actionItemsSection
-                Divider()
+                ThemeDivider()
                 followUpSection
-                Divider()
+                ThemeDivider()
                 askSection
             }
             .padding(24)
@@ -78,20 +78,23 @@ struct MeetingDetailView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             TextField("Title", text: $title)
-                .font(.title2).bold()
+                .font(Theme.pageTitle)
                 .textFieldStyle(.plain)
                 .onSubmit(saveTitle)
             Text("\(meeting.date.formatted(date: .abbreviated, time: .shortened)) · \(durationText)")
-                .font(.callout)
+                .font(Theme.sub)
+                .monospacedDigit()
                 .foregroundStyle(.secondary)
         }
     }
 
     private var transcriptSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Transcript").font(.headline)
+            SectionLabel("Transcript")
             if meeting.lines.isEmpty {
-                Text("No transcript.").foregroundStyle(.tertiary)
+                Text("No transcript.")
+                    .font(Theme.body)
+                    .foregroundStyle(.tertiary)
             } else {
                 ForEach(meeting.lines) { line in
                     TranscriptRow(speaker: line.speaker, text: line.text, live: false)
@@ -101,16 +104,18 @@ struct MeetingDetailView: View {
     }
 
     private var notesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Notes").font(.headline)
+                SectionLabel("Notes")
                 Spacer()
                 if editingNotes {
                     Button("Cancel") {
                         notesText = meeting.notes
                         editingNotes = false
                     }
+                    .buttonStyle(.linearQuietCompact)
                     Button("Save", action: saveNotes)
+                        .buttonStyle(.linearPrimaryCompact)
                         .keyboardShortcut("s", modifiers: .command)
                 } else {
                     if meeting.hasNotes {
@@ -121,6 +126,7 @@ struct MeetingDetailView: View {
                             Button("Bullet points") { reshape("Convert the notes to concise bullet points under each heading.") }
                             Button("Plain language") { reshape("Rewrite in plain, simple language.") }
                         }
+                        .controlSize(.small)
                         .disabled(reshaping)
                         .fixedSize()
                     }
@@ -128,26 +134,26 @@ struct MeetingDetailView: View {
                         notesText = meeting.notes
                         editingNotes = true
                     }
+                    .buttonStyle(.linearQuietCompact)
                 }
             }
 
             if reshaping {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Reshaping notes… (\(engineLabel))").font(.callout).foregroundStyle(.secondary)
-                }
+                ProgressLabel(text: "Reshaping notes… (\(engineLabel))")
             }
 
             if editingNotes {
                 TextEditor(text: $notesText)
-                    .font(.body)
+                    .font(Theme.body)
+                    .scrollContentBackground(.hidden)
                     .frame(minHeight: 220)
-                    .padding(6)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
+                    .padding(8)
+                    .insetPanel(radius: 6)
             } else if meeting.hasNotes {
                 NotesView(notes: meeting.notes)
             } else {
                 Text("No notes yet. Record and Generate Notes, or add them by hand.")
+                    .font(Theme.body)
                     .foregroundStyle(.tertiary)
             }
         }
@@ -171,22 +177,15 @@ struct MeetingDetailView: View {
     private var tagsSection: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                Image(systemName: "tag").imageScale(.small).foregroundStyle(.secondary)
+                Image(systemName: "tag")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
                 ForEach(tags, id: \.self) { tag in
-                    HStack(spacing: 4) {
-                        Text(tag).font(.caption)
-                        Button { removeTag(tag) } label: {
-                            Image(systemName: "xmark.circle.fill").imageScale(.small)
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(.quaternary, in: Capsule())
+                    TagChip(text: tag) { removeTag(tag) }
                 }
                 TextField("Add tag", text: $newTag)
                     .textFieldStyle(.plain)
+                    .font(Theme.meta)
                     .frame(width: 90)
                     .onSubmit(addTag)
             }
@@ -214,27 +213,28 @@ struct MeetingDetailView: View {
     }
 
     private var askSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Ask this meeting").font(.headline)
-            HStack {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionLabel("Ask this meeting")
+            HStack(spacing: 8) {
                 TextField("Ask a question about this meeting…", text: $question)
+                    .linearField()
                     .onSubmit(ask)
                 Button("Ask", action: ask)
+                    .buttonStyle(.linearQuietCompact)
                     .disabled(question.trimmingCharacters(in: .whitespaces).isEmpty || asking)
             }
             if asking {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Thinking… (\(engineLabel))").font(.callout).foregroundStyle(.secondary)
-                }
+                ProgressLabel(text: "Thinking… (\(engineLabel))")
             } else if let askError {
-                Text(askError).font(.callout).foregroundStyle(.red)
+                Text(askError).font(Theme.sub).foregroundStyle(Theme.red)
             } else if !answer.isEmpty {
                 Text(answer)
+                    .font(Theme.body)
+                    .lineSpacing(2)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
-                    .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
+                    .padding(12)
+                    .insetPanel(radius: 6)
             }
         }
     }
@@ -283,42 +283,47 @@ struct MeetingDetailView: View {
     }
 
     private var actionItemsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Action items").font(.headline)
+                SectionLabel("Action items")
                 Spacer()
                 if !meeting.lines.isEmpty {
                     Button("Find action items", action: extractActions)
+                        .buttonStyle(.linearQuietCompact)
                         .disabled(extractingActions)
                 }
             }
             if extractingActions {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Finding action items… (\(engineLabel))").font(.callout).foregroundStyle(.secondary)
-                }
+                ProgressLabel(text: "Finding action items… (\(engineLabel))")
             } else if let actionsError {
-                Text(actionsError).font(.callout).foregroundStyle(.red)
+                Text(actionsError).font(Theme.sub).foregroundStyle(Theme.red)
             }
 
             let items = meeting.actionItems ?? []
             if items.isEmpty && !extractingActions {
                 Text("No action items yet. Find them from the transcript, or add one below.")
-                    .font(.callout).foregroundStyle(.tertiary)
+                    .font(Theme.body)
+                    .foregroundStyle(.tertiary)
             } else {
-                ForEach(items) { item in
-                    Toggle(isOn: actionBinding(item)) {
-                        Text(item.text)
-                            .strikethrough(item.done)
-                            .foregroundStyle(item.done ? .secondary : .primary)
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(items) { item in
+                        Toggle(isOn: actionBinding(item)) {
+                            Text(item.text)
+                                .font(Theme.body)
+                                .strikethrough(item.done)
+                                .foregroundStyle(item.done ? .secondary : .primary)
+                        }
+                        .toggleStyle(.checkbox)
                     }
-                    .toggleStyle(.checkbox)
                 }
             }
 
-            HStack {
-                TextField("Add an action item…", text: $newAction).onSubmit(addAction)
+            HStack(spacing: 8) {
+                TextField("Add an action item…", text: $newAction)
+                    .linearField()
+                    .onSubmit(addAction)
                 Button("Add", action: addAction)
+                    .buttonStyle(.linearQuietCompact)
                     .disabled(newAction.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
@@ -375,32 +380,34 @@ struct MeetingDetailView: View {
     }
 
     private var followUpSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Follow-up").font(.headline)
+                SectionLabel("Follow-up")
                 Spacer()
                 Button(followUp.isEmpty ? "Draft follow-up" : "Redraft", action: draftFollowUp)
+                    .buttonStyle(.linearQuietCompact)
                     .disabled(draftingFollowUp || meeting.lines.isEmpty)
                 if !followUp.isEmpty {
                     Button("Copy") { copyToPasteboard(followUp) }
+                        .buttonStyle(.linearQuietCompact)
                 }
             }
             if draftingFollowUp {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Drafting… (\(engineLabel))").font(.callout).foregroundStyle(.secondary)
-                }
+                ProgressLabel(text: "Drafting… (\(engineLabel))")
             } else if let followUpError {
-                Text(followUpError).font(.callout).foregroundStyle(.red)
+                Text(followUpError).font(Theme.sub).foregroundStyle(Theme.red)
             } else if !followUp.isEmpty {
                 Text(followUp)
+                    .font(Theme.body)
+                    .lineSpacing(2)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
-                    .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
+                    .padding(12)
+                    .insetPanel(radius: 6)
             } else {
                 Text("Draft a ready-to-send follow-up email from this meeting. You copy it out — nothing is sent.")
-                    .font(.callout).foregroundStyle(.tertiary)
+                    .font(Theme.body)
+                    .foregroundStyle(.tertiary)
             }
         }
     }
@@ -441,5 +448,19 @@ struct MeetingDetailView: View {
         let m = total / 60
         let s = total % 60
         return m > 0 ? "\(m)m \(s)s" : "\(s)s"
+    }
+}
+
+/// Small spinner + caption shown while an on-device model works.
+struct ProgressLabel: View {
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ProgressView().controlSize(.small)
+            Text(text)
+                .font(Theme.sub)
+                .foregroundStyle(.secondary)
+        }
     }
 }
