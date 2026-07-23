@@ -110,6 +110,18 @@ struct RootView: View {
             .background(Theme.background)
         }
         .tint(Theme.accent)
+        // Stop saved a meeting: land on its page (notes, actions, follow-up
+        // all live there). The recording screen resets when next visited.
+        .onChange(of: monitor.finishedMeetingID) { _, id in
+            guard let id else { return }
+            selection = .meeting(id)
+            monitor.finishedMeetingID = nil
+        }
+        // "New Recording" always presents a fresh screen — the previous
+        // session is already saved in the library.
+        .onChange(of: selection) { _, newSelection in
+            if newSelection == .record { monitor.resetFinishedSession() }
+        }
         .onAppear {
             if !settings.hasOnboarded { showOnboarding = true }
         }

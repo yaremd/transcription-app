@@ -16,6 +16,8 @@ struct MeetingDetailView: View {
     @State private var tags: [String] = []
     @State private var newTag = ""
     @State private var reshaping = false
+    @State private var generating = false
+    @State private var generateError: String?
     @State private var question = ""
     @State private var answer = ""
     @State private var asking = false
@@ -72,6 +74,7 @@ struct MeetingDetailView: View {
             followUpError = nil
             newAction = ""
             actionsError = nil
+            generateError = nil
         }
     }
 
@@ -130,6 +133,13 @@ struct MeetingDetailView: View {
                         .disabled(reshaping)
                         .fixedSize()
                     }
+                    if !meeting.lines.isEmpty {
+                        Button(meeting.hasNotes ? "Regenerate" : "Generate Notes", action: generateNotes)
+                            .buttonStyle(meeting.hasNotes
+                                         ? LinearButtonStyle(kind: .quiet, compact: true)
+                                         : LinearButtonStyle(kind: .primary, compact: true))
+                            .disabled(generating || reshaping)
+                    }
                     Button(meeting.hasNotes ? "Edit" : "Add notes") {
                         notesText = meeting.notes
                         editingNotes = true
@@ -138,6 +148,11 @@ struct MeetingDetailView: View {
                 }
             }
 
+            if generating {
+                ProgressLabel(text: "Generating notes… (\(engineLabel))")
+            } else if let generateError {
+                Text(generateError).font(Theme.sub).foregroundStyle(Theme.red)
+            }
             if reshaping {
                 ProgressLabel(text: "Reshaping notes… (\(engineLabel))")
             }
@@ -254,6 +269,35 @@ struct MeetingDetailView: View {
                 await MainActor.run { answer = result; asking = false }
             } catch {
                 await MainActor.run { askError = error.localizedDescription; asking = false }
+            }
+        }
+    }
+
+    /// Builds (or rebuilds) the meeting's notes from its stored transcript and
+    /// the notes the user jotted during it — available anytime, not just right
+    /// after recording.
+    private func generateNotes() {
+        guard !meeting.lines.isEmpty else { return }
+        generating = true
+        generateError = nil
+        let b = backend
+        let hint = languageHint
+        let transcript = meeting.transcriptText
+        let jotted = meeting.userNotes ?? ""
+        let template = NotesTemplate.all.first { $0.id == meeting.templateID } ?? .general
+        Task {
+            do {
+                let result = try await generator.generate(transcript: transcript, userNotes: jotted,
+                                                          template: template, languageHint: hint, backend: b)
+                await MainActor.run {
+                    var updated = meeting
+                    updated.notes = result
+                    store.save(updated)
+                    notesText = result
+                    generating = false
+                }
+            } catch {
+                await MainActor.run { generateError = error.localizedDescription; generating = false }
             }
         }
     }

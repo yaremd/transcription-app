@@ -102,6 +102,8 @@ final class AudioMonitor: ObservableObject {
     @Published var errorMessage: String?
     @Published var transcript: [TranscriptLine] = []
     @Published var liveLines: [String: String] = [:]
+    /// Set when Stop saves a meeting — the UI navigates to it and clears this.
+    @Published var finishedMeetingID: UUID?
     let levels = AudioLevels()
     private var liveUtterance: [String: Int] = [:]   // which utterance each live line shows
     @Published var language: TranscriptLanguage = .auto {
@@ -280,8 +282,29 @@ final class AudioMonitor: ObservableObject {
         teardownCapture(flush: true)
         sessionEnd = Date()
         persistCurrentSession()
-        statusMessage = transcript.isEmpty ? "Stopped." : "Stopped. Tap \"Generate Notes\" for a summary."
+        statusMessage = transcript.isEmpty ? "Stopped." : "Saved to your library."
         autoTitleCurrentSession()
+        if !transcript.isEmpty { finishedMeetingID = currentMeetingID }
+    }
+
+    /// Clears a finished session off the recording screen ("New Recording"
+    /// always starts fresh — the session itself is already in the library).
+    /// Rotating the meeting id reroutes any still-in-flight transcription or
+    /// notes results into the stored meeting instead of the cleared screen.
+    func resetFinishedSession() {
+        guard !isRunning else { return }
+        guard !transcript.isEmpty || !noteBlocks.isEmpty || !notes.isEmpty || !liveLines.isEmpty else { return }
+        currentMeetingID = UUID()
+        titlingMeetingID = nil
+        transcript = []
+        liveLines = [:]
+        liveUtterance = [:]
+        recentCommits = []
+        notes = ""
+        notesError = nil
+        noteBlocks = []
+        errorMessage = nil
+        statusMessage = "Press Start. You and the call will both be transcribed."
     }
 
     /// Names the finished session after its content ("New transcription" →
@@ -380,17 +403,28 @@ final class AudioMonitor: ObservableObject {
         let backend: NotesBackend = settings.usingCloudNotes
             ? .cloudOpenAICompatible(baseURL: settings.cloudBaseURL, apiKey: settings.cloudAPIKey, model: settings.cloudModel)
             : .localOllama(model: AudioMonitor.notesModel)
+        let meetingID = currentMeetingID
         Task { [weak self] in
             guard let self else { return }
             do {
                 let result = try await self.notesGenerator.generate(transcript: text, userNotes: jotted, template: tmpl, languageHint: hint, backend: backend)
                 await MainActor.run {
-                    self.notes = result
                     self.isGeneratingNotes = false
-                    self.persistCurrentSession()   // save the generated notes into the stored meeting
+                    if self.currentMeetingID == meetingID {
+                        self.notes = result
+                        self.persistCurrentSession()   // save the generated notes into the stored meeting
+                    } else if var meeting = self.store.meetings.first(where: { $0.id == meetingID }) {
+                        // The screen moved on to a new session meanwhile —
+                        // the notes still belong to their meeting.
+                        meeting.notes = result
+                        self.store.save(meeting)
+                    }
                 }
             } catch {
-                await MainActor.run { self.notesError = error.localizedDescription; self.isGeneratingNotes = false }
+                await MainActor.run {
+                    self.isGeneratingNotes = false
+                    if self.currentMeetingID == meetingID { self.notesError = error.localizedDescription }
+                }
             }
         }
     }
@@ -422,12 +456,17 @@ final class AudioMonitor: ObservableObject {
     }
 
     private func makeStream(for speaker: String) -> TranscriptionStream {
+        // The stream belongs to THIS session's meeting. If a slow final pass
+        // lands after the screen was reset (or a new session started), its
+        // line goes straight into the stored meeting, not the fresh screen.
+        let sessionMeetingID = currentMeetingID
         let stream = TranscriptionStream(label: speaker) { [transcriber] samples, mode in
             await transcriber.transcribe(samples, source: speaker, mode: mode)
         }
         stream.onLive = { [weak self] id, text in
             DispatchQueue.main.async {
-                guard let self, self.isRunning, !self.discarding else { return }
+                guard let self, self.isRunning, !self.discarding,
+                      self.currentMeetingID == sessionMeetingID else { return }
                 self.liveLines[speaker] = text
                 self.liveUtterance[speaker] = id
             }
@@ -435,6 +474,13 @@ final class AudioMonitor: ObservableObject {
         stream.onCommit = { [weak self] id, text in
             DispatchQueue.main.async {
                 guard let self else { return }
+                guard self.currentMeetingID == sessionMeetingID else {
+                    // Straggler from a session no longer on screen.
+                    if let text, !text.isEmpty {
+                        self.appendToStoredMeeting(sessionMeetingID, speaker: speaker, text: text)
+                    }
+                    return
+                }
                 // Clear the live preview only if it still shows this utterance —
                 // never wipe the preview of the next utterance already underway.
                 if let shown = self.liveUtterance[speaker], shown <= id {
@@ -452,6 +498,14 @@ final class AudioMonitor: ObservableObject {
             }
         }
         return stream
+    }
+
+    /// Appends a straggler line to an already-saved meeting (no echo dedupe —
+    /// by this point the session is closed and the line was worth keeping).
+    private func appendToStoredMeeting(_ meetingID: UUID, speaker: String, text: String) {
+        guard var meeting = store.meetings.first(where: { $0.id == meetingID }) else { return }
+        meeting.lines.append(StoredLine(speaker: speaker, text: text, at: Date()))
+        store.save(meeting)
     }
 
     /// Appends a final line, dropping mic-echo ghosts of the call audio.
