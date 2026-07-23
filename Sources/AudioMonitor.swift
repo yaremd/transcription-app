@@ -136,6 +136,7 @@ final class AudioMonitor: ObservableObject {
     private var sessionEnd = Date()
     private var currentMeetingID = UUID()
     private var discarding = false
+    private var titlingMeetingID: UUID?   // meeting with an auto-title request in flight
 
     init(store: MeetingStore, vocabulary: VocabularyStore, settings: AppSettings) {
         self.store = store
@@ -258,6 +259,37 @@ final class AudioMonitor: ObservableObject {
         sessionEnd = Date()
         persistCurrentSession()
         statusMessage = transcript.isEmpty ? "Stopped." : "Stopped. Tap \"Generate Notes\" for a summary."
+        autoTitleCurrentSession()
+    }
+
+    /// Names the finished session after its content ("New transcription" →
+    /// e.g. "Q3 pricing and rollout plan"). Runs in the background and stays
+    /// hands-off: it only ever replaces the placeholder title, so a name the
+    /// user typed is never overwritten. Silent on failure (e.g. Ollama not
+    /// running) — the placeholder simply remains.
+    private func autoTitleCurrentSession() {
+        let meetingID = currentMeetingID
+        let text = transcript.map { "\($0.speaker): \($0.text)" }.joined(separator: "\n")
+        guard text.count >= 80 else { return }   // too little content to name
+        guard store.meetings.first(where: { $0.id == meetingID })?.title == Meeting.defaultTitle else { return }
+        guard titlingMeetingID != meetingID else { return }   // one attempt at a time
+        titlingMeetingID = meetingID
+        let hint = language.notesHint
+        let backend: NotesBackend = settings.usingCloudNotes
+            ? .cloudOpenAICompatible(baseURL: settings.cloudBaseURL, apiKey: settings.cloudAPIKey, model: settings.cloudModel)
+            : .localOllama(model: AudioMonitor.notesModel)
+        Task { [weak self] in
+            guard let self else { return }
+            let title = try? await self.notesGenerator.suggestTitle(transcript: text, languageHint: hint, backend: backend)
+            await MainActor.run {
+                self.titlingMeetingID = nil   // allow a retry if a late line re-triggers
+                guard let title,
+                      var meeting = self.store.meetings.first(where: { $0.id == meetingID }),
+                      meeting.title == Meeting.defaultTitle else { return }
+                meeting.title = title
+                self.store.save(meeting)
+            }
+        }
     }
 
     /// Pause/resume without ending the session: the capture engines keep running
@@ -351,7 +383,7 @@ final class AudioMonitor: ObservableObject {
         let jottedToStore: String? = userNotes.isEmpty ? existing?.userNotes : userNotes
         let meeting = Meeting(
             id: currentMeetingID,
-            title: existing?.title ?? Meeting.defaultTitle(for: sessionStart),
+            title: existing?.title ?? Meeting.defaultTitle,
             date: sessionStart,
             duration: max(0, sessionEnd.timeIntervalSince(sessionStart)),
             language: language.rawValue,
@@ -384,7 +416,12 @@ final class AudioMonitor: ObservableObject {
                 }
                 guard let text, !self.discarding else { return }   // silence, or dropped session
                 self.commitLine(speaker: speaker, text: text)
-                if !self.isRunning { self.persistCurrentSession() }  // a late line landed after Stop
+                if !self.isRunning {
+                    // A late line landed after Stop: save it, and (re)try the
+                    // auto-title now that there is more/any content.
+                    self.persistCurrentSession()
+                    self.autoTitleCurrentSession()
+                }
             }
         }
         return stream

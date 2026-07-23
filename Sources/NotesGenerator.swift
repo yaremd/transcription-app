@@ -35,6 +35,46 @@ final class NotesGenerator {
         }
     }
 
+    /// Proposes a short, specific title saying what the conversation was about.
+    func suggestTitle(transcript: String, languageHint: String, backend: NotesBackend) async throws -> String {
+        let system = """
+        You name conversations. Given a meeting transcript, reply with ONLY a short title \
+        (3–6 words) saying concretely what was discussed — specific topics, names, decisions. \
+        Never generic ("Meeting", "Discussion", "Conversation"), no quotes, no trailing period, \
+        no explanation — just the title. Write it in \(languageHint).
+        """
+        let raw = try await dispatch(system: system, user: clippedForTitle(transcript), backend: backend)
+        let title = Self.cleanedTitle(raw)
+        guard !title.isEmpty else {
+            throw GenerationError(message: "The model returned no usable title.")
+        }
+        return title
+    }
+
+    /// A title needs the gist, not the whole meeting: keep the opening (topic
+    /// setup) and the ending (conclusions) of long transcripts.
+    private func clippedForTitle(_ transcript: String) -> String {
+        let maxHead = 2500, maxTail = 1500
+        guard transcript.count > maxHead + maxTail else { return transcript }
+        return transcript.prefix(maxHead) + "\n…\n" + transcript.suffix(maxTail)
+    }
+
+    /// First non-empty line of the reply, stripped of quotes/markdown/period.
+    private static func cleanedTitle(_ raw: String) -> String {
+        var line = raw
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty } ?? ""
+        line = line.replacingOccurrences(of: "**", with: "")
+        line = line.trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”«»#–- "))
+        while line.hasSuffix(".") { line.removeLast() }
+        line = line.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        if line.count > 60 {
+            line = String(line.prefix(60)).trimmingCharacters(in: .whitespaces)
+        }
+        return line
+    }
+
     /// Answers a question about the meeting using only the transcript.
     func answer(question: String, transcript: String, languageHint: String, backend: NotesBackend) async throws -> String {
         let system = """
