@@ -23,6 +23,19 @@ enum TranscriptLanguage: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Languages auto-detect may choose between. Left unrestricted, Whisper
+    /// picks from 99 languages and mis-hears accented speech as Malay or
+    /// Korean — then translates into it. Auto means "Ukrainian or English",
+    /// matching what this picker offers. Ukrainian first: when nothing is
+    /// known yet it romanizes less than a wrong English guess.
+    var allowedCodes: [String] {
+        switch self {
+        case .ukrainian: return ["uk"]
+        case .english: return ["en"]
+        case .auto: return ["uk", "en"]
+        }
+    }
+
     var label: String {
         switch self {
         case .ukrainian: return "Ukrainian"
@@ -90,7 +103,10 @@ final class AudioMonitor: ObservableObject {
     let levels = AudioLevels()
     private var liveUtterance: [String: Int] = [:]   // which utterance each live line shows
     @Published var language: TranscriptLanguage = .auto {
-        didSet { Task { await transcriber.setLanguage(language.code) } }
+        didSet {
+            let lang = language
+            Task { await transcriber.setLanguagePolicy(forced: lang.code, allowed: lang.allowedCodes) }
+        }
     }
     @Published var speed: TranscriptionSpeed = .fast {
         didSet { Task { await transcriber.reset() } }   // reload the matching model on next Start
@@ -179,7 +195,7 @@ final class AudioMonitor: ObservableObject {
                 }
             }
             await self.transcriber.beginSession()
-            await self.transcriber.setLanguage(self.language.code)
+            await self.transcriber.setLanguagePolicy(forced: self.language.code, allowed: self.language.allowedCodes)
             await self.transcriber.setVocabulary(self.vocabulary.terms)
             let name = await self.transcriber.loadedModel
             await MainActor.run {
