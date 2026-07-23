@@ -288,6 +288,12 @@ final class MicCapturer {
                     log.error("no signal on any path: raw \(raw, format: .fixed(precision: 6))")
                     disarmWatchdog()
                     reportDeadInput()
+                } else if elapsed >= deadDeviceSeconds {
+                    // Still unverified after this long — mid-level junk, a
+                    // witness that got voice-processed too, whatever: an
+                    // unproven mic is worse than losing echo cancellation.
+                    log.error("voice processing unverified after \(elapsed, format: .fixed(precision: 0))s: processed \(processed, format: .fixed(precision: 5)) raw \(raw, format: .fixed(precision: 5))")
+                    restartWithoutVoiceProcessing(reason: "the microphone check timed out")
                 }
                 // Otherwise the room is still quiet — keep the witness running
                 // until someone speaks; only sound can prove either verdict.
