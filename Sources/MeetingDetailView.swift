@@ -162,7 +162,7 @@ struct MeetingDetailView: View {
     private func saveTitle() {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         var updated = meeting
-        updated.title = trimmed.isEmpty ? Meeting.defaultTitle(for: meeting.date) : trimmed
+        updated.title = trimmed.isEmpty ? Meeting.defaultTitle : trimmed
         title = updated.title
         store.save(updated)
     }

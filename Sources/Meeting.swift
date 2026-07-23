@@ -34,13 +34,12 @@ struct Meeting: Codable, Identifiable, Hashable {
     /// Action items / tasks for this meeting.
     var actionItems: [ActionItem]? = nil
 
-    /// The default title for a new meeting, derived from its start time.
-    static func defaultTitle(for date: Date) -> String {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        f.timeStyle = .short
-        return f.string(from: date)
-    }
+    /// The placeholder title for a meeting that hasn't been named yet. The
+    /// date/time is shown separately in the UI, so the title's job is to say
+    /// what the conversation was about — after Stop, the AI proposes one from
+    /// the transcript, and anything still carrying this placeholder is fair
+    /// game to rename automatically.
+    static let defaultTitle = "New transcription"
 }
 
 extension Meeting {
