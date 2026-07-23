@@ -418,6 +418,9 @@ final class AudioMonitor: ObservableObject {
         let line = TranscriptLine(speaker: speaker, text: text)
         transcript.append(line)
         recentCommits.append(RecentCommit(speaker: speaker, normalized: normalized, at: now, lineID: line.id))
+        // Committed text becomes decoder context for this source's next
+        // utterances (consistent names/spelling, better continuations).
+        Task { [transcriber] in await transcriber.noteCommitted(text, source: speaker) }
     }
 
     /// Lowercased, punctuation-free, single-spaced text for echo comparison.
