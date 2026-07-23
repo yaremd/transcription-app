@@ -5,6 +5,16 @@ struct StoredLine: Codable, Identifiable, Hashable {
     var id: UUID = UUID()
     var speaker: String
     var text: String
+    /// When the line was committed (nil for meetings saved before this existed).
+    var at: Date? = nil
+}
+
+/// One timestamped block of the user's own notes. `at` anchors it to the
+/// moment of the conversation it was written in, linking notes to speech.
+struct NoteBlock: Codable, Identifiable, Hashable {
+    var id: UUID = UUID()
+    var text: String
+    var at: Date
 }
 
 /// A single action item / task extracted from (or added to) a meeting.
@@ -25,8 +35,12 @@ struct Meeting: Codable, Identifiable, Hashable {
     var lines: [StoredLine]
     var notes: String
     /// The user's own rough notes jotted during the meeting (optional; nil for
-    /// meetings saved before this field existed).
+    /// meetings saved before this field existed). Kept as joined plain text —
+    /// notes generation and older meetings read this.
     var userNotes: String? = nil
+    /// The same notes as timestamped blocks, each anchored to the moment it
+    /// was written (nil for meetings saved before this existed).
+    var noteBlocks: [NoteBlock]? = nil
     /// The id of the notes template used, if any.
     var templateID: String? = nil
     /// User-assigned tags for organizing meetings.

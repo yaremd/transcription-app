@@ -1,34 +1,51 @@
 import SwiftUI
 import AppKit
 
-/// The live recording pane: language/speed settings, level meters, the live
-/// transcript, and Start/Stop + Generate Notes controls. Receives the shared
-/// AudioMonitor (owned by the app) rather than creating its own.
+/// The live recording workspace: a 50/50 split with the user's timestamped
+/// notes on the left and the live transcript as a chat on the right ("You"
+/// bubbles right-aligned and accent-tinted, "Others" left-aligned, neutral).
+/// Recording actions live in the transcript panel's header; the panel can
+/// collapse to a small pulsing pill so notes get the full width. Each note
+/// block remembers when it was written — clicking its time label jumps the
+/// transcript to that moment.
 struct RecordingView: View {
     @ObservedObject var monitor: AudioMonitor
     @EnvironmentObject private var settings: AppSettings
     @State private var showNotes = false
     @State private var showDiscardConfirm = false
+    @State private var transcriptExpanded = true
+    @State private var jumpDate: Date?
+    @State private var jumpPulse = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             header
-            settingsRow
-            meters
-            transcriptArea
-            userNotesArea
+            controlsRow
+            splitArea
             if let error = monitor.errorMessage {
                 Text(error)
                     .font(Theme.sub)
                     .foregroundStyle(Theme.red)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            controls
+            bottomRow
         }
         .padding(20)
-        .frame(minWidth: 560, minHeight: 560)
+        .frame(minWidth: 640, minHeight: 560)
         .sheet(isPresented: $showNotes) {
             NotesSheet(monitor: monitor)
+        }
+        .confirmationDialog("Discard this recording?",
+                            isPresented: $showDiscardConfirm,
+                            titleVisibility: .visible) {
+            Button("Discard", role: .destructive) { monitor.discard() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The transcript and notes for this session will be deleted.")
+        }
+        .onChange(of: monitor.isRunning) { _, running in
+            // Every new recording starts with the transcript expanded.
+            if running { withAnimation(.easeOut(duration: 0.2)) { transcriptExpanded = true } }
         }
     }
 
@@ -46,131 +63,82 @@ struct RecordingView: View {
         }
     }
 
-    private var settingsRow: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                SectionLabel("Language")
-                Picker("Language", selection: $monitor.language) {
-                    ForEach(TranscriptLanguage.allCases) { lang in
-                        Text(lang.label).tag(lang)
-                    }
+    private var controlsRow: some View {
+        HStack(alignment: .center, spacing: 16) {
+            Picker("Language", selection: $monitor.language) {
+                ForEach(TranscriptLanguage.allCases) { lang in
+                    Text(lang.label).tag(lang)
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .controlSize(.small)
-                .frame(width: 260)
             }
-            VStack(alignment: .leading, spacing: 4) {
-                SectionLabel("Speed")
-                Picker("Speed", selection: $monitor.speed) {
-                    ForEach(TranscriptionSpeed.allCases) { s in
-                        Text(s.label).tag(s)
-                    }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.small)
+            .frame(width: 240)
+            .disabled(monitor.isRunning)
+
+            Picker("Speed", selection: $monitor.speed) {
+                ForEach(TranscriptionSpeed.allCases) { s in
+                    Text(s.label).tag(s)
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .controlSize(.small)
-                .frame(width: 150)
             }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.small)
+            .frame(width: 140)
+            .disabled(monitor.isRunning)
+
             Spacer()
-        }
-        .disabled(monitor.isRunning)
-    }
 
-    private var meters: some View {
-        // Separate subview observing AudioLevels: the ~30 Hz meter updates
-        // re-render only the bars, not the whole transcript.
-        MetersView(levels: monitor.levels)
-    }
-
-    private var transcriptArea: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    if monitor.transcript.isEmpty && monitor.liveLines.isEmpty {
-                        Text(monitor.isRunning ? "Listening…" : "Your transcript will appear here.")
-                            .font(Theme.sub)
-                            .foregroundStyle(.tertiary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.top, 24)
-                    }
-                    ForEach(monitor.transcript) { line in
-                        TranscriptRow(speaker: line.speaker, text: line.text, live: false)
-                    }
-                    ForEach(liveSpeakers, id: \.self) { speaker in
-                        TranscriptRow(speaker: speaker, text: monitor.liveLines[speaker] ?? "", live: true)
-                    }
-                    Color.clear.frame(height: 1).id("bottom")
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-            }
-            .insetPanel()
-            .onChange(of: monitor.transcript.count) { _, _ in
-                withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
-            }
-            .onChange(of: monitor.liveLines) { _, _ in
-                proxy.scrollTo("bottom", anchor: .bottom)
-            }
-        }
-        .frame(minHeight: 240)
-    }
-
-    private var liveSpeakers: [String] {
-        monitor.liveLines.keys.sorted { first, _ in first == "You" }
-    }
-
-    private var userNotesArea: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(alignment: .firstTextBaseline) {
-                SectionLabel("Your notes")
-                Spacer()
-                Text("Generate Notes expands these using the transcript")
-                    .font(Theme.meta)
-                    .foregroundStyle(.tertiary)
-            }
-            TextEditor(text: $monitor.userNotes)
-                .font(Theme.body)
-                .scrollContentBackground(.hidden)
-                .frame(height: 64)
-                .padding(6)
-                .insetPanel(radius: 6)
+            MetersView(levels: monitor.levels)
+                .frame(width: 260)
         }
     }
 
-    private var controls: some View {
+    private var splitArea: some View {
+        HStack(alignment: .top, spacing: 12) {
+            NotesPane(monitor: monitor, onJump: jumpToMoment)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if transcriptExpanded {
+                TranscriptPane(monitor: monitor,
+                               jumpDate: jumpDate,
+                               jumpPulse: jumpPulse,
+                               startStopStyle: startStopStyle,
+                               requestDiscard: { showDiscardConfirm = true },
+                               collapse: { withAnimation(.easeOut(duration: 0.2)) { transcriptExpanded = false } })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if !transcriptExpanded {
+                CollapsedTranscriptPill(monitor: monitor,
+                                        startStopStyle: startStopStyle,
+                                        expand: { withAnimation(.easeOut(duration: 0.2)) { transcriptExpanded = true } })
+                    .padding(10)
+            }
+        }
+        .frame(minHeight: 300)
+    }
+
+    /// A note's time label was clicked: make sure the transcript is visible,
+    /// then ask it to scroll to that moment.
+    private func jumpToMoment(_ date: Date) {
+        withAnimation(.easeOut(duration: 0.2)) { transcriptExpanded = true }
+        jumpDate = date
+        jumpPulse += 1
+    }
+
+    private var bottomRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Button(monitor.isRunning ? "Stop" : "Start Listening") {
-                    monitor.toggle()
+                SectionLabel("Template")
+                Picker("Template", selection: $monitor.template) {
+                    ForEach(NotesTemplate.all) { t in Text(t.name).tag(t) }
                 }
-                .buttonStyle(startStopStyle)
-                .keyboardShortcut(.defaultAction)
-
-                if monitor.isRunning {
-                    Button(monitor.isPaused ? "Resume" : "Pause") {
-                        monitor.pauseResume()
-                    }
-                    .buttonStyle(.linearQuiet)
-
-                    Button("Discard", role: .destructive) {
-                        showDiscardConfirm = true
-                    }
-                    .buttonStyle(.linearDestructive)
-                }
-
-                Spacer()
-
-                HStack(spacing: 6) {
-                    SectionLabel("Template")
-                    Picker("Template", selection: $monitor.template) {
-                        ForEach(NotesTemplate.all) { t in Text(t.name).tag(t) }
-                    }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
-                    .controlSize(.small)
-                    .frame(width: 140)
-                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .controlSize(.small)
+                .frame(width: 140)
 
                 if !monitor.isRunning && !monitor.transcript.isEmpty {
                     Button("Generate Notes") {
@@ -179,14 +147,7 @@ struct RecordingView: View {
                     }
                     .buttonStyle(.linearPrimary)
                 }
-            }
-            .confirmationDialog("Discard this recording?",
-                                isPresented: $showDiscardConfirm,
-                                titleVisibility: .visible) {
-                Button("Discard", role: .destructive) { monitor.discard() }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("The transcript and notes for this session will be deleted.")
+                Spacer()
             }
 
             Text(monitor.modelStatus.isEmpty ? monitor.statusMessage : "\(monitor.statusMessage)  ·  \(monitor.modelStatus)")
@@ -201,19 +162,332 @@ struct RecordingView: View {
     /// on a fresh session, and quiet Start once a transcript is waiting —
     /// Generate Notes is the filled action then.
     private var startStopStyle: LinearButtonStyle {
-        if monitor.isRunning { return LinearButtonStyle(kind: .primary, tint: Theme.red) }
-        if monitor.transcript.isEmpty { return LinearButtonStyle(kind: .primary) }
-        return LinearButtonStyle(kind: .quiet)
+        if monitor.isRunning { return LinearButtonStyle(kind: .primary, tint: Theme.red, compact: true) }
+        if monitor.transcript.isEmpty { return LinearButtonStyle(kind: .primary, compact: true) }
+        return LinearButtonStyle(kind: .quiet, compact: true)
     }
 }
 
-private struct MetersView: View {
+// MARK: - Notes pane (left)
+
+/// Timestamped note blocks + a draft field. Return commits the draft as a
+/// block stamped with the current moment; committed blocks stay editable in
+/// place, and their time labels jump the transcript to what was being said.
+private struct NotesPane: View {
+    @ObservedObject var monitor: AudioMonitor
+    let onJump: (Date) -> Void
+    @State private var draft = ""
+    @FocusState private var draftFocused: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                SectionLabel("Notes")
+                Spacer()
+                Text("Return adds a note · times link to the talk")
+                    .font(Theme.meta)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            ThemeDivider()
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 7) {
+                        ForEach($monitor.noteBlocks) { $block in
+                            NoteBlockRow(block: $block,
+                                         onJump: onJump,
+                                         onDelete: { monitor.deleteNoteBlock(block.id) })
+                                .id(block.id)
+                        }
+
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                            TextField("Add a note…", text: $draft, axis: .vertical)
+                                .textFieldStyle(.plain)
+                                .font(Theme.body)
+                                .focused($draftFocused)
+                                .onSubmit {
+                                    monitor.addNoteBlock(draft)
+                                    draft = ""
+                                    draftFocused = true
+                                    if let last = monitor.noteBlocks.last {
+                                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                                    }
+                                }
+                        }
+                        .id("draft")
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+        .insetPanel()
+    }
+}
+
+private struct NoteBlockRow: View {
+    @Binding var block: NoteBlock
+    let onJump: (Date) -> Void
+    let onDelete: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Button(Self.timeFormatter.string(from: block.at)) {
+                onJump(block.at)
+            }
+            .buttonStyle(.plain)
+            .font(Theme.meta)
+            .monospacedDigit()
+            .foregroundStyle(hovering ? Theme.accent : Theme.accent.opacity(0.65))
+            .help("Show what was being said at this moment")
+
+            TextField("", text: $block.text, axis: .vertical)
+                .textFieldStyle(.plain)
+                .font(Theme.body)
+        }
+        .onHover { hovering = $0 }
+        .contextMenu {
+            Button("Delete note", role: .destructive, action: onDelete)
+        }
+    }
+
+    static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+}
+
+// MARK: - Transcript pane (right)
+
+/// Chat-style live transcript. "You" bubbles sit right, accent-tinted;
+/// "Others" sit left on a neutral surface. The recording actions live in the
+/// panel header, and the panel can collapse to a pill.
+private struct TranscriptPane: View {
+    @ObservedObject var monitor: AudioMonitor
+    let jumpDate: Date?
+    let jumpPulse: Int
+    let startStopStyle: LinearButtonStyle
+    let requestDiscard: () -> Void
+    let collapse: () -> Void
+
+    @State private var highlighted: Set<UUID> = []
+    @State private var suspendAutoScroll = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                SectionLabel("Transcript")
+                if monitor.isRunning && !monitor.isPaused {
+                    PulsingDot(color: Theme.red)
+                }
+                Spacer()
+
+                Button(monitor.isRunning ? "Stop" : "Start Listening") {
+                    monitor.toggle()
+                }
+                .buttonStyle(startStopStyle)
+                .keyboardShortcut(.defaultAction)
+
+                if monitor.isRunning {
+                    Button(monitor.isPaused ? "Resume" : "Pause") {
+                        monitor.pauseResume()
+                    }
+                    .buttonStyle(.linearQuietCompact)
+
+                    Button("Discard", role: .destructive, action: requestDiscard)
+                        .buttonStyle(.linearDestructiveCompact)
+                }
+
+                Rectangle()
+                    .fill(Theme.divider)
+                    .frame(width: 1, height: 14)
+
+                Button(action: collapse) {
+                    Image(systemName: "rectangle.righthalf.inset.filled.arrow.right")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Hide the transcript")
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+
+            ThemeDivider()
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        if monitor.transcript.isEmpty && monitor.liveLines.isEmpty {
+                            Text(monitor.isRunning ? "Listening…" : "The conversation will appear here.")
+                                .font(Theme.sub)
+                                .foregroundStyle(.tertiary)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(.top, 24)
+                        }
+                        ForEach(monitor.transcript) { line in
+                            ChatBubble(text: line.text,
+                                       isYou: line.speaker == "You",
+                                       live: false,
+                                       highlighted: highlighted.contains(line.id))
+                                .id(line.id)
+                        }
+                        ForEach(liveSpeakers, id: \.self) { speaker in
+                            ChatBubble(text: monitor.liveLines[speaker] ?? "",
+                                       isYou: speaker == "You",
+                                       live: true)
+                                .id("live-\(speaker)")
+                        }
+                        Color.clear.frame(height: 1).id("bottom")
+                    }
+                    .padding(12)
+                }
+                .onChange(of: monitor.transcript.count) { _, _ in
+                    guard !suspendAutoScroll else { return }
+                    withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+                }
+                .onChange(of: monitor.liveLines) { _, _ in
+                    guard !suspendAutoScroll else { return }
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
+                .onChange(of: jumpPulse) { _, _ in
+                    jump(proxy)
+                }
+            }
+        }
+        .insetPanel()
+    }
+
+    private var liveSpeakers: [String] {
+        monitor.liveLines.keys.sorted { first, _ in first == "You" }
+    }
+
+    /// Scrolls to the lines spoken around `jumpDate` and highlights them.
+    private func jump(_ proxy: ScrollViewProxy) {
+        guard let jumpDate, !monitor.transcript.isEmpty else { return }
+        let lines = monitor.transcript
+        let target = lines.last(where: { $0.at <= jumpDate }) ?? lines[0]
+        let near = lines.filter { abs($0.at.timeIntervalSince(target.at)) < 6 }.map(\.id)
+        highlighted = Set(near)
+        suspendAutoScroll = true
+        withAnimation { proxy.scrollTo(target.id, anchor: .center) }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            withAnimation { highlighted = [] }
+            suspendAutoScroll = false
+        }
+    }
+}
+
+/// One chat bubble. The speaker is encoded by side and tint: the user right
+/// and accent-washed, others left on a plain surface.
+private struct ChatBubble: View {
+    let text: String
+    let isYou: Bool
+    let live: Bool
+    var highlighted = false
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if isYou { Spacer(minLength: 48) }
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                if live {
+                    PulsingDot(color: isYou ? Theme.accent : Theme.green)
+                }
+                Text(text)
+                    .font(Theme.body)
+                    .lineSpacing(2)
+                    .foregroundStyle(live ? .secondary : .primary)
+                    .textSelection(.enabled)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isYou ? Theme.accent.opacity(0.13) : Theme.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(highlighted ? Theme.accent
+                                              : (isYou ? Theme.accent.opacity(0.25) : Theme.border),
+                                  lineWidth: highlighted ? 1.5 : 1)
+            )
+            if !isYou { Spacer(minLength: 48) }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Collapsed pill
+
+/// What remains when the transcript is hidden: a pulsing "Transcribing…"
+/// pill with the essential actions, Granola-style.
+private struct CollapsedTranscriptPill: View {
+    @ObservedObject var monitor: AudioMonitor
+    let startStopStyle: LinearButtonStyle
+    let expand: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if monitor.isRunning && !monitor.isPaused {
+                PulsingDot(color: Theme.red)
+            }
+            Text(label)
+                .font(Theme.metaMedium)
+                .foregroundStyle(.secondary)
+
+            Button(monitor.isRunning ? "Stop" : "Start") {
+                monitor.toggle()
+            }
+            .buttonStyle(startStopStyle)
+            .keyboardShortcut(.defaultAction)
+
+            if monitor.isRunning {
+                Button(monitor.isPaused ? "Resume" : "Pause") {
+                    monitor.pauseResume()
+                }
+                .buttonStyle(.linearQuietCompact)
+            }
+
+            Button(action: expand) {
+                Image(systemName: "rectangle.lefthalf.inset.filled.arrow.left")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Show the transcript")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Capsule().fill(Theme.surface))
+        .overlay(Capsule().strokeBorder(Theme.border, lineWidth: 1))
+        .shadow(color: .black.opacity(0.10), radius: 6, y: 2)
+    }
+
+    private var label: String {
+        guard monitor.isRunning else { return "Transcript hidden" }
+        return monitor.isPaused ? "Paused" : "Transcribing…"
+    }
+}
+
+// MARK: - Meters
+
+struct MetersView: View {
     @ObservedObject var levels: AudioLevels
 
     var body: some View {
         HStack(spacing: 16) {
-            MeterRow(label: "You (microphone)", level: levels.mic, tint: Theme.accent)
-            MeterRow(label: "Others (call / system audio)", level: levels.system, tint: Theme.green)
+            MeterRow(label: "You", level: levels.mic, tint: Theme.accent)
+            MeterRow(label: "Others", level: levels.system, tint: Theme.green)
         }
     }
 }
@@ -247,6 +521,8 @@ private struct MeterRow: View {
     }
 }
 
+// MARK: - Shared rows (also used by the saved-meeting view)
+
 struct TranscriptRow: View {
     let speaker: String
     let text: String
@@ -273,8 +549,8 @@ struct TranscriptRow: View {
     }
 }
 
-/// Small breathing dot marking the line still being spoken.
-private struct PulsingDot: View {
+/// Small breathing dot marking live activity.
+struct PulsingDot: View {
     let color: Color
     @State private var dim = false
 
@@ -290,6 +566,8 @@ private struct PulsingDot: View {
             }
     }
 }
+
+// MARK: - Notes sheet
 
 private struct NotesSheet: View {
     @ObservedObject var monitor: AudioMonitor
