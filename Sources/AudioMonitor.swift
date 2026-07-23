@@ -5,6 +5,8 @@ struct TranscriptLine: Identifiable {
     let id = UUID()
     let speaker: String
     let text: String
+    /// When the line was committed — the anchor notes link to.
+    let at = Date()
 }
 
 enum TranscriptLanguage: String, CaseIterable, Identifiable {
@@ -117,9 +119,29 @@ final class AudioMonitor: ObservableObject {
     @Published var isGeneratingNotes = false
     @Published var notesError: String?
 
-    // Human-in-the-loop rough notes + selected template (Stage 4)
-    @Published var userNotes: String = ""
+    // Human-in-the-loop rough notes + selected template (Stage 4).
+    // Notes are timestamped blocks so each one anchors to the moment of the
+    // conversation it was written in.
+    @Published var noteBlocks: [NoteBlock] = []
     @Published var template: NotesTemplate = .general
+
+    /// The notes as plain text — what generation prompts and exports consume.
+    var joinedNotes: String {
+        noteBlocks.map(\.text)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            .joined(separator: "\n")
+    }
+
+    /// Appends a note block stamped with the current moment.
+    func addNoteBlock(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        noteBlocks.append(NoteBlock(text: trimmed, at: Date()))
+    }
+
+    func deleteNoteBlock(_ id: UUID) {
+        noteBlocks.removeAll { $0.id == id }
+    }
 
     /// Describes where notes are generated, for the UI.
     var notesEngineLabel: String {
@@ -181,7 +203,7 @@ final class AudioMonitor: ObservableObject {
         recentCommits = []
         notes = ""
         notesError = nil
-        userNotes = ""
+        noteBlocks = []
         isPaused = false
         discarding = false
         sessionStart = Date()
@@ -321,7 +343,7 @@ final class AudioMonitor: ObservableObject {
         transcript = []
         liveLines = [:]
         notes = ""
-        userNotes = ""
+        noteBlocks = []
         statusMessage = "Discarded."
     }
 
@@ -353,7 +375,7 @@ final class AudioMonitor: ObservableObject {
         notesError = nil
         isGeneratingNotes = true
         let hint = language.notesHint
-        let jotted = userNotes
+        let jotted = joinedNotes
         let tmpl = template
         let backend: NotesBackend = settings.usingCloudNotes
             ? .cloudOpenAICompatible(baseURL: settings.cloudBaseURL, apiKey: settings.cloudAPIKey, model: settings.cloudModel)
@@ -380,7 +402,9 @@ final class AudioMonitor: ObservableObject {
         guard !transcript.isEmpty else { return }
         let lines = transcript.map { StoredLine(speaker: $0.speaker, text: $0.text) }
         let existing = store.meetings.first { $0.id == currentMeetingID }
-        let jottedToStore: String? = userNotes.isEmpty ? existing?.userNotes : userNotes
+        let joined = joinedNotes
+        let jottedToStore: String? = joined.isEmpty ? existing?.userNotes : joined
+        let blocksToStore: [NoteBlock]? = noteBlocks.isEmpty ? existing?.noteBlocks : noteBlocks
         let meeting = Meeting(
             id: currentMeetingID,
             title: existing?.title ?? Meeting.defaultTitle,
@@ -390,7 +414,10 @@ final class AudioMonitor: ObservableObject {
             lines: lines,
             notes: notes.isEmpty ? (existing?.notes ?? "") : notes,
             userNotes: jottedToStore,
-            templateID: template.id)
+            noteBlocks: blocksToStore,
+            templateID: template.id,
+            tags: existing?.tags,
+            actionItems: existing?.actionItems)
         store.save(meeting)
     }
 
