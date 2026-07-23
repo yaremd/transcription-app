@@ -62,12 +62,21 @@ final class FloatingPillController: ObservableObject {
     init(monitor: AudioMonitor) {
         self.monitor = monitor
         let center = NotificationCenter.default
-        center.publisher(for: NSApplication.didResignActiveNotification)
-            .sink { [weak self] _ in self?.refresh() }
-            .store(in: &cancellables)
-        center.publisher(for: NSApplication.didBecomeActiveNotification)
-            .sink { [weak self] _ in self?.refresh() }
-            .store(in: &cancellables)
+        // App focus, window minimize/restore, and window close all change
+        // whether the user can currently see the app — re-evaluate on each.
+        let triggers: [Notification.Name] = [
+            NSApplication.didResignActiveNotification,
+            NSApplication.didBecomeActiveNotification,
+            NSWindow.didMiniaturizeNotification,
+            NSWindow.didDeminiaturizeNotification,
+            NSWindow.willCloseNotification,
+        ]
+        for name in triggers {
+            center.publisher(for: name)
+                .receive(on: RunLoop.main)
+                .sink { [weak self] _ in self?.refresh() }
+                .store(in: &cancellables)
+        }
         // $isRunning emits before the property is set — use the emitted value.
         monitor.$isRunning
             .receive(on: RunLoop.main)
@@ -75,13 +84,26 @@ final class FloatingPillController: ObservableObject {
             .store(in: &cancellables)
     }
 
+    private var mainWindow: NSWindow? {
+        NSApp.windows.first { $0.canBecomeMain && !($0 is NSPanel) }
+    }
+
+    /// The pill shows whenever a recording runs and the app isn't visibly in
+    /// front of the user: another app is active, or LocalScribe is active but
+    /// its window is minimized or closed.
     private func refresh(running: Bool? = nil) {
         let isRecording = running ?? monitor.isRunning
-        if isRecording && !NSApp.isActive {
-            show()
-        } else {
-            hide()
+        var shouldShow = false
+        if isRecording {
+            if !NSApp.isActive {
+                shouldShow = true
+            } else if let window = mainWindow {
+                shouldShow = window.isMiniaturized
+            } else {
+                shouldShow = true   // window closed entirely
+            }
         }
+        shouldShow ? show() : hide()
     }
 
     private func show() {
@@ -94,9 +116,10 @@ final class FloatingPillController: ObservableObject {
     }
 
     private func makePanel() -> NSPanel {
-        let content = FloatingPillView(monitor: monitor, levels: monitor.levels) {
+        let content = FloatingPillView(monitor: monitor, levels: monitor.levels) { [weak self] in
             NSApp.activate(ignoringOtherApps: true)
-            if let window = NSApp.windows.first(where: { $0.canBecomeMain && !($0 is NSPanel) }) {
+            if let window = self?.mainWindow {
+                if window.isMiniaturized { window.deminiaturize(nil) }
                 window.makeKeyAndOrderFront(nil)
             }
         }
@@ -137,23 +160,27 @@ private struct FloatingPillView: View {
 
     var body: some View {
         HStack(spacing: 10) {
+            // Only the glyph and the pause control are buttons; everything
+            // else (dots, padding, capsule) is free surface, so the panel's
+            // isMovableByWindowBackground lets the user drag the pill
+            // anywhere on the screen.
             Button(action: openApp) {
-                HStack(spacing: 10) {
-                    ZStack {
-                        Circle()
-                            .fill(Theme.accent)
-                            .frame(width: 22, height: 22)
-                        Image(systemName: "mic.fill")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.white)
-                    }
-                    LevelDots(level: monitor.isPaused ? 0 : levels.mic,
-                              dimmed: monitor.isPaused)
+                ZStack {
+                    Circle()
+                        .fill(Theme.accent)
+                        .frame(width: 22, height: 22)
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white)
                 }
-                .contentShape(Rectangle())
+                .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .help("Open LocalScribe")
+
+            LevelDots(level: monitor.isPaused ? 0 : levels.mic,
+                      dimmed: monitor.isPaused)
+                .help("Drag to move")
 
             Rectangle()
                 .fill(Theme.divider)

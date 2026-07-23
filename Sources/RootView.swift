@@ -7,40 +7,48 @@ enum Panel: Hashable {
     case meeting(UUID)
 }
 
-/// Top-level layout: a searchable sidebar listing past meetings plus a "New
-/// Recording" entry, and a detail area showing either the live recorder or a
-/// saved meeting. The AudioMonitor lives here (above the detail switch) so
-/// switching to a past meeting never interrupts an in-progress recording.
+/// Top-level layout, meeting-first: the sidebar is the library (grouped by
+/// day) plus Action Items; recording is an *action*, not a place — the "+"
+/// toolbar button (⌘N) creates a meeting and starts listening immediately.
+/// While recording, the live meeting shows as a red-dot row pinned on top of
+/// the sidebar. With nothing selected the detail area is a welcome screen.
+/// The AudioMonitor lives here (above the detail switch) so browsing past
+/// meetings never interrupts an in-progress recording.
 struct RootView: View {
     @ObservedObject var monitor: AudioMonitor
     @EnvironmentObject private var store: MeetingStore
     @EnvironmentObject private var settings: AppSettings
-    @State private var selection: Panel? = .record
+    @State private var selection: Panel?
     @State private var searchText = ""
     @State private var showOnboarding = false
 
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
-                Section {
-                    Label {
-                        HStack {
-                            Text("New Recording").font(Theme.body)
-                            if monitor.isRunning {
+                if monitor.isRunning {
+                    Section {
+                        Label {
+                            HStack {
+                                Text(monitor.isPaused ? "Paused" : "Recording…")
+                                    .font(Theme.bodyMedium)
                                 Spacer()
-                                Circle()
-                                    .fill(Theme.red)
-                                    .frame(width: 7, height: 7)
-                                    .shadow(color: Theme.red.opacity(0.5), radius: 3)
+                                if !monitor.isPaused {
+                                    Circle()
+                                        .fill(Theme.red)
+                                        .frame(width: 7, height: 7)
+                                        .shadow(color: Theme.red.opacity(0.5), radius: 3)
+                                }
                             }
+                        } icon: {
+                            Image(systemName: "record.circle")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Theme.red)
                         }
-                    } icon: {
-                        Image(systemName: "mic")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
+                        .tag(Panel.record)
                     }
-                    .tag(Panel.record)
+                }
 
+                Section {
                     Label {
                         HStack {
                             Text("Action Items").font(Theme.body)
@@ -60,10 +68,10 @@ struct RootView: View {
                     .tag(Panel.tasks)
                 }
 
-                if !filteredMeetings.isEmpty {
+                ForEach(groupedMeetings) { group in
                     Section {
-                        ForEach(filteredMeetings) { meeting in
-                            MeetingRow(meeting: meeting)
+                        ForEach(group.meetings) { meeting in
+                            MeetingRow(meeting: meeting, showTime: group.showsTime)
                                 .tag(Panel.meeting(meeting.id))
                                 .contextMenu {
                                     Button(role: .destructive) {
@@ -74,9 +82,10 @@ struct RootView: View {
                                 }
                         }
                     } header: {
-                        SectionLabel("Meetings")
+                        SectionLabel(group.title)
                     }
-                } else if !searchText.isEmpty {
+                }
+                if filteredMeetings.isEmpty && !searchText.isEmpty {
                     Section {
                         Text("No matches")
                             .font(Theme.sub)
@@ -104,10 +113,23 @@ struct RootView: View {
                                                systemImage: "questionmark.folder")
                     }
                 default:
-                    RecordingView(monitor: monitor)
+                    if monitor.isRunning || selection == .record {
+                        RecordingView(monitor: monitor)
+                    } else {
+                        WelcomeView(monitor: monitor, newMeeting: newMeeting)
+                    }
                 }
             }
             .background(Theme.background)
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: newMeeting) {
+                    Label("New Meeting", systemImage: "plus")
+                }
+                .keyboardShortcut("n", modifiers: .command)
+                .help("New meeting — starts listening right away (⌘N)")
+            }
         }
         .tint(Theme.accent)
         // Stop saved a meeting: land on its page (notes, actions, follow-up
@@ -117,8 +139,8 @@ struct RootView: View {
             selection = .meeting(id)
             monitor.finishedMeetingID = nil
         }
-        // "New Recording" always presents a fresh screen — the previous
-        // session is already saved in the library.
+        // Reaching the record pane always presents a fresh screen — a
+        // finished session is already saved in the library.
         .onChange(of: selection) { _, newSelection in
             if newSelection == .record { monitor.resetFinishedSession() }
         }
@@ -131,6 +153,18 @@ struct RootView: View {
                 showOnboarding = false
             }
         }
+    }
+
+    /// "+" / ⌘N: create a meeting and start listening immediately. If one is
+    /// already being recorded, just go to it.
+    private func newMeeting() {
+        if monitor.isRunning {
+            selection = .record
+            return
+        }
+        monitor.resetFinishedSession()
+        monitor.start()
+        selection = .record
     }
 
     /// Meetings filtered by the search box — matches title, notes, or any
@@ -146,18 +180,95 @@ struct RootView: View {
         }
     }
 
+    /// The library grouped the native way: Today, Yesterday, Previous 7 days,
+    /// Older. Empty groups disappear; recent groups show times, older dates.
+    private struct MeetingGroup: Identifiable {
+        let id: String
+        let title: String
+        let showsTime: Bool
+        let meetings: [Meeting]
+    }
+
+    private var groupedMeetings: [MeetingGroup] {
+        let calendar = Calendar.current
+        var today: [Meeting] = [], yesterday: [Meeting] = []
+        var week: [Meeting] = [], older: [Meeting] = []
+        for meeting in filteredMeetings {
+            if calendar.isDateInToday(meeting.date) {
+                today.append(meeting)
+            } else if calendar.isDateInYesterday(meeting.date) {
+                yesterday.append(meeting)
+            } else if let days = calendar.dateComponents([.day],
+                                                         from: calendar.startOfDay(for: meeting.date),
+                                                         to: calendar.startOfDay(for: Date())).day,
+                      days < 7 {
+                week.append(meeting)
+            } else {
+                older.append(meeting)
+            }
+        }
+        return [
+            MeetingGroup(id: "today", title: "Today", showsTime: true, meetings: today),
+            MeetingGroup(id: "yesterday", title: "Yesterday", showsTime: true, meetings: yesterday),
+            MeetingGroup(id: "week", title: "Previous 7 days", showsTime: false, meetings: week),
+            MeetingGroup(id: "older", title: "Older", showsTime: false, meetings: older),
+        ].filter { !$0.meetings.isEmpty }
+    }
+
     private var openActionCount: Int {
         store.meetings.reduce(0) { $0 + $1.openActionItems.count }
     }
 
     private func delete(_ meeting: Meeting) {
-        if selection == .meeting(meeting.id) { selection = .record }
+        if selection == .meeting(meeting.id) { selection = nil }
         store.delete(meeting)
+    }
+}
+
+/// The calm landing state: nothing selected, no recording — one clear action.
+private struct WelcomeView: View {
+    @ObservedObject var monitor: AudioMonitor
+    let newMeeting: () -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Theme.accent.opacity(0.12))
+                    .frame(width: 64, height: 64)
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundStyle(Theme.accent)
+            }
+            VStack(spacing: 4) {
+                Text("LocalScribe")
+                    .font(Theme.pageTitle)
+                Text("Private, on-device meeting notes")
+                    .font(Theme.sub)
+                    .foregroundStyle(.secondary)
+            }
+            Button("New Meeting") { newMeeting() }
+                .buttonStyle(.linearPrimary)
+                .padding(.top, 6)
+            Text("⌘N · listening starts right away · nothing leaves your Mac")
+                .font(Theme.meta)
+                .foregroundStyle(.tertiary)
+            if let error = monitor.errorMessage {
+                Text(error)
+                    .font(Theme.sub)
+                    .foregroundStyle(Theme.red)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 420)
+                    .padding(.top, 8)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
 private struct MeetingRow: View {
     let meeting: Meeting
+    var showTime = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -165,9 +276,15 @@ private struct MeetingRow: View {
                 .font(Theme.body)
                 .lineLimit(1)
             HStack(spacing: 5) {
-                Text(meeting.date, style: .date)
-                    .font(Theme.meta)
-                    .foregroundStyle(.tertiary)
+                if showTime {
+                    Text(meeting.date, style: .time)
+                        .font(Theme.meta)
+                        .foregroundStyle(.tertiary)
+                } else {
+                    Text(meeting.date, style: .date)
+                        .font(Theme.meta)
+                        .foregroundStyle(.tertiary)
+                }
                 if meeting.hasNotes {
                     Image(systemName: "doc.text")
                         .font(.system(size: 9))
