@@ -1,4 +1,5 @@
 import AVFoundation
+import OSLog
 
 /// Converts arbitrary PCM buffers to 16 kHz mono Float32 (Whisper's input
 /// format), handling sample-rate conversion and stereo->mono downmix. One
@@ -13,12 +14,18 @@ final class AudioResampler {
     )!
     private var converter: AVAudioConverter?
     private var converterInputFormat: AVAudioFormat?
+    private var reportedFailure = false
+    private let log = Logger(subsystem: "com.yarem.LocalScribe", category: "Resampler")
 
     func resample(_ input: AVAudioPCMBuffer) -> [Float]? {
         guard input.frameLength > 0 else { return nil }
         if converter == nil || converterInputFormat != input.format {
             converter = AVAudioConverter(from: input.format, to: targetFormat)
             converterInputFormat = input.format
+            reportedFailure = false
+            if converter == nil {
+                log.error("no converter for \(String(describing: input.format), privacy: .public)")
+            }
         }
         guard let converter else { return nil }
 
@@ -38,7 +45,13 @@ final class AudioResampler {
             return input
         }
 
-        guard status != .error, output.frameLength > 0, let channel = output.floatChannelData else { return nil }
+        guard status != .error, output.frameLength > 0, let channel = output.floatChannelData else {
+            if !reportedFailure {
+                reportedFailure = true
+                log.error("convert failed (\(error?.localizedDescription ?? "no output", privacy: .public)) from \(String(describing: input.format), privacy: .public)")
+            }
+            return nil
+        }
         return Array(UnsafeBufferPointer(start: channel[0], count: Int(output.frameLength)))
     }
 }

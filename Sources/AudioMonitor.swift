@@ -146,6 +146,21 @@ final class AudioMonitor: ObservableObject {
     private let speakerYou = "You"
     private let speakerOthers = "Others"
 
+    /// Echo guard: with the raw mic (no echo cancellation), call audio played
+    /// through speakers reaches the mic too, so the other side's phrase can
+    /// land twice — once as "Others", once as a ghost "You". Committed lines
+    /// are remembered briefly; a "You" line that closely matches a recent
+    /// "Others" line is dropped, and when the "Others" copy arrives *after*
+    /// the ghost, the already-shown ghost is removed retroactively.
+    private struct RecentCommit {
+        let speaker: String
+        let normalized: String
+        let at: Date
+        let lineID: UUID
+    }
+    private var recentCommits: [RecentCommit] = []
+    private let echoWindowSeconds: TimeInterval = 12
+
     private let mic = MicCapturer()
     private let system = SystemAudioCapturer()
     private let transcriber = Transcriber()
@@ -162,6 +177,7 @@ final class AudioMonitor: ObservableObject {
         transcript = []
         liveLines = [:]
         liveUtterance = [:]
+        recentCommits = []
         notes = ""
         notesError = nil
         userNotes = ""
@@ -367,11 +383,66 @@ final class AudioMonitor: ObservableObject {
                     self.liveUtterance[speaker] = nil
                 }
                 guard let text, !self.discarding else { return }   // silence, or dropped session
-                self.transcript.append(TranscriptLine(speaker: speaker, text: text))
+                self.commitLine(speaker: speaker, text: text)
                 if !self.isRunning { self.persistCurrentSession() }  // a late line landed after Stop
             }
         }
         return stream
+    }
+
+    /// Appends a final line, dropping mic-echo ghosts of the call audio.
+    private func commitLine(speaker: String, text: String) {
+        let now = Date()
+        recentCommits.removeAll { now.timeIntervalSince($0.at) > echoWindowSeconds }
+        let normalized = AudioMonitor.normalizedForEcho(text)
+
+        if speaker == speakerYou {
+            // The call's phrase already landed as "Others"; this is its echo.
+            let isGhost = recentCommits.contains {
+                $0.speaker == speakerOthers && AudioMonitor.isEchoPair(normalized, $0.normalized)
+            }
+            if isGhost { return }
+        } else {
+            // The echo transcribed *faster* than the real thing: remove the
+            // ghost "You" copy that is already on screen.
+            let ghosts = recentCommits.filter {
+                $0.speaker == speakerYou && AudioMonitor.isEchoPair(normalized, $0.normalized)
+            }
+            if !ghosts.isEmpty {
+                let ghostIDs = Set(ghosts.map(\.lineID))
+                transcript.removeAll { ghostIDs.contains($0.id) }
+                recentCommits.removeAll { ghostIDs.contains($0.lineID) }
+            }
+        }
+
+        let line = TranscriptLine(speaker: speaker, text: text)
+        transcript.append(line)
+        recentCommits.append(RecentCommit(speaker: speaker, normalized: normalized, at: now, lineID: line.id))
+    }
+
+    /// Lowercased, punctuation-free, single-spaced text for echo comparison.
+    static func normalizedForEcho(_ text: String) -> String {
+        text.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    /// True when two committed lines are almost certainly the same phrase heard
+    /// twice. Requires enough words that ordinary short replies ("yes, yes",
+    /// "thank you") are never deduplicated, then accepts containment or a high
+    /// word-set overlap — the two transcriptions of one phrase rarely match
+    /// verbatim.
+    static func isEchoPair(_ a: String, _ b: String) -> Bool {
+        guard !a.isEmpty, !b.isEmpty else { return false }
+        let wordsA = a.split(separator: " ")
+        let wordsB = b.split(separator: " ")
+        guard min(wordsA.count, wordsB.count) >= 4 else { return false }
+        if a == b || a.contains(b) || b.contains(a) { return true }
+        let setA = Set(wordsA)
+        let setB = Set(wordsB)
+        let overlap = Float(setA.intersection(setB).count)
+        return overlap / Float(setA.union(setB).count) >= 0.85
     }
 
     private func handleMic(_ samples: [Float]) {
