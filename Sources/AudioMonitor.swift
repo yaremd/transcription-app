@@ -211,6 +211,18 @@ final class AudioMonitor: ObservableObject {
         systemStream = makeStream(for: speakerOthers)
 
         mic.onSamples = { [weak self] samples in self?.handleMic(samples) }
+        // Soft mic conditions (e.g. echo cancellation silenced the input and
+        // capture restarted on the raw mic) go to the status line; hard ones
+        // (no signal at all, with what to check) go to the error area.
+        mic.onNotice = { [weak self] message in
+            DispatchQueue.main.async {
+                guard let self, self.isRunning else { return }
+                self.statusMessage = message
+            }
+        }
+        mic.onError = { [weak self] message in
+            DispatchQueue.main.async { self?.appendError(message) }
+        }
         system.onSamples = { [weak self] samples in self?.handleSystem(samples) }
         system.onError = { [weak self] message in
             DispatchQueue.main.async { self?.appendError(message) }
