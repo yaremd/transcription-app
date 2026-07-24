@@ -124,18 +124,17 @@ struct RootView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                // A filled, labeled button — the app's one primary action
-                // should never need hunting for.
+                // Native prominent + capsule: the toolbar draws exactly one
+                // filled pill (a custom-painted background here would sit
+                // inside the system's button bezel and read as a double
+                // outline). tint colors it; it turns red while recording.
                 Button(action: newMeeting) {
-                    HStack(spacing: 5) {
-                        Image(systemName: monitor.isRunning ? "record.circle" : "plus")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text(monitor.isRunning ? "Recording…" : "New Meeting")
-                    }
+                    Label(monitor.isRunning ? "Recording…" : "New Meeting",
+                          systemImage: monitor.isRunning ? "record.circle" : "plus")
                 }
-                .buttonStyle(monitor.isRunning
-                             ? LinearButtonStyle(kind: .primary, tint: Theme.red, compact: true, capsule: true)
-                             : LinearButtonStyle(kind: .primary, compact: true, capsule: true))
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .tint(monitor.isRunning ? Theme.red : Theme.accent)
                 .keyboardShortcut("n", modifiers: .command)
                 .help(monitor.isRunning ? "Back to the live meeting" : "New meeting — starts listening right away (⌘N)")
             }
