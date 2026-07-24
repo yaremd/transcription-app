@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// LocalScribe's design language: quiet surfaces, hairline borders, compact
+/// Seal's design language: quiet surfaces, hairline borders, compact
 /// typography, and a single restrained indigo accent. Every color adapts to
 /// light and dark appearance on its own — nothing here needs a colorScheme
 /// check at the call site.

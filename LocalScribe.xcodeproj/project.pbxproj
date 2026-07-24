@@ -380,7 +380,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.yarem.LocalScribe;
-				PRODUCT_NAME = LocalScribe;
+				PRODUCT_NAME = Seal;
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -398,7 +398,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.yarem.LocalScribe;
-				PRODUCT_NAME = LocalScribe;
+				PRODUCT_NAME = Seal;
 				SDKROOT = macosx;
 			};
 			name = Release;

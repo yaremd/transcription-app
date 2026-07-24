@@ -28,13 +28,13 @@ targets:
     info:
       path: Support/Info.plist
       properties:
-        NSMicrophoneUsageDescription: "LocalScribe listens to your microphone to transcribe your side of the conversation, entirely on your Mac."
+        NSMicrophoneUsageDescription: "Seal listens to your microphone to transcribe your side of the conversation, entirely on your Mac."
         LSApplicationCategoryType: "public.app-category.productivity"
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.yarem.LocalScribe
-        PRODUCT_NAME: LocalScribe
+        PRODUCT_NAME: Seal
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
