@@ -240,6 +240,7 @@ struct RootView: View {
 private struct WelcomeView: View {
     @ObservedObject var monitor: AudioMonitor
     let newMeeting: () -> Void
+    @State private var breathe = false
 
     var body: some View {
         VStack(spacing: 14) {
@@ -247,10 +248,15 @@ private struct WelcomeView: View {
                 Circle()
                     .fill(Theme.accent.opacity(0.12))
                     .frame(width: 64, height: 64)
+                    .scaleEffect(breathe ? 1.12 : 1.0)
+                    .opacity(breathe ? 0.7 : 1.0)
                 Image(systemName: "mic.fill")
                     .font(.system(size: 24, weight: .medium))
                     .foregroundStyle(Theme.accent)
+                    .scaleEffect(breathe ? 1.05 : 1.0)
             }
+            .animation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true), value: breathe)
+            .onAppear { breathe = true }
             VStack(spacing: 4) {
                 Text("Seal")
                     .font(Theme.pageTitle)

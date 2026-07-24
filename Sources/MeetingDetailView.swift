@@ -408,9 +408,11 @@ struct MeetingDetailView: View {
                         .foregroundStyle(.tertiary)
                 } else {
                     let lines = showFullTranscript ? meeting.lines : Array(meeting.lines.prefix(4))
-                    VStack(alignment: .leading, spacing: 12) {
-                        ForEach(lines) { line in
-                            TranscriptRow(speaker: line.speaker, text: line.text, live: false)
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                            TranscriptRow(speaker: line.speaker,
+                                          text: line.text,
+                                          showSpeaker: index == 0 || lines[index - 1].speaker != line.speaker)
                         }
                     }
                     .mask(

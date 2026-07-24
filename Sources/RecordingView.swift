@@ -337,17 +337,17 @@ private struct TranscriptPane: View {
                                 .padding(.top, 24)
                                 .padding(.horizontal, 24)
                         }
-                        ForEach(monitor.transcript) { line in
-                            ChatBubble(text: line.text,
-                                       isYou: line.speaker == "You",
-                                       live: false,
-                                       highlighted: highlighted.contains(line.id))
+                        ForEach(Array(monitor.transcript.enumerated()), id: \.element.id) { index, line in
+                            TranscriptRow(speaker: line.speaker,
+                                          text: line.text,
+                                          showSpeaker: index == 0 || monitor.transcript[index - 1].speaker != line.speaker,
+                                          highlighted: highlighted.contains(line.id))
                                 .id(line.id)
                         }
                         ForEach(liveSpeakers, id: \.self) { speaker in
-                            ChatBubble(text: monitor.liveLines[speaker] ?? "",
-                                       isYou: speaker == "You",
-                                       live: true)
+                            TranscriptRow(speaker: speaker,
+                                          text: monitor.liveLines[speaker] ?? "",
+                                          live: true)
                                 .id("live-\(speaker)")
                         }
                         Color.clear.frame(height: 1).id("bottom")
@@ -504,45 +504,6 @@ private struct LiveWaveform: View {
     }
 }
 
-/// One chat bubble. The speaker is encoded by side and tint: the user right
-/// and accent-washed, others left on a plain surface.
-private struct ChatBubble: View {
-    let text: String
-    let isYou: Bool
-    let live: Bool
-    var highlighted = false
-
-    var body: some View {
-        HStack(spacing: 0) {
-            if isYou { Spacer(minLength: 48) }
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                if live {
-                    PulsingDot(color: isYou ? Theme.accent : Theme.green)
-                }
-                Text(text)
-                    .font(Theme.body)
-                    .lineSpacing(2)
-                    .foregroundStyle(live ? .secondary : .primary)
-                    .textSelection(.enabled)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(isYou ? Theme.accent.opacity(0.13) : Theme.surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(highlighted ? Theme.accent
-                                              : (isYou ? Theme.accent.opacity(0.25) : Theme.border),
-                                  lineWidth: highlighted ? 1.5 : 1)
-            )
-            if !isYou { Spacer(minLength: 48) }
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
 // MARK: - Collapsed pill
 
 /// What remains when the transcript is hidden: a pulsing "Transcribing…"
@@ -600,20 +561,31 @@ private struct CollapsedTranscriptPill: View {
 
 // MARK: - Shared rows (also used by the saved-meeting view)
 
+/// One line of transcript in the speaker-labeled paragraph style shared by the
+/// live recording view and the saved meeting. Consecutive lines from the same
+/// speaker pass `showSpeaker: false`, so the label appears once per turn and a
+/// run reads as one person talking rather than a stutter of repeated labels. A
+/// jumped-to line lifts onto a soft accent wash.
 struct TranscriptRow: View {
     let speaker: String
     let text: String
-    let live: Bool
+    var live: Bool = false
+    var showSpeaker: Bool = true
+    var highlighted: Bool = false
+
+    private var tint: Color { speaker == "You" ? Theme.accent : Theme.green }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 5) {
-                Text(speaker.uppercased())
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(0.6)
-                    .foregroundStyle(speaker == "You" ? Theme.accent : Theme.green)
-                if live {
-                    PulsingDot(color: speaker == "You" ? Theme.accent : Theme.green)
+            if showSpeaker {
+                HStack(spacing: 5) {
+                    Text(speaker.uppercased())
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(0.6)
+                        .foregroundStyle(tint)
+                    if live {
+                        PulsingDot(color: tint)
+                    }
                 }
             }
             Text(text)
@@ -623,6 +595,11 @@ struct TranscriptRow: View {
                 .textSelection(.enabled)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 3)
+        .padding(.horizontal, 8)
+        .background(highlighted ? tint.opacity(0.10) : .clear,
+                    in: RoundedRectangle(cornerRadius: 6))
+        .animation(.easeOut(duration: 0.2), value: highlighted)
     }
 }
 
