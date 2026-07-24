@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+  <!-- Seal mascot, full color: the lips-sealed pose (flippers over mouth). Face grid matches seal-mark-icon.svg. -->
+  <g>
+    <circle cx="120" cy="118" r="76" fill="#5E6AD2"/>
+    <circle cx="86" cy="66" r="3" fill="#4A55B8"/>
+    <circle cx="120" cy="58" r="3" fill="#4A55B8"/>
+    <circle cx="154" cy="66" r="3" fill="#4A55B8"/>
+    <ellipse cx="120" cy="146" rx="34" ry="23" fill="#DDE0F8"/>
+    <circle cx="92" cy="104" r="9" fill="#23253A"/>
+    <circle cx="148" cy="104" r="9" fill="#23253A"/>
+    <circle cx="94.5" cy="101" r="2.8" fill="#FFFFFF"/>
+    <circle cx="150.5" cy="101" r="2.8" fill="#FFFFFF"/>
+    <ellipse cx="120" cy="138" rx="9" ry="6.5" fill="#23253A"/>
+    <circle cx="96" cy="144" r="1.7" fill="#23253A"/>
+    <circle cx="92" cy="152" r="1.7" fill="#23253A"/>
+    <circle cx="144" cy="144" r="1.7" fill="#23253A"/>
+    <circle cx="148" cy="152" r="1.7" fill="#23253A"/>
+    <ellipse cx="101" cy="166" rx="26" ry="12" fill="#4A55B8" transform="rotate(16 101 166)"/>
+    <ellipse cx="139" cy="166" rx="26" ry="12" fill="#4A55B8" transform="rotate(-16 139 166)"/>
+  </g>
+</svg>
