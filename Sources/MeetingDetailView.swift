@@ -138,7 +138,7 @@ struct MeetingDetailView: View {
         let transcript = meeting.transcriptText
         guard transcript.count >= 80 else { return }
         let id = meeting.id
-        let b = backend
+        let b = titleBackend
         Task {
             guard let names = try? await generator.suggestSpeakerNames(transcript: transcript, backend: b),
                   !names.isEmpty else { return }
@@ -182,7 +182,7 @@ struct MeetingDetailView: View {
         guard transcript.count >= 80 else { return }   // too little to name well
         let id = meeting.id
         let hint = languageHint
-        let b = backend
+        let b = titleBackend
         Task {
             guard let suggested = try? await generator.suggestTitle(
                 transcript: transcript, languageHint: hint, backend: b) else { return }
@@ -966,10 +966,18 @@ struct MeetingDetailView: View {
 
     // MARK: - Shared helpers
 
+    /// Heavy jobs: notes, reshape, follow-up, chat.
     private var backend: NotesBackend {
         settings.usingCloudNotes
             ? .cloudOpenAICompatible(baseURL: settings.cloudBaseURL, apiKey: settings.cloudAPIKey, model: settings.cloudModel)
-            : .localOllama(model: AudioMonitor.notesModel)
+            : .localOllama(model: settings.resolvedNotesModel)
+    }
+
+    /// Quick jobs: title + speaker-name suggestions run on the light model.
+    private var titleBackend: NotesBackend {
+        settings.usingCloudNotes
+            ? backend
+            : .localOllama(model: settings.resolvedTitleModel)
     }
 
     private var languageHint: String {
@@ -977,7 +985,7 @@ struct MeetingDetailView: View {
     }
 
     private var engineLabel: String {
-        settings.usingCloudNotes ? "your cloud model" : "\(AudioMonitor.notesModel), on your Mac"
+        settings.usingCloudNotes ? "your cloud model" : "\(settings.resolvedNotesModel), on your Mac"
     }
 
     private var durationText: String {

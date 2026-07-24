@@ -9,6 +9,7 @@ struct LocalScribeApp: App {
     @StateObject private var settings: AppSettings
     @StateObject private var monitor: AudioMonitor
     @StateObject private var pill: FloatingPillController
+    @StateObject private var detector: MeetingDetector
 
     init() {
         let store = MeetingStore()
@@ -20,6 +21,10 @@ struct LocalScribeApp: App {
         _settings = StateObject(wrappedValue: settings)
         _monitor = StateObject(wrappedValue: monitor)
         _pill = StateObject(wrappedValue: FloatingPillController(monitor: monitor))
+        _detector = StateObject(wrappedValue: MeetingDetector(monitor: monitor, settings: settings, openApp: {
+            NSApp.activate(ignoringOtherApps: true)
+            NSApp.windows.first { $0.canBecomeMain && !($0 is NSPanel) }?.makeKeyAndOrderFront(nil)
+        }))
     }
 
     var body: some Scene {
@@ -29,11 +34,10 @@ struct LocalScribeApp: App {
                 .environmentObject(settings)
                 .environmentObject(vocabulary)
                 .frame(minWidth: 860, minHeight: 620)
-                // Touching the controller here guarantees SwiftUI actually
-                // creates it — an @StateObject that body never reads may never
-                // be realized, and then no pill would ever appear — and gives
-                // it one initial pass over the window state.
-                .onAppear { pill.ensureActive() }
+                // Touching the controllers here guarantees SwiftUI actually
+                // creates them — an @StateObject that body never reads may never
+                // be realized, and then no pill / no meeting nudge would appear.
+                .onAppear { pill.ensureActive(); detector.activate() }
         }
         .commands {
             CommandGroup(after: .newItem) {

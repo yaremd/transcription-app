@@ -7,15 +7,41 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            VocabularySettings(vocabulary: vocabulary)
-                .tabItem { Label("Vocabulary", systemImage: "text.book.closed") }
+            GeneralSettings(settings: settings)
+                .tabItem { Label("General", systemImage: "gearshape") }
             NotesSettings(settings: settings)
                 .tabItem { Label("Notes", systemImage: "brain") }
+            VocabularySettings(vocabulary: vocabulary)
+                .tabItem { Label("Vocabulary", systemImage: "text.book.closed") }
             RecordingSettings(settings: settings)
                 .tabItem { Label("Recording", systemImage: "waveform") }
         }
-        .frame(width: 520, height: 440)
+        .frame(width: 540, height: 460)
         .tint(Theme.accent)
+    }
+}
+
+private struct GeneralSettings: View {
+    @ObservedObject var settings: AppSettings
+
+    var body: some View {
+        Form {
+            Section("Appearance") {
+                Picker("Theme", selection: $settings.appearance) {
+                    ForEach(AppAppearance.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Section {
+                Toggle("Offer to record when a meeting starts", isOn: $settings.suggestRecording)
+                Text("When Zoom, Teams, or Webex comes to the front and you're not already recording, Seal shows a small prompt. Nothing records without your click.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 
@@ -76,9 +102,55 @@ private struct VocabularySettings: View {
 
 private struct NotesSettings: View {
     @ObservedObject var settings: AppSettings
+    @State private var models: [OllamaModel] = []
+    @State private var loadFailed = false
+
+    private let titleModelHint = "ollama pull llama3.2:3b"
 
     var body: some View {
         Form {
+            Section("Notes model (on your Mac)") {
+                if !models.isEmpty {
+                    Picker("Model", selection: $settings.notesModel) {
+                        ForEach(models) { model in
+                            Text("\(model.name)  ·  \(model.sizeLabel)").tag(model.name)
+                        }
+                        // Keep a stored-but-uninstalled choice visible rather than blanking the picker.
+                        if !settings.notesModel.isEmpty,
+                           !models.contains(where: { $0.name == settings.notesModel }) {
+                            Text("\(settings.notesModel)  ·  not installed").tag(settings.notesModel)
+                        }
+                    }
+                    Text("Bigger models write better notes but run slower. Titles and speaker names automatically use your smallest model, so naming stays fast.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if loadFailed {
+                    Text("Couldn't reach Ollama at localhost:11434. Start Ollama to choose a model — until then, notes use \(AppSettings.defaultNotesModel).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("Looking for installed models…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 6) {
+                    Text("Want instant titles? Install a small model:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(titleModelHint)
+                        .font(.system(.caption, design: .monospaced))
+                    Button { copyToPasteboard(titleModelHint) } label: {
+                        Image(systemName: "doc.on.doc").font(.system(size: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Copy")
+                }
+            }
+            .disabled(settings.cloudNotesEnabled)
+
             Section {
                 Toggle("Use a cloud model for notes", isOn: $settings.cloudNotesEnabled)
                 Text("Off by default. When on, only the transcript text (never your audio) is sent to the model you configure, using your own API key. Transcription always stays on your Mac.")
@@ -101,6 +173,12 @@ private struct NotesSettings: View {
             }
         }
         .formStyle(.grouped)
+        .task {
+            let list = await OllamaModels.installed()
+            models = list
+            loadFailed = list.isEmpty
+            settings.resolveModels(list)
+        }
     }
 }
 
