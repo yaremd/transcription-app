@@ -9,13 +9,15 @@ struct TasksView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 18) {
                 HStack {
-                    Text("Action Items").font(.title2).bold()
+                    Text("Action Items").font(Theme.title)
                     Spacer()
                     Toggle("Show completed", isOn: $showCompleted)
                         .toggleStyle(.switch)
-                        .controlSize(.small)
+                        .controlSize(.mini)
+                        .font(Theme.sub)
+                        .foregroundStyle(.secondary)
                 }
 
                 if meetingsWithItems.isEmpty {
@@ -25,21 +27,43 @@ struct TasksView: View {
                         description: Text("Open a meeting and tap “Find action items” to collect tasks here."))
                         .frame(maxWidth: .infinity, minHeight: 320)
                 } else {
+                    // One card per meeting, so each source's tasks are clearly
+                    // their own group (and never blur together when several
+                    // meetings are still unnamed).
                     ForEach(meetingsWithItems) { meeting in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(meeting.title).font(.headline)
-                            Text(meeting.date, style: .date)
-                                .font(.caption).foregroundStyle(.secondary)
-                            ForEach(itemsToShow(for: meeting)) { item in
-                                Toggle(isOn: binding(meeting, item)) {
-                                    Text(item.text)
-                                        .strikethrough(item.done)
-                                        .foregroundStyle(item.done ? .secondary : .primary)
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text(meeting.displayTitle)
+                                    .font(Theme.bodyMedium)
+                                    .lineLimit(1)
+                                let open = meeting.openActionItems.count
+                                if open > 0 {
+                                    Text("\(open)")
+                                        .font(Theme.meta)
+                                        .monospacedDigit()
+                                        .foregroundStyle(.secondary)
                                 }
-                                .toggleStyle(.checkbox)
+                                Spacer()
+                                Text(meeting.date, style: .date)
+                                    .font(Theme.meta)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            ThemeDivider()
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(itemsToShow(for: meeting)) { item in
+                                    Toggle(isOn: binding(meeting, item)) {
+                                        Text(item.text)
+                                            .font(Theme.body)
+                                            .strikethrough(item.done)
+                                            .foregroundStyle(item.done ? .secondary : .primary)
+                                    }
+                                    .toggleStyle(.checkbox)
+                                }
                             }
                         }
-                        .padding(.bottom, 4)
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .surfacePanel()
                     }
                 }
             }

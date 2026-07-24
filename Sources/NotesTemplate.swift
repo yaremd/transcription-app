@@ -3,6 +3,10 @@ import Foundation
 /// A notes template shapes the sections and focus of the generated meeting
 /// notes. The user picks one before generating; each carries the Markdown
 /// section headings to produce and a short context hint for the model.
+///
+/// Note: action items and follow-ups are first-class features with their own
+/// sections on the meeting page, so templates deliberately don't repeat them —
+/// the notes stay a clean summary, not a duplicate of the checklist below.
 struct NotesTemplate: Identifiable, Hashable {
     let id: String
     let name: String
@@ -11,12 +15,12 @@ struct NotesTemplate: Identifiable, Hashable {
 
     static let general = NotesTemplate(
         id: "general", name: "General",
-        sections: ["Summary", "Key points", "Decisions", "Action items"],
+        sections: ["Summary", "Key points", "Decisions"],
         guidance: "")
 
     static let oneOnOne = NotesTemplate(
         id: "one_on_one", name: "1-on-1",
-        sections: ["Summary", "Discussion", "Feedback", "Action items", "Follow-ups"],
+        sections: ["Summary", "Discussion", "Feedback"],
         guidance: "This is a 1-on-1 between a manager and a report. Capture feedback in both directions and any personal or career notes.")
 
     static let sales = NotesTemplate(
@@ -31,7 +35,7 @@ struct NotesTemplate: Identifiable, Hashable {
 
     static let standup = NotesTemplate(
         id: "standup", name: "Standup",
-        sections: ["Summary", "Updates", "Blockers", "Action items"],
+        sections: ["Summary", "Updates", "Blockers"],
         guidance: "This is a team standup. Group updates by person where identifiable.")
 
     static let lecture = NotesTemplate(

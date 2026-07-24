@@ -14,7 +14,7 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.0"
     CODE_SIGN_STYLE: Automatic
-    DEVELOPMENT_TEAM: "5FB728FKA4"
+    DEVELOPMENT_TEAM: "S4M9R72TXR"
     ENABLE_HARDENED_RUNTIME: "NO"
 targets:
   LocalScribe:
@@ -22,17 +22,19 @@ targets:
     platform: macOS
     sources:
       - Sources
+      - path: Support/Assets.xcassets
     dependencies:
       - package: WhisperKit
     info:
       path: Support/Info.plist
       properties:
-        NSMicrophoneUsageDescription: "LocalScribe listens to your microphone to transcribe your side of the conversation, entirely on your Mac."
+        NSMicrophoneUsageDescription: "Seal listens to your microphone to transcribe your side of the conversation, entirely on your Mac."
         LSApplicationCategoryType: "public.app-category.productivity"
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.yarem.LocalScribe
-        PRODUCT_NAME: LocalScribe
+        PRODUCT_NAME: Seal
         MACOSX_DEPLOYMENT_TARGET: "14.0"
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor

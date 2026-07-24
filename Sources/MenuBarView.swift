@@ -17,12 +17,12 @@ struct MenuBarView: View {
 
         Divider()
 
-        Button("Open LocalScribe") {
+        Button("Open Seal") {
             NSApp.activate()
             NSApp.windows.first?.makeKeyAndOrderFront(nil)
         }
 
-        Button("Quit LocalScribe") {
+        Button("Quit Seal") {
             NSApp.terminate(nil)
         }
     }

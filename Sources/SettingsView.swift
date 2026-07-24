@@ -11,8 +11,11 @@ struct SettingsView: View {
                 .tabItem { Label("Vocabulary", systemImage: "text.book.closed") }
             NotesSettings(settings: settings)
                 .tabItem { Label("Notes", systemImage: "brain") }
+            RecordingSettings(settings: settings)
+                .tabItem { Label("Recording", systemImage: "waveform") }
         }
         .frame(width: 520, height: 440)
+        .tint(Theme.accent)
     }
 }
 
@@ -22,40 +25,50 @@ private struct VocabularySettings: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Custom Vocabulary").font(.title3).bold()
+            Text("Custom Vocabulary").font(Theme.title)
             Text("Names, acronyms, and jargon the transcriber should recognize. Applied on your next recording, and it works in any language — nothing leaves your Mac.")
-                .font(.callout)
+                .font(Theme.sub)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack {
+            HStack(spacing: 8) {
                 TextField("Add a term (e.g. a person's name or an acronym)", text: $newTerm)
+                    .linearField()
                     .onSubmit(add)
                 Button("Add", action: add)
+                    .buttonStyle(.linearQuietCompact)
                     .disabled(trimmedNew.isEmpty)
             }
 
             if vocabulary.terms.isEmpty {
                 Text("No terms yet.")
+                    .font(Theme.body)
                     .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity, minHeight: 160, alignment: .center)
             } else {
-                List {
-                    ForEach(vocabulary.terms, id: \.self) { term in
-                        HStack {
-                            Text(term)
-                            Spacer()
-                            Button {
-                                vocabulary.remove(term)
-                            } label: {
-                                Image(systemName: "minus.circle.fill")
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(Array(vocabulary.terms.enumerated()), id: \.element) { index, term in
+                            if index > 0 { ThemeDivider() }
+                            HStack {
+                                Text(term).font(Theme.body)
+                                Spacer()
+                                Button {
+                                    vocabulary.remove(term)
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 9, weight: .medium))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
                         }
                     }
                 }
                 .frame(minHeight: 160)
+                .insetPanel(radius: 6)
             }
         }
         .padding(20)
@@ -98,5 +111,28 @@ private struct NotesSettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+private struct RecordingSettings: View {
+    @ObservedObject var settings: AppSettings
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recording").font(Theme.title)
+            Toggle(isOn: $settings.keepAudio) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Keep meeting audio").font(Theme.body)
+                    Text("Saves each meeting's audio on your Mac, next to its transcript (~15 MB per hour). This is what powers \"Improve transcript\" — re-transcribing a finished meeting with the accurate model. Nothing ever leaves your Mac; deleting a meeting deletes its audio.")
+                        .font(Theme.sub)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .toggleStyle(.switch)
+            Spacer()
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
