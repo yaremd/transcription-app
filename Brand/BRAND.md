@@ -4,6 +4,10 @@ App: **Seal** (internal codename LocalScribe). Promise: what's said here stays h
 Mascot character name: **TBD** — shortlist is Stamp (wax pun) or Harbor (harbor seal +
 safe-harbor). Decide before website copy.
 
+Two layers, one animal: the **illustrated seal** (app icon, marketing hero art)
+and the **flat glyph marks** (in-app, menu bar, stamp animation). Same creature,
+different fidelity — don't mix fidelities in one surface.
+
 ## The mark: a face that says nothing
 
 An earless, mouthless harbor-seal face. Both absences are the argument:
@@ -15,14 +19,27 @@ An earless, mouthless harbor-seal face. Both absences are the argument:
 Face grid (240 viewBox, head r76 at 120,118): eyes r9 at (92,104) and (148,104),
 nose 9×6.5 at (120,138), four whisker dots. All versions share this grid exactly.
 
-## Files — one geometry, three jobs
+## App icon (canonical): the illustrated seal
+
+`seal-icon-source.jpg` — founder-chosen artwork (July 2026): hand-drawn line-art
+harbor seal pup, big glossy eyes, pixel-mosaic wash. This IS the app icon.
+`gen-appicon.swift` renders it into `Support/Assets.xcassets/AppIcon.appiconset`
+(Big Sur grid: art 824/1024, squircle-masked, transparent margins) — rerun it if
+the source ever changes:
+
+    swift Brand/gen-appicon.swift Brand/seal-icon-source.jpg Support/Assets.xcassets/AppIcon.appiconset
+
+The icon has a subtle mouth; the mouthless rule below applies to the flat glyph
+marks, not this illustration.
+
+## Supporting flat marks — one geometry
 
 - `seal-mark-icon.svg` — monochrome, features punched through (transparent).
-  Use ≤ 96 px: menu-bar template glyph, favicon, watermarks. Recolor via group fill.
+  Menu-bar template glyph, favicon, watermarks. Recolor via group fill.
 - `seal-mark.svg` — full-color mascot: the **lips-sealed pose**, flippers clasped
-  over the mouth. Use ≥ 96 px: onboarding, About, website hero, empty states.
+  over the mouth. Onboarding, About, website hero, empty states.
 - `seal-stamp.svg` — wax lockup (scalloped wax, pressed field, embossed face).
-  Source for the app icon (YAR-60) and the stop-stamp animation (YAR-59).
+  Source for the stop-stamp animation (YAR-59).
 
 Future illustration poses (draw with proper beziers, keep the face grid): banana
 rest for empty states, curled-asleep-on-notes for guarding imagery.
