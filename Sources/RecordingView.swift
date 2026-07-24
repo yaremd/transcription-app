@@ -222,10 +222,18 @@ private struct TranscriptPane: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 SectionLabel("Transcript")
-                if monitor.isRunning && !monitor.isPaused {
-                    PulsingDot(color: Theme.red)
+                if monitor.isRunning {
+                    if monitor.isPaused {
+                        Text("Paused")
+                            .font(Theme.metaMedium)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        PulsingDot(color: Theme.red)
+                        if let start = monitor.recordingStart {
+                            RecordingTimerLabel(start: start)
+                        }
+                    }
                 }
-                LiveLevelDots(levels: monitor.levels)
                 Spacer()
 
                 Button(monitor.isRunning ? "Stop" : "Start Listening") {
@@ -303,15 +311,31 @@ private struct TranscriptPane: View {
 
             ThemeDivider()
 
+            if monitor.isRunning {
+                // A live, color-coded waveform — proof at a glance that audio is
+                // flowing, and who's speaking (indigo = you, green = the call).
+                LiveWaveform(levels: monitor.levels,
+                             active: monitor.isRunning && !monitor.isPaused)
+                    .frame(height: 24)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+                ThemeDivider()
+            }
+
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 8) {
                         if monitor.transcript.isEmpty && monitor.liveLines.isEmpty {
-                            Text(monitor.isRunning ? "Listening…" : "The conversation will appear here.")
+                            Text(monitor.isRunning
+                                 ? "Listening… speak, and play the call for the “Others” side."
+                                 : "The conversation will appear here.")
                                 .font(Theme.sub)
                                 .foregroundStyle(.tertiary)
+                                .multilineTextAlignment(.center)
                                 .frame(maxWidth: .infinity, alignment: .center)
                                 .padding(.top, 24)
+                                .padding(.horizontal, 24)
                         }
                         ForEach(monitor.transcript) { line in
                             ChatBubble(text: line.text,
@@ -409,30 +433,74 @@ private struct SessionSettingsPopover: View {
     }
 }
 
-/// Two tiny dots that glow with the live input levels — proof at a glance
-/// that both the mic (indigo) and the call (green) are being heard.
-private struct LiveLevelDots: View {
-    @ObservedObject var levels: AudioLevels
-
-    init(levels: AudioLevels) {
-        self.levels = levels
-    }
+/// The elapsed recording time, ticking once a second next to the red dot —
+/// quiet, constant reassurance that capture is really happening. Wrapped in a
+/// TimelineView so only these few digits redraw each second, never the growing
+/// transcript beside them. Wall-clock from the session's start, so it matches
+/// the duration the finished meeting is saved with.
+struct RecordingTimerLabel: View {
+    let start: Date
 
     var body: some View {
-        HStack(spacing: 4) {
-            dot(level: levels.mic, tint: Theme.accent)
-                .help("Your microphone")
-            dot(level: levels.system, tint: Theme.green)
-                .help("Call / system audio")
+        TimelineView(.periodic(from: start, by: 1)) { context in
+            Text(Self.format(context.date.timeIntervalSince(start)))
+                .font(.system(size: 11, weight: .medium))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
         }
     }
 
-    private func dot(level: Float, tint: Color) -> some View {
-        Circle()
-            .fill(tint)
-            .frame(width: 5, height: 5)
-            .opacity(0.25 + 0.75 * Double(min(1, level)))
-            .animation(.linear(duration: 0.05), value: level)
+    static func format(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval))
+        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
+        return h > 0 ? String(format: "%d:%02d:%02d", h, m, s)
+                     : String(format: "%d:%02d", m, s)
+    }
+}
+
+/// A live, scrolling waveform. New bars enter on the right and scroll left,
+/// each one colored by who's louder right now — indigo for you (mic), green
+/// for the call (system audio) — so a glance confirms both sides are heard.
+/// It samples the shared level meter on that meter's own ~30 Hz cadence and
+/// keeps its history in local state, so it redraws itself without ever touching
+/// the transcript. When paused it holds its last shape, dimmed.
+private struct LiveWaveform: View {
+    /// Held, not observed: we react to its published mic level via onReceive so
+    /// only this small Canvas redraws — the parent pane never does.
+    let levels: AudioLevels
+    var active: Bool
+    var barWidth: CGFloat = 2.5
+    var spacing: CGFloat = 2
+
+    @State private var bars: [Bar] = []
+
+    struct Bar: Equatable { var level: CGFloat; var isYou: Bool }
+
+    var body: some View {
+        Canvas { context, size in
+            let step = barWidth + spacing
+            let capacity = max(1, Int(size.width / step))
+            let visible = Array(bars.suffix(capacity))
+            let midY = size.height / 2
+            for (i, bar) in visible.enumerated() {
+                let x = size.width - CGFloat(visible.count - i) * step
+                let h = max(2, bar.level * (size.height - 2))
+                let rect = CGRect(x: x, y: midY - h / 2, width: barWidth, height: h)
+                context.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2),
+                             with: .color(bar.isYou ? Theme.accent : Theme.green))
+            }
+        }
+        .opacity(active ? 1 : 0.45)
+        .animation(.easeOut(duration: 0.2), value: active)
+        .onReceive(levels.$mic) { _ in
+            guard active else { return }
+            let mic = CGFloat(min(1, max(0, levels.mic)))
+            let sys = CGFloat(min(1, max(0, levels.system)))
+            var next = bars
+            next.append(Bar(level: max(mic, sys), isYou: mic >= sys))
+            if next.count > 260 { next.removeFirst(next.count - 260) }
+            bars = next
+        }
     }
 }
 
@@ -492,6 +560,9 @@ private struct CollapsedTranscriptPill: View {
             Text(label)
                 .font(Theme.metaMedium)
                 .foregroundStyle(.secondary)
+            if monitor.isRunning, !monitor.isPaused, let start = monitor.recordingStart {
+                RecordingTimerLabel(start: start)
+            }
 
             Button(monitor.isRunning ? "Stop" : "Start") {
                 monitor.toggle()

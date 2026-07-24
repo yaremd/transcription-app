@@ -97,6 +97,10 @@ final class AudioLevels: ObservableObject {
 final class AudioMonitor: ObservableObject {
     @Published var isRunning = false
     @Published var isPaused = false
+    /// When the current recording started — drives the live elapsed timer.
+    /// nil when not recording. Set once per session, so watching it never
+    /// re-renders anything on a per-second cadence.
+    @Published var recordingStart: Date?
     @Published var statusMessage = "Press Start. You and the call will both be transcribed."
     @Published var modelStatus = ""
     @Published var errorMessage: String?
@@ -222,6 +226,7 @@ final class AudioMonitor: ObservableObject {
         discarding = false
         sessionStart = Date()
         sessionEnd = sessionStart
+        recordingStart = sessionStart
         currentMeetingID = UUID()
         levels.mic = 0
         levels.system = 0
@@ -250,10 +255,11 @@ final class AudioMonitor: ObservableObject {
             await self.transcriber.beginSession()
             await self.transcriber.setLanguagePolicy(forced: self.language.code, allowed: self.language.allowedCodes)
             await self.transcriber.setVocabulary(self.vocabulary.terms)
-            let name = await self.transcriber.loadedModel
             await MainActor.run {
                 guard self.isRunning else { return }   // user pressed Stop while loading
-                self.modelStatus = "Ready: \(name ?? "model")"
+                // Plain-English status — the model's internal name ("large-v3-…")
+                // means nothing to the person recording.
+                self.modelStatus = "Transcription ready"
                 self.beginCapture()
             }
         }
@@ -408,6 +414,7 @@ final class AudioMonitor: ObservableObject {
         systemStream = nil
         levels.mic = 0
         levels.system = 0
+        recordingStart = nil
     }
 
     /// Sends the finished transcript to the local LLM and produces notes.

@@ -283,19 +283,19 @@ private struct MeetingRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(meeting.title)
+            Text(primaryText)
                 .font(Theme.body)
                 .lineLimit(1)
+            if let secondaryText {
+                Text(secondaryText)
+                    .font(Theme.meta)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
             HStack(spacing: 5) {
-                if showTime {
-                    Text(meeting.date, style: .time)
-                        .font(Theme.meta)
-                        .foregroundStyle(.tertiary)
-                } else {
-                    Text(meeting.date, style: .date)
-                        .font(Theme.meta)
-                        .foregroundStyle(.tertiary)
-                }
+                Text(meeting.date, style: showTime ? .time : .date)
+                    .font(Theme.meta)
+                    .foregroundStyle(.tertiary)
                 if meeting.hasNotes {
                     Image(systemName: "doc.text")
                         .font(.system(size: 9))
@@ -311,5 +311,25 @@ private struct MeetingRow: View {
             }
         }
         .padding(.vertical, 1)
+    }
+
+    /// A meeting the AI hasn't named yet (still the placeholder, or blank).
+    private var isUnnamed: Bool {
+        let t = meeting.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty || t == Meeting.defaultTitle
+    }
+
+    /// The bold line. For a named meeting it's the title; for an unnamed one we
+    /// promote the content preview so the row is identifiable instead of a wall
+    /// of identical "New transcription" labels.
+    private var primaryText: String {
+        if !isUnnamed { return meeting.title }
+        return meeting.preview.isEmpty ? meeting.title : meeting.preview
+    }
+
+    /// The quiet second line: the preview — unless it's already the bold line.
+    private var secondaryText: String? {
+        guard !isUnnamed, !meeting.preview.isEmpty else { return nil }
+        return meeting.preview
     }
 }

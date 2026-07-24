@@ -48,7 +48,7 @@ struct MeetingDetailView: View {
     @FocusState private var chatFocused: Bool
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        HStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     header
@@ -61,14 +61,25 @@ struct MeetingDetailView: View {
                     actionItemsSection
                     ThemeDivider()
                     followUpSection
-                    Color.clear.frame(height: 56)   // clearance for the floating Ask button
+                    Color.clear.frame(height: 56)   // clearance for the closed Ask pill
                 }
                 .padding(24)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            if !meeting.lines.isEmpty {
-                chatWidget
+
+            // "Ask this meeting" docks as its own right-hand column so it never
+            // covers the notes it answers about — the page reflows beside it.
+            if chatOpen && !meeting.lines.isEmpty {
+                chatDock
+                    .frame(width: 360)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if !chatOpen && !meeting.lines.isEmpty {
+                chatLauncher
                     .padding(20)
+                    .transition(.scale(scale: 0.9, anchor: .bottomTrailing).combined(with: .opacity))
             }
         }
         .navigationTitle(meeting.title)
@@ -108,6 +119,33 @@ struct MeetingDetailView: View {
             chatInput = ""
             chatBusy = false
             chatOpen = false
+            maybeSuggestTitle()
+        }
+    }
+
+    /// Retries naming a meeting that Stop couldn't name — e.g. the local model
+    /// wasn't running then, so it kept the "New transcription" placeholder. Runs
+    /// once when the meeting is opened, only ever replaces the placeholder (a
+    /// title the user typed is never touched), and stays silent on failure.
+    private func maybeSuggestTitle() {
+        let current = meeting.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard current.isEmpty || current == Meeting.defaultTitle else { return }
+        let transcript = meeting.transcriptText
+        guard transcript.count >= 80 else { return }   // too little to name well
+        let id = meeting.id
+        let hint = languageHint
+        let b = backend
+        Task {
+            guard let suggested = try? await generator.suggestTitle(
+                transcript: transcript, languageHint: hint, backend: b) else { return }
+            await MainActor.run {
+                guard var m = store.meetings.first(where: { $0.id == id }) else { return }
+                let existing = m.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard existing.isEmpty || existing == Meeting.defaultTitle else { return }
+                m.title = suggested
+                store.save(m)
+                if meeting.id == id { title = suggested }   // reflect in the open header
+            }
         }
     }
 
@@ -159,34 +197,66 @@ struct MeetingDetailView: View {
                     Button("Save", action: saveNotes)
                         .buttonStyle(.linearPrimaryCompact)
                         .keyboardShortcut("s", modifiers: .command)
-                } else {
+                } else if !meeting.lines.isEmpty {
                     if meeting.hasNotes {
-                        Menu("Reshape") {
-                            Button("Shorter") { reshape("Make the notes shorter and tighter.") }
-                            Button("More detail") { reshape("Expand the notes with more detail from the transcript.") }
-                            Button("More formal") { reshape("Rewrite in a more formal, professional tone.") }
-                            Button("Bullet points") { reshape("Convert the notes to concise bullet points under each heading.") }
-                            Button("Plain language") { reshape("Rewrite in plain, simple language.") }
+                        // One menu for every AI rewrite: regenerate (optionally
+                        // with a different template) or reshape the tone/length —
+                        // instead of four separate controls competing up here.
+                        Menu {
+                            Button("Regenerate", action: generateNotes)
+                            Menu("Regenerate as…") {
+                                ForEach(NotesTemplate.all) { t in
+                                    Button(t.name) { templateID = t.id; generateNotes() }
+                                }
+                            }
+                            Divider()
+                            Section("Reshape") {
+                                Button("Make shorter") { reshape("Make the notes shorter and tighter.") }
+                                Button("Add more detail") { reshape("Expand the notes with more detail from the transcript.") }
+                                Button("More formal") { reshape("Rewrite in a more formal, professional tone.") }
+                                Button("Bullet points") { reshape("Convert the notes to concise bullet points under each heading.") }
+                                Button("Plain language") { reshape("Rewrite in plain, simple language.") }
+                            }
+                        } label: {
+                            Label("Rewrite", systemImage: "sparkles")
                         }
+                        .menuStyle(.borderlessButton)
                         .controlSize(.small)
-                        .disabled(reshaping)
                         .fixedSize()
-                    }
-                    if !meeting.lines.isEmpty {
-                        Picker("Template", selection: $templateID) {
-                            ForEach(NotesTemplate.all) { t in Text(t.name).tag(t.id) }
+                        .disabled(generating || reshaping)
+
+                        Button("Edit") {
+                            notesText = meeting.notes
+                            editingNotes = true
+                            notesOpen = true
                         }
-                        .pickerStyle(.menu)
-                        .labelsHidden()
+                        .buttonStyle(.linearQuietCompact)
+                    } else {
+                        // No notes yet: one prominent action. The click generates
+                        // with the current template; the menu picks another.
+                        Menu {
+                            ForEach(NotesTemplate.all) { t in
+                                Button(t.name) { templateID = t.id; generateNotes() }
+                            }
+                        } label: {
+                            Label("Generate Notes", systemImage: "sparkles")
+                        } primaryAction: {
+                            generateNotes()
+                        }
+                        .menuStyle(.borderlessButton)
                         .controlSize(.small)
                         .fixedSize()
-                        .help("Notes template")
-                        Button(meeting.hasNotes ? "Regenerate" : "Generate Notes", action: generateNotes)
-                            .buttonStyle(meeting.hasNotes
-                                         ? LinearButtonStyle(kind: .quiet, compact: true)
-                                         : LinearButtonStyle(kind: .primary, compact: true))
-                            .disabled(generating || reshaping)
+                        .disabled(generating)
+
+                        Button("Add notes") {
+                            notesText = meeting.notes
+                            editingNotes = true
+                            notesOpen = true
+                        }
+                        .buttonStyle(.linearQuietCompact)
                     }
+                } else {
+                    // No transcript to work from — only manual notes.
                     Button(meeting.hasNotes ? "Edit" : "Add notes") {
                         notesText = meeting.notes
                         editingNotes = true
@@ -617,23 +687,10 @@ struct MeetingDetailView: View {
         }
     }
 
-    // MARK: - Chat widget ("Ask this meeting")
+    // MARK: - Chat ("Ask this meeting")
 
-    /// A floating chat that lives in the bottom-right corner: a pill launcher
-    /// when closed, an opaque card when open. It sits over the page (never
-    /// blocking it wholesale) and can always be dismissed. The thread is
-    /// ephemeral and clears when leaving the meeting.
-    @ViewBuilder
-    private var chatWidget: some View {
-        if chatOpen {
-            chatPanel
-                .transition(.scale(scale: 0.92, anchor: .bottomTrailing).combined(with: .opacity))
-        } else {
-            chatLauncher
-                .transition(.scale(scale: 0.9, anchor: .bottomTrailing).combined(with: .opacity))
-        }
-    }
-
+    /// The closed-state launcher: a small accent pill in the bottom-right that
+    /// opens the docked chat. It covers almost nothing, so it can float.
     private var chatLauncher: some View {
         Button {
             withAnimation(Self.sectionSpring) { chatOpen = true }
@@ -655,7 +712,10 @@ struct MeetingDetailView: View {
         .help("Ask a question about this meeting")
     }
 
-    private var chatPanel: some View {
+    /// The open chat, docked as a full-height right-hand column. Because it's a
+    /// real column and not an overlay, the page reflows beside it and nothing is
+    /// ever hidden behind it. Header, thread, then composer — top to bottom.
+    private var chatDock: some View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
@@ -665,9 +725,7 @@ struct MeetingDetailView: View {
                     .font(Theme.bodyMedium)
                 Spacer()
                 if !chat.isEmpty {
-                    Button {
-                        chat = []
-                    } label: {
+                    Button { chat = [] } label: {
                         Image(systemName: "trash")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
@@ -678,51 +736,45 @@ struct MeetingDetailView: View {
                 Button {
                     withAnimation(Self.sectionSpring) { chatOpen = false }
                 } label: {
-                    Image(systemName: "chevron.down")
+                    Image(systemName: "xmark")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
                 .help("Close")
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
 
             ThemeDivider()
 
-            Group {
-                if chat.isEmpty && !chatBusy {
-                    Text("Ask anything about this meeting — answered only from the transcript, on your Mac.")
-                        .font(Theme.sub)
-                        .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(14)
-                } else {
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            VStack(spacing: 8) {
-                                ForEach(chat) { message in
-                                    DetailChatBubble(message: message)
-                                }
-                                if chatBusy {
-                                    HStack {
-                                        ProgressLabel(text: "Thinking…")
-                                        Spacer()
-                                    }
-                                }
-                                Color.clear.frame(height: 1).id("chat-bottom")
+            if chat.isEmpty && !chatBusy {
+                chatEmptyState
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 8) {
+                            ForEach(chat) { message in
+                                DetailChatBubble(message: message)
                             }
-                            .padding(12)
+                            if chatBusy {
+                                HStack {
+                                    ProgressLabel(text: "Thinking…")
+                                    Spacer()
+                                }
+                            }
+                            Color.clear.frame(height: 1).id("chat-bottom")
                         }
-                        .frame(height: 300)
-                        .onChange(of: chat.count) { _, _ in
-                            withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
-                        }
-                        .onChange(of: chatBusy) { _, _ in
-                            proxy.scrollTo("chat-bottom", anchor: .bottom)
-                        }
+                        .padding(14)
+                    }
+                    .onChange(of: chat.count) { _, _ in
+                        withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+                    }
+                    .onChange(of: chatBusy) { _, _ in
+                        proxy.scrollTo("chat-bottom", anchor: .bottom)
                     }
                 }
+                .frame(maxHeight: .infinity)
             }
 
             ThemeDivider()
@@ -741,13 +793,65 @@ struct MeetingDetailView: View {
                 .buttonStyle(.plain)
                 .disabled(!canSendChat)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
         }
-        .frame(width: 380)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
-        .shadow(color: .black.opacity(0.22), radius: 20, y: 6)
+        .frame(maxHeight: .infinity)
+        .background(Theme.background)
+        .overlay(alignment: .leading) {
+            Rectangle().fill(Theme.border).frame(width: 1)
+        }
+    }
+
+    /// Shown before the first question: a one-liner on what Ask does, then a few
+    /// tappable starter questions so nobody stares at an empty box.
+    private var chatEmptyState: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Answered only from this meeting's transcript, on your Mac.")
+                .font(Theme.sub)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            VStack(spacing: 6) {
+                ForEach(Self.suggestedQuestions, id: \.self) { question in
+                    Button { ask(question) } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Theme.accent)
+                            Text(question)
+                                .font(Theme.sub)
+                                .foregroundStyle(.primary)
+                                .multilineTextAlignment(.leading)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 8))
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(chatBusy)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private static let suggestedQuestions = [
+        "Summarize the key points",
+        "What was decided?",
+        "List the action items and owners",
+        "Give me a 3-sentence recap",
+    ]
+
+    /// Fills the composer with a starter question and sends it.
+    private func ask(_ question: String) {
+        guard !chatBusy, !meeting.lines.isEmpty else { return }
+        chatInput = question
+        sendChat()
     }
 
     private var canSendChat: Bool {
