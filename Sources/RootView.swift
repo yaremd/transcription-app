@@ -160,6 +160,12 @@ struct RootView: View {
             // Warm the transcription model now so the first ⌘N of the app
             // run starts hearing immediately.
             monitor.prewarmModel()
+            settings.appearance.apply()
+        }
+        // Pick fast local models from whatever Ollama has installed, so the
+        // first meeting's title and notes don't crawl on a 20B by default.
+        .task {
+            settings.resolveModels(await OllamaModels.installed())
         }
         .sheet(isPresented: $showOnboarding) {
             OnboardingView {
