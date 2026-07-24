@@ -66,6 +66,17 @@ extension Meeting {
         !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// The title to show in lists (sidebar, the action-items inbox): the real
+    /// title, or — when the meeting is still unnamed — its content preview, so a
+    /// group is never an ambiguous "New transcription" among many identical ones.
+    var displayTitle: String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty && trimmed != Meeting.defaultTitle { return title }
+        let p = preview
+        if !p.isEmpty { return p }
+        return trimmed.isEmpty ? Meeting.defaultTitle : title
+    }
+
     /// A one-line preview of what the meeting was about, for the sidebar: the
     /// first real sentence of the generated notes (its summary) if there is
     /// one, otherwise the first spoken line. This keeps the list scannable even

@@ -325,13 +325,10 @@ private struct MeetingRow: View {
         return t.isEmpty || t == Meeting.defaultTitle
     }
 
-    /// The bold line. For a named meeting it's the title; for an unnamed one we
-    /// promote the content preview so the row is identifiable instead of a wall
+    /// The bold line. For a named meeting it's the title; for an unnamed one the
+    /// content preview is promoted so the row is identifiable instead of a wall
     /// of identical "New transcription" labels.
-    private var primaryText: String {
-        if !isUnnamed { return meeting.title }
-        return meeting.preview.isEmpty ? meeting.title : meeting.preview
-    }
+    private var primaryText: String { meeting.displayTitle }
 
     /// The quiet second line: the preview — unless it's already the bold line.
     private var secondaryText: String? {
