@@ -29,6 +29,11 @@ struct LocalScribeApp: App {
                 .environmentObject(settings)
                 .environmentObject(vocabulary)
                 .frame(minWidth: 860, minHeight: 620)
+                // Touching the controller here guarantees SwiftUI actually
+                // creates it — an @StateObject that body never reads may never
+                // be realized, and then no pill would ever appear — and gives
+                // it one initial pass over the window state.
+                .onAppear { pill.ensureActive() }
         }
         .commands {
             CommandGroup(after: .newItem) {
@@ -68,6 +73,8 @@ final class FloatingPillController: ObservableObject {
         let triggers: [Notification.Name] = [
             NSApplication.didResignActiveNotification,
             NSApplication.didBecomeActiveNotification,
+            NSApplication.didHideNotification,
+            NSApplication.didUnhideNotification,
             NSWindow.didMiniaturizeNotification,
             NSWindow.didDeminiaturizeNotification,
             NSWindow.willCloseNotification,
@@ -89,22 +96,29 @@ final class FloatingPillController: ObservableObject {
         NSApp.windows.first { $0.canBecomeMain && !($0 is NSPanel) }
     }
 
+    /// Called once from the app body — makes sure the controller exists and
+    /// has evaluated the current window state.
+    func ensureActive() {
+        refresh()
+    }
+
     /// The pill shows whenever a recording runs and the app isn't visibly in
-    /// front of the user: another app is active, or LocalScribe is active but
-    /// its window is minimized or closed.
+    /// front of the user. "Visibly in front" is judged directly from window
+    /// state: the app is active AND at least one real (titled) window is
+    /// actually on screen — a minimized, hidden, or closed window is not.
+    /// Judging it this way is robust against the invisible helper windows
+    /// AppKit/SwiftUI keep around (status-bar items, released Settings
+    /// windows), which used to be able to masquerade as "the" main window.
     private func refresh(running: Bool? = nil) {
         let isRecording = running ?? monitor.isRunning
-        var shouldShow = false
-        if isRecording {
-            if !NSApp.isActive {
-                shouldShow = true
-            } else if let window = mainWindow {
-                shouldShow = window.isMiniaturized
-            } else {
-                shouldShow = true   // window closed entirely
-            }
+        guard isRecording else { hide(); return }
+        let visiblyInFront = NSApp.isActive && NSApp.windows.contains { window in
+            !(window is NSPanel)
+                && window.styleMask.contains(.titled)
+                && window.isVisible
+                && !window.isMiniaturized
         }
-        shouldShow ? show() : hide()
+        visiblyInFront ? hide() : show()
     }
 
     private func show() {
@@ -178,6 +192,14 @@ private struct FloatingPillView: View {
             }
             .buttonStyle(.plain)
             .help("Open Seal")
+
+            // Elapsed time — the same quiet reassurance as the in-app control
+            // bar. Reserved width so the panel never clips as digits grow.
+            if let start = monitor.recordingStart {
+                RecordingTimerLabel(start: start)
+                    .frame(minWidth: 44, alignment: .leading)
+                    .opacity(monitor.isPaused ? 0.5 : 1)
+            }
 
             LevelDots(level: monitor.isPaused ? 0 : levels.mic,
                       dimmed: monitor.isPaused)
