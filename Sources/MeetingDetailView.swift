@@ -47,6 +47,10 @@ struct MeetingDetailView: View {
     @State private var chatOpen = false
     @FocusState private var chatFocused: Bool
 
+    /// Speaker names the model proposed for this meeting, awaiting the user's
+    /// confirmation. nil = nothing (yet) to suggest.
+    @State private var suggestedNames: [String: String]?
+
     var body: some View {
         HStack(spacing: 0) {
             ScrollView {
@@ -119,8 +123,52 @@ struct MeetingDetailView: View {
             chatInput = ""
             chatBusy = false
             chatOpen = false
+            suggestedNames = nil
             maybeSuggestTitle()
+            maybeSuggestSpeakers()
         }
+    }
+
+    /// Asks the local model who was actually talking (from self-intros and
+    /// address forms) the first time a meeting is opened. Proposes, never
+    /// applies: the banner in the transcript section waits for the user.
+    /// Silent on failure; declining is remembered (speakerNames == [:]).
+    private func maybeSuggestSpeakers() {
+        guard meeting.speakerNames == nil, !meeting.lines.isEmpty else { return }
+        let transcript = meeting.transcriptText
+        guard transcript.count >= 80 else { return }
+        let id = meeting.id
+        let b = backend
+        Task {
+            guard let names = try? await generator.suggestSpeakerNames(transcript: transcript, backend: b),
+                  !names.isEmpty else { return }
+            await MainActor.run {
+                guard meeting.id == id, meeting.speakerNames == nil else { return }
+                suggestedNames = names
+            }
+        }
+    }
+
+    private func applySuggestedNames() {
+        guard let names = suggestedNames, !names.isEmpty else { return }
+        var updated = meeting
+        updated.speakerNames = names
+        store.save(updated)
+        suggestedNames = nil
+    }
+
+    private func dismissSuggestedNames() {
+        var updated = meeting
+        updated.speakerNames = [:]   // remembered: asked, and the labels stay
+        store.save(updated)
+        suggestedNames = nil
+    }
+
+    private func suggestionLine(_ names: [String: String]) -> String {
+        var parts: [String] = []
+        if let others = names["Others"] { parts.append("\(others) — the other side") }
+        if let you = names["You"] { parts.append("\(you) — you") }
+        return "Sounds like: " + parts.joined(separator: " · ")
     }
 
     /// Retries naming a meeting that Stop couldn't name — e.g. the local model
@@ -130,7 +178,7 @@ struct MeetingDetailView: View {
     private func maybeSuggestTitle() {
         let current = meeting.title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard current.isEmpty || current == Meeting.defaultTitle else { return }
-        let transcript = meeting.transcriptText
+        let transcript = meeting.aiTranscript
         guard transcript.count >= 80 else { return }   // too little to name well
         let id = meeting.id
         let hint = languageHint
@@ -327,7 +375,7 @@ struct MeetingDetailView: View {
         generateError = nil
         let b = backend
         let hint = languageHint
-        let transcript = meeting.transcriptText
+        let transcript = meeting.aiTranscript
         let jotted = meeting.userNotes ?? ""
         let chosenTemplateID = templateID
         let template = NotesTemplate.all.first { $0.id == chosenTemplateID } ?? .general
@@ -355,7 +403,7 @@ struct MeetingDetailView: View {
         reshaping = true
         let b = backend
         let hint = languageHint
-        let transcript = meeting.transcriptText
+        let transcript = meeting.aiTranscript
         let current = meeting.notes
         Task {
             do {
@@ -411,6 +459,26 @@ struct MeetingDetailView: View {
                 Text(polishError).font(Theme.sub).foregroundStyle(Theme.red)
             }
 
+            // The model thinks it heard who's who — propose, never apply.
+            if let names = suggestedNames, !names.isEmpty, meeting.speakerNames == nil {
+                HStack(spacing: 10) {
+                    Image(systemName: "person.wave.2")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.accent)
+                    Text(suggestionLine(names))
+                        .font(Theme.sub)
+                        .lineLimit(1)
+                    Spacer()
+                    Button("Use names", action: applySuggestedNames)
+                        .buttonStyle(.linearPrimaryCompact)
+                    Button("Not now", action: dismissSuggestedNames)
+                        .buttonStyle(.linearQuietCompact)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .surfacePanel(radius: 6)
+            }
+
             if transcriptOpen {
                 if meeting.lines.isEmpty {
                     Text("No transcript.")
@@ -420,9 +488,10 @@ struct MeetingDetailView: View {
                     let lines = showFullTranscript ? meeting.lines : Array(meeting.lines.prefix(4))
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
-                            TranscriptRow(speaker: line.speaker,
+                            TranscriptRow(speaker: meeting.displayName(for: line.speaker),
                                           text: line.text,
-                                          showSpeaker: index == 0 || lines[index - 1].speaker != line.speaker)
+                                          showSpeaker: index == 0 || lines[index - 1].speaker != line.speaker,
+                                          isYou: line.speaker == "You")
                         }
                     }
                     .mask(
@@ -616,7 +685,7 @@ struct MeetingDetailView: View {
         actionsError = nil
         let b = backend
         let hint = languageHint
-        let transcript = meeting.transcriptText
+        let transcript = meeting.aiTranscript
         let notes = meeting.notes
         Task {
             do {
@@ -683,7 +752,7 @@ struct MeetingDetailView: View {
         followUpError = nil
         let b = backend
         let hint = languageHint
-        let transcript = meeting.transcriptText
+        let transcript = meeting.aiTranscript
         let notes = meeting.notes
         Task {
             do {
@@ -878,7 +947,7 @@ struct MeetingDetailView: View {
         chatBusy = true
         let b = backend
         let hint = languageHint
-        let transcript = meeting.transcriptText
+        let transcript = meeting.aiTranscript
         let meetingID = meeting.id
         Task {
             var reply: String

@@ -75,6 +75,34 @@ final class NotesGenerator {
         return line
     }
 
+    /// Reads the transcript for the participants' real names (self-intros,
+    /// how people address each other) and returns what it found, keyed by the
+    /// raw speaker label. Names it can't establish are simply absent — the
+    /// caller shows a suggestion only when there is one.
+    func suggestSpeakerNames(transcript: String, backend: NotesBackend) async throws -> [String: String] {
+        let system = """
+        Identify the real names of the conversation participants from the transcript. \
+        Lines labeled "You" are the app's user; lines labeled "Others" are everyone else on the call. \
+        Use only self-introductions and how people address each other — never invent a name. \
+        Reply with EXACTLY two lines and nothing else:
+        You: <name or UNKNOWN>
+        Others: <name(s), comma-separated, or UNKNOWN>
+        Keep names spelled exactly as in the transcript.
+        """
+        let raw = try await dispatch(system: system, user: clippedForTitle(transcript), backend: backend)
+        var result: [String: String] = [:]
+        for line in raw.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            for key in ["You", "Others"] where trimmed.lowercased().hasPrefix(key.lowercased() + ":") {
+                var name = String(trimmed.dropFirst(key.count + 1)).trimmingCharacters(in: .whitespaces)
+                name = name.trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”«»*"))
+                guard !name.isEmpty, name.uppercased() != "UNKNOWN", name.count <= 60 else { continue }
+                result[key] = name
+            }
+        }
+        return result
+    }
+
     /// Answers a question about the meeting using only the transcript.
     func answer(question: String, transcript: String, languageHint: String, backend: NotesBackend) async throws -> String {
         let system = """

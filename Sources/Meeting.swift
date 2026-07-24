@@ -47,6 +47,10 @@ struct Meeting: Codable, Identifiable, Hashable {
     var tags: [String]? = nil
     /// Action items / tasks for this meeting.
     var actionItems: [ActionItem]? = nil
+    /// Real participant names, keyed by the raw speaker label ("You"/"Others").
+    /// nil = never asked; empty = the user was asked and declined (so the
+    /// suggestion isn't offered again); entries rename how speakers display.
+    var speakerNames: [String: String]? = nil
 
     /// The placeholder title for a meeting that hasn't been named yet. The
     /// date/time is shown separately in the UI, so the title's job is to say
@@ -60,6 +64,29 @@ extension Meeting {
     /// The transcript rendered as "Speaker: text" lines — for copying and notes.
     var transcriptText: String {
         lines.map { "\($0.speaker): \($0.text)" }.joined(separator: "\n")
+    }
+
+    /// How a raw speaker label ("You"/"Others") should display — the confirmed
+    /// real name when one is known, the label itself otherwise.
+    func displayName(for speaker: String) -> String {
+        if let mapped = speakerNames?[speaker],
+           !mapped.trimmingCharacters(in: .whitespaces).isEmpty {
+            return mapped
+        }
+        return speaker
+    }
+
+    /// Transcript text for AI prompts: keeps the raw You/Others labels (their
+    /// semantics are baked into the prompts) but adds a participants header
+    /// when real names are known, so notes and answers can use them.
+    var aiTranscript: String {
+        guard let names = speakerNames, !names.isEmpty else { return transcriptText }
+        let parts = names
+            .filter { !$0.value.trimmingCharacters(in: .whitespaces).isEmpty }
+            .map { "\($0.key) = \($0.value)" }
+            .sorted()
+        guard !parts.isEmpty else { return transcriptText }
+        return "PARTICIPANTS: " + parts.joined(separator: "; ") + "\n\n" + transcriptText
     }
 
     var hasNotes: Bool {
