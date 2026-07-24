@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+  <!-- Icon-grade mark: earless, mouthless seal face. Punched features, survives 16 px. Recolor via group fill. -->
+  <path fill="#5E6AD2" fill-rule="evenodd" d="M44,118 a76,76 0 1 0 152,0 a76,76 0 1 0 -152,0
+    M83,104 a9,9 0 1 1 18,0 a9,9 0 1 1 -18,0
+    M139,104 a9,9 0 1 1 18,0 a9,9 0 1 1 -18,0
+    M111,138 a9,6.5 0 1 1 18,0 a9,6.5 0 1 1 -18,0
+    M93,144 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0
+    M89,152 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0
+    M141,144 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0
+    M145,152 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0"/>
+</svg>
