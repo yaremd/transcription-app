@@ -11,6 +11,8 @@ struct SettingsView: View {
                 .tabItem { Label("Vocabulary", systemImage: "text.book.closed") }
             NotesSettings(settings: settings)
                 .tabItem { Label("Notes", systemImage: "brain") }
+            RecordingSettings(settings: settings)
+                .tabItem { Label("Recording", systemImage: "waveform") }
         }
         .frame(width: 520, height: 440)
         .tint(Theme.accent)
@@ -109,5 +111,28 @@ private struct NotesSettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+private struct RecordingSettings: View {
+    @ObservedObject var settings: AppSettings
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recording").font(Theme.title)
+            Toggle(isOn: $settings.keepAudio) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Keep meeting audio").font(Theme.body)
+                    Text("Saves each meeting's audio on your Mac, next to its transcript (~15 MB per hour). This is what powers \"Improve transcript\" — re-transcribing a finished meeting with the accurate model. Nothing ever leaves your Mac; deleting a meeting deletes its audio.")
+                        .font(Theme.sub)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .toggleStyle(.switch)
+            Spacer()
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }

@@ -155,6 +155,9 @@ struct RootView: View {
         }
         .onAppear {
             if !settings.hasOnboarded { showOnboarding = true }
+            // Warm the transcription model now so the first ⌘N of the app
+            // run starts hearing immediately.
+            monitor.prewarmModel()
         }
         .sheet(isPresented: $showOnboarding) {
             OnboardingView {

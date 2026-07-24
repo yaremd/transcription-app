@@ -59,7 +59,34 @@ final class MeetingStore: ObservableObject {
 
     func delete(_ meeting: Meeting) {
         try? FileManager.default.removeItem(at: fileURL(for: meeting.id))
+        deleteAudio(for: meeting.id)
         meetings.removeAll { $0.id == meeting.id }
+    }
+
+    // MARK: - Meeting audio (sibling .m4a files, written only when the user
+    // keeps meeting audio on; they enable "Improve transcript")
+
+    func audioURL(for id: UUID, stream: String) -> URL {
+        directory.appendingPathComponent("\(id.uuidString).\(stream).m4a")
+    }
+
+    /// The meeting's saved audio files that actually exist on disk.
+    func existingAudioURLs(for id: UUID) -> (mic: URL?, system: URL?) {
+        let mic = audioURL(for: id, stream: "mic")
+        let system = audioURL(for: id, stream: "system")
+        let fm = FileManager.default
+        return (fm.fileExists(atPath: mic.path) ? mic : nil,
+                fm.fileExists(atPath: system.path) ? system : nil)
+    }
+
+    func hasAudio(for id: UUID) -> Bool {
+        let urls = existingAudioURLs(for: id)
+        return urls.mic != nil || urls.system != nil
+    }
+
+    func deleteAudio(for id: UUID) {
+        try? FileManager.default.removeItem(at: audioURL(for: id, stream: "mic"))
+        try? FileManager.default.removeItem(at: audioURL(for: id, stream: "system"))
     }
 
     private func fileURL(for id: UUID) -> URL {
