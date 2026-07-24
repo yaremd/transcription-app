@@ -403,8 +403,11 @@ struct TranscriptRow: View {
     var live: Bool = false
     var showSpeaker: Bool = true
     var highlighted: Bool = false
+    /// Which side the color coding follows. Defaults to the label itself;
+    /// pass explicitly when `speaker` is a real name replacing "You"/"Others".
+    var isYou: Bool? = nil
 
-    private var tint: Color { speaker == "You" ? Theme.accent : Theme.green }
+    private var tint: Color { (isYou ?? (speaker == "You")) ? Theme.accent : Theme.green }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {

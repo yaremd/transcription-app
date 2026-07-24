@@ -15,7 +15,7 @@ enum MeetingExporter {
         }
         s += "## Transcript\n\n"
         for line in m.lines {
-            s += "**\(line.speaker):** \(line.text)\n\n"
+            s += "**\(m.displayName(for: line.speaker)):** \(line.text)\n\n"
         }
         return s
     }
@@ -84,7 +84,7 @@ enum MeetingExporter {
         }
         add("Transcript", size: 15, bold: true)
         for line in m.lines {
-            add("\(line.speaker):", size: 11, bold: true, color: .darkGray, spacingAfter: 1)
+            add("\(m.displayName(for: line.speaker)):", size: 11, bold: true, color: .darkGray, spacingAfter: 1)
             add(line.text, size: 12, spacingAfter: 8)
         }
         return out
