@@ -2,9 +2,11 @@ import SwiftUI
 
 /// A cross-meeting inbox of action items, grouped by meeting. Open items only by
 /// default; a toggle reveals completed ones. Checking an item saves it back to
-/// its meeting.
+/// its meeting; clicking a card's header opens that meeting.
 struct TasksView: View {
     @EnvironmentObject private var store: MeetingStore
+    /// Navigates the window to the given meeting (wired by RootView).
+    var openMeeting: (UUID) -> Void = { _ in }
     @State private var showCompleted = false
 
     var body: some View {
@@ -32,21 +34,8 @@ struct TasksView: View {
                     // meetings are still unnamed).
                     ForEach(meetingsWithItems) { meeting in
                         VStack(alignment: .leading, spacing: 10) {
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Text(meeting.displayTitle)
-                                    .font(Theme.bodyMedium)
-                                    .lineLimit(1)
-                                let open = meeting.openActionItems.count
-                                if open > 0 {
-                                    Text("\(open)")
-                                        .font(Theme.meta)
-                                        .monospacedDigit()
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Text(meeting.date, style: .date)
-                                    .font(Theme.meta)
-                                    .foregroundStyle(.tertiary)
+                            MeetingCardHeader(meeting: meeting) {
+                                openMeeting(meeting.id)
                             }
                             ThemeDivider()
                             VStack(alignment: .leading, spacing: 8) {
@@ -94,5 +83,42 @@ struct TasksView: View {
                 store.save(updated)
             }
         )
+    }
+}
+
+/// A card's header row — the whole row is a click target that opens the
+/// meeting; the chevron and hover tint say so.
+private struct MeetingCardHeader: View {
+    let meeting: Meeting
+    let open: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: open) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(meeting.displayTitle)
+                    .font(Theme.bodyMedium)
+                    .foregroundStyle(hovering ? Theme.accent : .primary)
+                    .lineLimit(1)
+                let open = meeting.openActionItems.count
+                if open > 0 {
+                    Text("\(open)")
+                        .font(Theme.meta)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(meeting.date, style: .date)
+                    .font(Theme.meta)
+                    .foregroundStyle(.tertiary)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(hovering ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(.tertiary))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help("Open this meeting")
     }
 }

@@ -21,6 +21,9 @@ struct RootView: View {
     @State private var selection: Panel?
     @State private var searchText = ""
     @State private var showOnboarding = false
+    /// A meeting awaiting delete confirmation — deletion is irreversible
+    /// (transcript, notes, and audio), so it always asks first.
+    @State private var pendingDelete: Meeting?
 
     var body: some View {
         NavigationSplitView {
@@ -75,9 +78,9 @@ struct RootView: View {
                                 .tag(Panel.meeting(meeting.id))
                                 .contextMenu {
                                     Button(role: .destructive) {
-                                        delete(meeting)
+                                        pendingDelete = meeting
                                     } label: {
-                                        Label("Delete", systemImage: "trash")
+                                        Label("Delete…", systemImage: "trash")
                                     }
                                 }
                         }
@@ -104,7 +107,7 @@ struct RootView: View {
             Group {
                 switch selection {
                 case .tasks:
-                    TasksView()
+                    TasksView(openMeeting: { selection = .meeting($0) })
                 case .meeting(let id):
                     if let meeting = store.meetings.first(where: { $0.id == id }) {
                         MeetingDetailView(meeting: meeting)
@@ -163,6 +166,20 @@ struct RootView: View {
                 settings.hasOnboarded = true
                 showOnboarding = false
             }
+        }
+        .confirmationDialog(
+            "Delete “\(pendingDelete?.displayTitle ?? "")”?",
+            isPresented: Binding(get: { pendingDelete != nil },
+                                 set: { if !$0 { pendingDelete = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let meeting = pendingDelete { delete(meeting) }
+                pendingDelete = nil
+            }
+            Button("Cancel", role: .cancel) { pendingDelete = nil }
+        } message: {
+            Text("The transcript, notes, and audio for this meeting will be removed from your Mac. This can't be undone.")
         }
     }
 

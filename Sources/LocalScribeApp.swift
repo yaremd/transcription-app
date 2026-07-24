@@ -111,6 +111,9 @@ final class FloatingPillController: ObservableObject {
     /// windows), which used to be able to masquerade as "the" main window.
     private func refresh(running: Bool? = nil) {
         let isRecording = running ?? monitor.isRunning
+        // The Dock icon carries a REC badge for the whole session — visible
+        // reassurance even when the pill is hidden or on another screen.
+        NSApp.dockTile.badgeLabel = isRecording ? "REC" : nil
         guard isRecording else { hide(); return }
         let visiblyInFront = NSApp.isActive && NSApp.windows.contains { window in
             !(window is NSPanel)
