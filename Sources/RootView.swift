@@ -250,7 +250,7 @@ private struct WelcomeView: View {
                     .foregroundStyle(Theme.accent)
             }
             VStack(spacing: 4) {
-                Text("LocalScribe")
+                Text("Seal")
                     .font(Theme.pageTitle)
                 Text("Private, on-device meeting notes")
                     .font(Theme.sub)
