@@ -15,6 +15,14 @@ actor Transcriber {
     private var cachedVocabularyTokens: [Int]?
     private var detectedLanguage: [String: String] = [:]   // per source, in auto mode
     private var recentContext: [String: String] = [:]      // per source: tail of committed text
+    /// Per source: how many final lines each language has produced this
+    /// session. The leader is the source's "dominant" language — the momentum
+    /// that keeps one noisy detection from flipping a Ukrainian meeting into
+    /// English (which Whisper then *translates* into) or Russian.
+    private var languageTally: [String: [String: Int]] = [:]
+    /// Token ids containing letters Ukrainian never uses (ы э ъ ё) — cached
+    /// per loaded model; suppressed whenever decoding as Ukrainian.
+    private var cachedRussianMarkerTokens: [Int]?
     private var filteredSegments = 0       // junk dropped this session, for tuning
     private let log = Logger(subsystem: "com.yarem.LocalScribe", category: "Transcriber")
 
@@ -54,6 +62,7 @@ actor Transcriber {
     func beginSession() {
         detectedLanguage = [:]
         recentContext = [:]
+        languageTally = [:]
         filteredSegments = 0
     }
 
@@ -63,6 +72,7 @@ actor Transcriber {
         pipe = nil
         loadedModel = nil
         cachedVocabularyTokens = nil   // the tokenizer changes with the new model
+        cachedRussianMarkerTokens = nil
     }
 
     func load(candidates: [String]) async throws {
@@ -70,8 +80,13 @@ actor Transcriber {
         var lastError: Error?
         for name in candidates {
             do {
-                pipe = try await WhisperKit(WhisperKitConfig(model: name, prewarm: true))
+                let loaded = try await WhisperKit(WhisperKitConfig(model: name, prewarm: true))
+                pipe = loaded
                 loadedModel = name
+                // Warm the Russian-marker suppress list while we're already in
+                // "loading" — scanning the vocabulary once beats stalling the
+                // first Ukrainian utterance.
+                _ = russianMarkerTokens(pipe: loaded)
                 return
             } catch {
                 lastError = error
@@ -88,35 +103,51 @@ actor Transcriber {
     func transcribe(_ samples: [Float], source: String, mode: TranscribeMode) async -> String {
         guard let pipe, samples.count >= 1600 else { return "" }   // need ≥ 0.1s of audio
 
-        var options = DecodingOptions()
-        options.task = .transcribe
-        options.skipSpecialTokens = true
-        options.withoutTimestamps = true   // timestamps are unused; decoding is faster without them
-        options.suppressBlank = true
-        switch mode {
-        case .live:
-            options.temperatureFallbackCount = 0   // no retry ladder: the preview must keep up
-        case .final:
-            options.temperatureFallbackCount = 2
-        }
-        options.promptTokens = promptTokens(for: source, pipe: pipe)
-
         let candidates = await languageCandidates(samples: samples, source: source, mode: mode, pipe: pipe)
+        let dominant = dominantLanguage(for: source)
         var best: (text: String, score: Float, language: String?)?
         for candidate in candidates {
+            var options = DecodingOptions()
+            options.task = .transcribe
+            options.skipSpecialTokens = true
+            options.withoutTimestamps = true   // timestamps are unused; decoding is faster without them
+            options.suppressBlank = true
+            switch mode {
+            case .live:
+                options.temperatureFallbackCount = 0   // no retry ladder: the preview must keep up
+            case .final:
+                options.temperatureFallbackCount = 2
+            }
             options.language = candidate
             options.detectLanguage = (candidate == nil)
+            // Context is offered per candidate: a prompt in the wrong script
+            // would drag the decoder toward that language (one mis-detected
+            // line then poisons every one after it).
+            options.promptTokens = promptTokens(for: source, pipe: pipe, decodingAs: candidate)
+            // Decoding as Ukrainian: ban every token containing a letter
+            // Ukrainian never uses (ы э ъ ё) — Russian output becomes
+            // impossible without touching legitimate Ukrainian text.
+            if (candidate ?? language) == "uk" {
+                options.supressTokens = russianMarkerTokens(pipe: pipe)
+            }
             guard let results = try? await pipe.transcribe(audioArray: samples, decodeOptions: options) else { continue }
             let kept = results.flatMap { $0.segments }.filter { trustworthy($0) }
             let text = Self.cleaned(kept.map { $0.text }.joined(separator: " "))
-            let score = Self.decodeScore(kept, isEmpty: text.isEmpty)
+            var score = Self.decodeScore(kept, isEmpty: text.isEmpty)
+            // Momentum: the language this source has been speaking all session
+            // starts ahead. Whisper's English *translations* of Ukrainian
+            // speech decode fluently (high confidence), so raw confidence
+            // alone would happily flip the meeting into English.
+            if mode == .final, let candidate, candidate == dominant, !text.isEmpty {
+                score += 0.2
+            }
             if best == nil || score > best!.score {
                 best = (text, score, candidate ?? results.first?.language)
             }
         }
         guard let best else { return "" }
         if candidates.count > 1 {
-            log.notice("bilingual arbitration on \(source, privacy: .public): picked \(best.language ?? "?", privacy: .public) (score \(best.score, format: .fixed(precision: 2)))")
+            log.notice("bilingual arbitration on \(source, privacy: .public): picked \(best.language ?? "?", privacy: .public) (score \(best.score, format: .fixed(precision: 2)), dominant \(dominant ?? "-", privacy: .public))")
         }
 
         // Remember what this source actually speaks. Final passes are informed
@@ -126,8 +157,37 @@ actor Transcriber {
            let lang = best.language, !lang.isEmpty,
            allowedLanguages.isEmpty || allowedLanguages.contains(lang) {
             detectedLanguage[source] = lang
+            if mode == .final && !best.text.isEmpty {
+                languageTally[source, default: [:]][lang, default: 0] += 1
+            }
         }
         return best.text
+    }
+
+    /// The language most of this source's final lines were in — needs at
+    /// least two committed lines to count as established.
+    private func dominantLanguage(for source: String) -> String? {
+        guard let tally = languageTally[source],
+              let leader = tally.max(by: { $0.value < $1.value }),
+              leader.value >= 2 else { return nil }
+        return leader.key
+    }
+
+    /// Token ids whose text contains letters Ukrainian never uses (ы э ъ ё).
+    /// Built once per loaded model by scanning the vocabulary.
+    private func russianMarkerTokens(pipe: WhisperKit) -> [Int] {
+        if let cachedRussianMarkerTokens { return cachedRussianMarkerTokens }
+        guard let tokenizer = pipe.tokenizer else { return [] }
+        let markers = CharacterSet(charactersIn: "ыЫэЭъЪёЁ")
+        var found: [Int] = []
+        for id in 0..<tokenizer.specialTokens.specialTokenBegin {
+            if tokenizer.decode(tokens: [id]).rangeOfCharacter(from: markers) != nil {
+                found.append(id)
+            }
+        }
+        cachedRussianMarkerTokens = found
+        log.notice("Ukrainian decode guard: suppressing \(found.count) Russian-marker tokens")
+        return found
     }
 
     // MARK: - Language choice
@@ -150,7 +210,16 @@ actor Transcriber {
                 .map { (code: $0, prob: detection.langProbs[$0] ?? 0) }
                 .sorted { $0.prob > $1.prob }
             let top = ranked[0], next = ranked[1]
-            if top.prob >= 0.75 || next.prob == 0 || top.prob >= 4 * next.prob {
+            // Single decode only when detection is near-certain — and flipping
+            // away from the language this source has spoken all session
+            // demands even more certainty. Detection on short utterances is
+            // noisy, and one wrong single-decode turns Ukrainian speech into
+            // an English translation. Everything ambiguous decodes both ways
+            // and lets arbitration (with its momentum bonus) decide.
+            let dominant = dominantLanguage(for: source)
+            let certain = top.prob >= 0.85 || next.prob == 0 || top.prob >= 6 * next.prob
+            let switchingAway = dominant != nil && top.code != dominant
+            if certain && (!switchingAway || top.prob >= 0.95) {
                 detectedLanguage[source] = top.code
                 return [top.code]
             }
@@ -172,8 +241,11 @@ actor Transcriber {
     /// Custom vocabulary + this source's recent transcript, as prompt tokens.
     /// Vocabulary first, context last — recency weighs most with the decoder.
     /// Capped well under Whisper's 224-token prompt budget so the audio keeps
-    /// most of the context window.
-    private func promptTokens(for source: String, pipe: WhisperKit) -> [Int]? {
+    /// most of the context window. The context is offered only to a candidate
+    /// whose script it matches: an English-text prompt on a Ukrainian decode
+    /// (or vice versa) drags the decoder toward the wrong language, which is
+    /// how one bad line used to poison the rest of the meeting.
+    private func promptTokens(for source: String, pipe: WhisperKit, decodingAs candidate: String?) -> [Int]? {
         guard let tokenizer = pipe.tokenizer else { return nil }
         var tokens: [Int] = []
         if !vocabularyPrompt.isEmpty {
@@ -185,12 +257,31 @@ actor Transcriber {
             }
             tokens += cachedVocabularyTokens ?? []
         }
-        if let context = recentContext[source], !context.isEmpty {
+        if let context = recentContext[source], !context.isEmpty,
+           Self.scriptCompatible(context, with: candidate) {
             tokens += tokenizer.encode(text: " " + context)
                 .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
                 .suffix(120)
         }
         return tokens.isEmpty ? nil : tokens
+    }
+
+    /// Whether text's script plausibly belongs to the language being decoded.
+    private static func scriptCompatible(_ text: String, with candidate: String?) -> Bool {
+        guard let candidate else { return true }
+        var cyrillic = 0, latin = 0
+        for scalar in text.unicodeScalars {
+            switch scalar.value {
+            case 0x0400...0x04FF: cyrillic += 1
+            case 0x0041...0x005A, 0x0061...0x007A: latin += 1
+            default: break
+            }
+        }
+        switch candidate {
+        case "uk", "ru": return cyrillic >= latin
+        case "en": return latin >= cyrillic
+        default: return true
+        }
     }
 
     // MARK: - Output quality filters

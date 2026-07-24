@@ -53,22 +53,27 @@ actor TranscriptPolisher {
         if let code = TranscriptLanguage(rawValue: meeting.language)?.code {
             options.language = code
             options.detectLanguage = false
-        } else {
-            options.detectLanguage = true
         }
+        // In auto mode the language is chosen per stream below — but always
+        // from the languages the user actually speaks, never free detection
+        // across Whisper's 99 (which loves calling Ukrainian "Russian").
+        let allowed = TranscriptLanguage(rawValue: meeting.language)?.allowedCodes ?? ["uk", "en"]
         if !vocabulary.isEmpty, let tokenizer = pipe.tokenizer {
             options.promptTokens = Array(
                 tokenizer.encode(text: " " + vocabulary.joined(separator: ", "))
                     .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
                     .prefix(120))
         }
+        let ruSuppress = Self.russianMarkerTokens(pipe: pipe)
 
         var utterances: [(speaker: String, start: Double, text: String)] = []
         if let micURL, let audio = Self.loadAudio(micURL) {
-            utterances += try await transcribeStream(pipe: pipe, audio: audio, speaker: "You", options: options)
+            utterances += try await transcribeStream(pipe: pipe, audio: audio, speaker: "You",
+                                                     options: options, allowed: allowed, ruSuppress: ruSuppress)
         }
         if let systemURL, let audio = Self.loadAudio(systemURL) {
-            utterances += try await transcribeStream(pipe: pipe, audio: audio, speaker: "Others", options: options)
+            utterances += try await transcribeStream(pipe: pipe, audio: audio, speaker: "Others",
+                                                     options: options, allowed: allowed, ruSuppress: ruSuppress)
         }
         guard !utterances.isEmpty else {
             throw PolishError(message: "The saved audio contained nothing transcribable.")
@@ -98,9 +103,30 @@ actor TranscriptPolisher {
 
     /// One stream, full length. Whisper's sentence-ish segments are merged
     /// into utterances wherever the gap between them stays under ~1.2 s.
+    /// In auto mode the stream's language is decided here — detected once on
+    /// the stream's opening, clamped to the allowed set — so the two sides of
+    /// a call can be different languages, but neither can drift off into one
+    /// nobody was speaking.
     private func transcribeStream(pipe: WhisperKit, audio: [Float], speaker: String,
-                                  options: DecodingOptions) async throws -> [(String, Double, String)] {
+                                  options: DecodingOptions, allowed: [String],
+                                  ruSuppress: [Int]) async throws -> [(String, Double, String)] {
         guard audio.count >= 1600 else { return [] }
+        var options = options
+        if options.language == nil {
+            if allowed.count == 1 {
+                options.language = allowed.first
+            } else if let detection = try? await pipe.detectLangauge(audioArray: Array(audio.prefix(30 * 16_000))) {
+                options.language = allowed.max {
+                    (detection.langProbs[$0] ?? 0) < (detection.langProbs[$1] ?? 0)
+                }
+            } else {
+                options.language = allowed.first
+            }
+            options.detectLanguage = false
+        }
+        if options.language == "uk" {
+            options.supressTokens = ruSuppress
+        }
         let results = try await pipe.transcribe(audioArray: audio, decodeOptions: options)
 
         var merged: [(String, Double, String)] = []
@@ -121,6 +147,19 @@ actor TranscriptPolisher {
         }
         if !text.isEmpty { merged.append((speaker, start, text)) }
         return merged.filter { !Self.hallucinationPhrases.contains(AudioMonitor.normalizedForEcho($0.2)) }
+    }
+
+    /// Token ids containing letters Ukrainian never uses (ы э ъ ё) —
+    /// suppressed while decoding as Ukrainian so Russian output is impossible.
+    private static func russianMarkerTokens(pipe: WhisperKit) -> [Int] {
+        guard let tokenizer = pipe.tokenizer else { return [] }
+        let markers = CharacterSet(charactersIn: "ыЫэЭъЪёЁ")
+        var found: [Int] = []
+        for id in 0..<tokenizer.specialTokens.specialTokenBegin
+        where tokenizer.decode(tokens: [id]).rangeOfCharacter(from: markers) != nil {
+            found.append(id)
+        }
+        return found
     }
 
     private static func trustworthy(_ segment: TranscriptionSegment) -> Bool {
