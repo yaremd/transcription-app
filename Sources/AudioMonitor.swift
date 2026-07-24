@@ -104,6 +104,9 @@ final class AudioMonitor: ObservableObject {
     @Published var statusMessage = "Press Start. You and the call will both be transcribed."
     @Published var modelStatus = ""
     @Published var errorMessage: String?
+    /// Soft mic conditions (echo-cancellation restart, quiet input) — shown as
+    /// a caption by the recording controls, separate from hard errors.
+    @Published var noticeMessage: String?
     @Published var transcript: [TranscriptLine] = []
     @Published var liveLines: [String: String] = [:]
     /// Set when Stop saves a meeting — the UI navigates to it and clears this.
@@ -215,6 +218,7 @@ final class AudioMonitor: ObservableObject {
 
     func start() {
         errorMessage = nil
+        noticeMessage = nil
         transcript = []
         liveLines = [:]
         liveUtterance = [:]
@@ -257,9 +261,9 @@ final class AudioMonitor: ObservableObject {
             await self.transcriber.setVocabulary(self.vocabulary.terms)
             await MainActor.run {
                 guard self.isRunning else { return }   // user pressed Stop while loading
-                // Plain-English status — the model's internal name ("large-v3-…")
-                // means nothing to the person recording.
-                self.modelStatus = "Transcription ready"
+                // Once capture is live the control bar itself is the proof —
+                // a lingering "ready" message would just be noise.
+                self.modelStatus = ""
                 self.beginCapture()
             }
         }
@@ -283,7 +287,7 @@ final class AudioMonitor: ObservableObject {
         mic.onNotice = { [weak self] message in
             DispatchQueue.main.async {
                 guard let self, self.isRunning else { return }
-                self.statusMessage = message
+                self.noticeMessage = message
             }
         }
         mic.onError = { [weak self] message in
@@ -329,6 +333,7 @@ final class AudioMonitor: ObservableObject {
         notesError = nil
         noteBlocks = []
         errorMessage = nil
+        noticeMessage = nil
         statusMessage = "Press Start. You and the call will both be transcribed."
     }
 
@@ -415,6 +420,7 @@ final class AudioMonitor: ObservableObject {
         levels.mic = 0
         levels.system = 0
         recordingStart = nil
+        noticeMessage = nil
     }
 
     /// Sends the finished transcript to the local LLM and produces notes.
