@@ -462,7 +462,7 @@ struct NotesView: View {
 
     var body: some View {
         let lines = notes.components(separatedBy: "\n")
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 6) {
             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                 lineView(line)
             }
@@ -477,28 +477,44 @@ struct NotesView: View {
         if line.hasPrefix("### ") {
             Text(clean(String(line.dropFirst(4))))
                 .font(.system(size: 12, weight: .semibold))
-                .padding(.top, 4)
+                .foregroundStyle(.secondary)
+                .padding(.top, 6)
         } else if line.hasPrefix("## ") {
+            // Section headings ("Summary", "Key points") carry the page's
+            // structure — they need real size and air to read as landmarks.
             Text(clean(String(line.dropFirst(3))))
-                .font(.system(size: 13, weight: .semibold))
-                .padding(.top, 8)
+                .font(.system(size: 14, weight: .semibold))
+                .padding(.top, 12)
         } else if line.hasPrefix("# ") {
             Text(clean(String(line.dropFirst(2))))
-                .font(.system(size: 15, weight: .semibold))
-                .padding(.top, 8)
+                .font(.system(size: 16, weight: .semibold))
+                .padding(.top, 12)
         } else if line.hasPrefix("- ") || line.hasPrefix("* ") {
-            HStack(alignment: .top, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
                 Text("•").foregroundStyle(.tertiary)
-                Text(clean(String(line.dropFirst(2))))
+                inlineText(String(line.dropFirst(2)))
+                    .lineSpacing(2.5)
             }
             .font(Theme.body)
         } else if trimmed.isEmpty {
-            Color.clear.frame(height: 3)
+            Color.clear.frame(height: 4)
         } else {
-            Text(clean(line))
+            inlineText(line)
                 .font(Theme.body)
-                .lineSpacing(2)
+                .lineSpacing(2.5)
         }
+    }
+
+    /// Inline markdown (bold, italics) rendered properly instead of being
+    /// stripped — the model uses **bold** for names and decisions, and that
+    /// emphasis is worth keeping.
+    private func inlineText(_ s: String) -> Text {
+        if let attributed = try? AttributedString(
+            markdown: s,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
+            return Text(attributed)
+        }
+        return Text(clean(s))
     }
 
     private func clean(_ s: String) -> String {

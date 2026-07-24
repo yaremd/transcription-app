@@ -155,11 +155,21 @@ struct MeetingDetailView: View {
                 .font(Theme.pageTitle)
                 .textFieldStyle(.plain)
                 .onSubmit(saveTitle)
-            Text("\(meeting.date.formatted(date: .abbreviated, time: .shortened)) · \(durationText)")
+            Text(headerMeta)
                 .font(Theme.sub)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
         }
+    }
+
+    /// One quiet meta line: date · duration · language (when it was fixed,
+    /// not auto-detected — auto would just be noise).
+    private var headerMeta: String {
+        var parts = [meeting.date.formatted(date: .abbreviated, time: .shortened), durationText]
+        if let lang = TranscriptLanguage(rawValue: meeting.language), lang != .auto {
+            parts.append(lang.label)
+        }
+        return parts.joined(separator: " · ")
     }
 
     // MARK: - Section chrome

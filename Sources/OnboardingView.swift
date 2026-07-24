@@ -24,9 +24,10 @@ struct OnboardingView: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                row("mic.fill", "You'll be asked for Microphone and Screen Recording access — that's how it hears both you and the call, with no bot in the meeting.")
-                row("square.and.pencil", "Jot rough notes while you talk; Generate Notes expands them using the transcript.")
-                row("lock.fill", "Everything is saved locally. Add names and jargon in Settings (⌘,) so they transcribe correctly.")
+                row("mic.fill", "⌘N starts a meeting and listens right away — to you through the microphone, and to the call through your Mac's audio. You'll be asked once for Microphone and Screen Recording access; no bot joins your meetings.")
+                row("square.and.pencil", "Just type quick notes while you talk. When you stop, Seal names the meeting and writes full notes from the transcript — your jots guide it.")
+                row("rectangle.on.rectangle", "Switch apps freely during a meeting: a small floating pill with a timer shows Seal is still listening, and can pause it.")
+                row("lock.fill", "Everything is saved locally. Add names and jargon in Settings (⌘,) so they're spelled right.")
             }
             .padding(.vertical, 8)
 
