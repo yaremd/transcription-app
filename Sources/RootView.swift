@@ -134,8 +134,8 @@ struct RootView: View {
                     }
                 }
                 .buttonStyle(monitor.isRunning
-                             ? LinearButtonStyle(kind: .primary, tint: Theme.red, compact: true)
-                             : LinearButtonStyle(kind: .primary, compact: true))
+                             ? LinearButtonStyle(kind: .primary, tint: Theme.red, compact: true, capsule: true)
+                             : LinearButtonStyle(kind: .primary, compact: true, capsule: true))
                 .keyboardShortcut("n", modifiers: .command)
                 .help(monitor.isRunning ? "Back to the live meeting" : "New meeting — starts listening right away (⌘N)")
             }

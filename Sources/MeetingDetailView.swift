@@ -40,13 +40,15 @@ struct MeetingDetailView: View {
     @State private var polishing = false
     @State private var polishError: String?
 
-    // Ephemeral chat.
+    // Ephemeral chat — a floating widget, closed until opened.
     @State private var chat: [ChatMessage] = []
     @State private var chatInput = ""
     @State private var chatBusy = false
+    @State private var chatOpen = false
+    @FocusState private var chatFocused: Bool
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: .bottomTrailing) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     header
@@ -59,12 +61,15 @@ struct MeetingDetailView: View {
                     actionItemsSection
                     ThemeDivider()
                     followUpSection
-                    Color.clear.frame(height: 90)   // room for the docked chat
+                    Color.clear.frame(height: 56)   // clearance for the floating Ask button
                 }
                 .padding(24)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            chatDock
+            if !meeting.lines.isEmpty {
+                chatWidget
+                    .padding(20)
+            }
         }
         .navigationTitle(meeting.title)
         .toolbar {
@@ -102,6 +107,7 @@ struct MeetingDetailView: View {
             chat = []
             chatInput = ""
             chatBusy = false
+            chatOpen = false
         }
     }
 
@@ -611,44 +617,121 @@ struct MeetingDetailView: View {
         }
     }
 
-    // MARK: - Chat dock ("Ask this meeting")
+    // MARK: - Chat widget ("Ask this meeting")
 
-    /// A chat pinned to the bottom of the page, floating over the content on
-    /// a translucent material. Questions go right, answers left; the thread
-    /// is ephemeral and clears when leaving the meeting.
-    private var chatDock: some View {
-        VStack(spacing: 8) {
-            if !chat.isEmpty || chatBusy {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 8) {
-                            ForEach(chat) { message in
-                                DetailChatBubble(message: message)
-                            }
-                            if chatBusy {
-                                HStack {
-                                    ProgressLabel(text: "Thinking… (\(engineLabel))")
-                                    Spacer()
+    /// A floating chat that lives in the bottom-right corner: a pill launcher
+    /// when closed, an opaque card when open. It sits over the page (never
+    /// blocking it wholesale) and can always be dismissed. The thread is
+    /// ephemeral and clears when leaving the meeting.
+    @ViewBuilder
+    private var chatWidget: some View {
+        if chatOpen {
+            chatPanel
+                .transition(.scale(scale: 0.92, anchor: .bottomTrailing).combined(with: .opacity))
+        } else {
+            chatLauncher
+                .transition(.scale(scale: 0.9, anchor: .bottomTrailing).combined(with: .opacity))
+        }
+    }
+
+    private var chatLauncher: some View {
+        Button {
+            withAnimation(Self.sectionSpring) { chatOpen = true }
+            chatFocused = true
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(chat.isEmpty ? "Ask this meeting" : "Ask · \(chat.filter { $0.role == .user }.count)")
+                    .font(Theme.bodyMedium)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 15)
+            .padding(.vertical, 10)
+            .background(Capsule().fill(Theme.accent))
+            .shadow(color: .black.opacity(0.20), radius: 10, y: 3)
+        }
+        .buttonStyle(.plain)
+        .help("Ask a question about this meeting")
+    }
+
+    private var chatPanel: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                Text("Ask this meeting")
+                    .font(Theme.bodyMedium)
+                Spacer()
+                if !chat.isEmpty {
+                    Button {
+                        chat = []
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Clear this conversation")
+                }
+                Button {
+                    withAnimation(Self.sectionSpring) { chatOpen = false }
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Close")
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            ThemeDivider()
+
+            Group {
+                if chat.isEmpty && !chatBusy {
+                    Text("Ask anything about this meeting — answered only from the transcript, on your Mac.")
+                        .font(Theme.sub)
+                        .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
+                } else {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(spacing: 8) {
+                                ForEach(chat) { message in
+                                    DetailChatBubble(message: message)
                                 }
+                                if chatBusy {
+                                    HStack {
+                                        ProgressLabel(text: "Thinking…")
+                                        Spacer()
+                                    }
+                                }
+                                Color.clear.frame(height: 1).id("chat-bottom")
                             }
-                            Color.clear.frame(height: 1).id("chat-bottom")
+                            .padding(12)
                         }
-                        .padding(.horizontal, 2)
-                    }
-                    .frame(maxHeight: 220)
-                    .onChange(of: chat.count) { _, _ in
-                        withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
-                    }
-                    .onChange(of: chatBusy) { _, _ in
-                        proxy.scrollTo("chat-bottom", anchor: .bottom)
+                        .frame(height: 300)
+                        .onChange(of: chat.count) { _, _ in
+                            withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+                        }
+                        .onChange(of: chatBusy) { _, _ in
+                            proxy.scrollTo("chat-bottom", anchor: .bottom)
+                        }
                     }
                 }
             }
+
+            ThemeDivider()
 
             HStack(spacing: 8) {
                 TextField("Ask about this meeting…", text: $chatInput)
                     .textFieldStyle(.plain)
                     .font(Theme.body)
+                    .focused($chatFocused)
                     .onSubmit(sendChat)
                 Button(action: sendChat) {
                     Image(systemName: "arrow.up.circle.fill")
@@ -659,25 +742,12 @@ struct MeetingDetailView: View {
                 .disabled(!canSendChat)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border, lineWidth: 1))
+            .padding(.vertical, 9)
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 12)
-        .frame(maxWidth: 680)
-        .background(
-            // Translucent chrome: the page scrolls beneath the chat.
-            Rectangle()
-                .fill(.thinMaterial)
-                .mask(LinearGradient(stops: [.init(color: .clear, location: 0),
-                                             .init(color: .black, location: 0.25),
-                                             .init(color: .black, location: 1)],
-                                     startPoint: .top, endPoint: .bottom))
-                .padding(.horizontal, 8)
-        )
-        .disabled(meeting.lines.isEmpty)
-        .opacity(meeting.lines.isEmpty ? 0.4 : 1)
+        .frame(width: 380)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
+        .shadow(color: .black.opacity(0.22), radius: 20, y: 6)
     }
 
     private var canSendChat: Bool {

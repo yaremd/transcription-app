@@ -171,9 +171,11 @@ struct LinearButtonStyle: ButtonStyle {
     /// Fill color for `primary` (defaults to the accent).
     var tint: Color = Theme.accent
     var compact = false
+    /// Fully rounded (pill) ends instead of the 6pt radius.
+    var capsule = false
 
     func makeBody(configuration: Configuration) -> some View {
-        Styled(configuration: configuration, kind: kind, tint: tint, compact: compact)
+        Styled(configuration: configuration, kind: kind, tint: tint, compact: compact, capsule: capsule)
     }
 
     private struct Styled: View {
@@ -181,22 +183,24 @@ struct LinearButtonStyle: ButtonStyle {
         let kind: Kind
         let tint: Color
         let compact: Bool
+        let capsule: Bool
         @State private var hovering = false
         @Environment(\.isEnabled) private var isEnabled
+
+        // A large radius is clamped to a true capsule by RoundedRectangle.
+        private var radius: CGFloat { capsule ? 100 : 6 }
+        private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: radius) }
 
         var body: some View {
             configuration.label
                 .font(.system(size: compact ? 12 : 13, weight: .medium))
                 .foregroundStyle(foreground)
-                .padding(.horizontal, compact ? 9 : 12)
+                .padding(.horizontal, capsule ? (compact ? 12 : 16) : (compact ? 9 : 12))
                 .padding(.vertical, compact ? 3.5 : 5.5)
-                .background(background, in: RoundedRectangle(cornerRadius: 6))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(kind == .primary ? Color.clear : Theme.border, lineWidth: 1)
-                )
+                .background(background, in: shape)
+                .overlay(shape.strokeBorder(kind == .primary ? Color.clear : Theme.border, lineWidth: 1))
                 .opacity(isEnabled ? 1 : 0.45)
-                .contentShape(RoundedRectangle(cornerRadius: 6))
+                .contentShape(shape)
                 .onHover { hovering = $0 }
                 .animation(.easeOut(duration: 0.12), value: hovering)
         }
