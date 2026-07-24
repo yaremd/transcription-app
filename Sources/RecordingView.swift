@@ -216,6 +216,7 @@ private struct TranscriptPane: View {
     @State private var highlighted: Set<UUID> = []
     @State private var suspendAutoScroll = false
     @State private var showSettings = false
+    @State private var justCopied = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -239,6 +240,25 @@ private struct TranscriptPane: View {
                     }
                     .buttonStyle(.linearQuietCompact)
                 }
+
+                Button {
+                    let text = monitor.transcript
+                        .map { "\($0.speaker): \($0.text)" }
+                        .joined(separator: "\n")
+                    copyToPasteboard(text)
+                    justCopied = true
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 1_400_000_000)
+                        justCopied = false
+                    }
+                } label: {
+                    Image(systemName: justCopied ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 11))
+                        .foregroundStyle(justCopied ? Theme.green : .secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(monitor.transcript.isEmpty)
+                .help("Copy the transcript so far")
 
                 Button {
                     showSettings.toggle()
