@@ -192,8 +192,20 @@ final class AudioMonitor: ObservableObject {
     private let notesGenerator = NotesGenerator()
     private var micStream: TranscriptionStream?
     private var systemStream: TranscriptionStream?
+    private var micRecorder: SessionAudioRecorder?
+    private var systemRecorder: SessionAudioRecorder?
     private var micMeterLast = Date.distantPast
     private var systemMeterLast = Date.distantPast
+
+    /// Loads the transcription model in the background so the first ⌘N of the
+    /// app run starts hearing immediately instead of behind a warm-up.
+    func prewarmModel() {
+        let candidates = speed.modelCandidates
+        Task { [transcriber] in
+            guard !(await transcriber.isLoaded) else { return }
+            try? await transcriber.load(candidates: candidates)
+        }
+    }
 
     func toggle() { isRunning ? stop() : start() }
 
@@ -250,6 +262,13 @@ final class AudioMonitor: ObservableObject {
     private func beginCapture() {
         micStream = makeStream(for: speakerYou)
         systemStream = makeStream(for: speakerOthers)
+
+        // Keep the session's audio (locally, next to the meeting) so the
+        // finished meeting can be re-transcribed with the accurate model.
+        if settings.keepAudio {
+            micRecorder = SessionAudioRecorder(url: store.audioURL(for: currentMeetingID, stream: "mic"))
+            systemRecorder = SessionAudioRecorder(url: store.audioURL(for: currentMeetingID, stream: "system"))
+        }
 
         mic.onSamples = { [weak self] samples in self?.handleMic(samples) }
         // Soft mic conditions (e.g. echo cancellation silenced the input and
@@ -361,7 +380,9 @@ final class AudioMonitor: ObservableObject {
         let idToRemove = currentMeetingID
         teardownCapture(flush: false)
         if let existing = store.meetings.first(where: { $0.id == idToRemove }) {
-            store.delete(existing)
+            store.delete(existing)   // removes its audio too
+        } else {
+            store.deleteAudio(for: idToRemove)   // nothing persisted yet, but audio may be
         }
         transcript = []
         liveLines = [:]
@@ -375,6 +396,10 @@ final class AudioMonitor: ObservableObject {
         isPaused = false
         mic.stop()
         system.stop()
+        micRecorder?.finish()
+        systemRecorder?.finish()
+        micRecorder = nil
+        systemRecorder = nil
         if flush {
             micStream?.flush()
             systemStream?.flush()
@@ -568,6 +593,7 @@ final class AudioMonitor: ObservableObject {
 
     private func handleMic(_ samples: [Float]) {
         if isPaused { return }
+        micRecorder?.append(samples)
         let now = Date()
         if now.timeIntervalSince(micMeterLast) > 0.033 {
             micMeterLast = now
@@ -579,6 +605,7 @@ final class AudioMonitor: ObservableObject {
 
     private func handleSystem(_ samples: [Float]) {
         if isPaused { return }
+        systemRecorder?.append(samples)
         let now = Date()
         if now.timeIntervalSince(systemMeterLast) > 0.033 {
             systemMeterLast = now

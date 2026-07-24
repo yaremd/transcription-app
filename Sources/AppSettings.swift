@@ -10,6 +10,9 @@ final class AppSettings: ObservableObject {
     @Published var cloudAPIKey: String { didSet { Keychain.set(cloudAPIKey, account: Self.apiKeyAccount) } }
     @Published var cloudModel: String { didSet { d.set(cloudModel, forKey: "cloudModel") } }
     @Published var hasOnboarded: Bool { didSet { d.set(hasOnboarded, forKey: "hasOnboarded") } }
+    /// Save each meeting's audio locally (enables "Improve transcript"). On by
+    /// default; the files stay next to the meeting JSON, ~15 MB per hour.
+    @Published var keepAudio: Bool { didSet { d.set(keepAudio, forKey: "keepAudio") } }
 
     private let d = UserDefaults.standard
     private static let apiKeyAccount = "cloudAPIKey"
@@ -19,6 +22,7 @@ final class AppSettings: ObservableObject {
         cloudBaseURL = d.string(forKey: "cloudBaseURL") ?? "https://api.openai.com/v1"
         cloudModel = d.string(forKey: "cloudModel") ?? "gpt-4o-mini"
         hasOnboarded = d.bool(forKey: "hasOnboarded")
+        keepAudio = d.object(forKey: "keepAudio") == nil ? true : d.bool(forKey: "keepAudio")
 
         // The API key lives in the macOS Keychain, not UserDefaults. Migrate any
         // legacy plaintext key an earlier build may have stored in UserDefaults.

@@ -27,6 +27,7 @@ struct LocalScribeApp: App {
             RootView(monitor: monitor)
                 .environmentObject(store)
                 .environmentObject(settings)
+                .environmentObject(vocabulary)
                 .frame(minWidth: 860, minHeight: 620)
         }
         .commands {

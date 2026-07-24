@@ -9,6 +9,7 @@ struct MeetingDetailView: View {
     let meeting: Meeting
     @EnvironmentObject private var store: MeetingStore
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var vocabulary: VocabularyStore
 
     private let generator = NotesGenerator()
     private static let sectionSpring = Animation.spring(response: 0.3, dampingFraction: 1.0)
@@ -36,6 +37,8 @@ struct MeetingDetailView: View {
     @State private var followUpOpen = false
     @State private var showFullTranscript = false
     @State private var copiedTranscript = false
+    @State private var polishing = false
+    @State private var polishError: String?
 
     // Ephemeral chat.
     @State private var chat: [ChatMessage] = []
@@ -87,6 +90,7 @@ struct MeetingDetailView: View {
             newAction = ""
             actionsError = nil
             generateError = nil
+            polishError = nil
             templateID = meeting.templateID ?? NotesTemplate.general.id
             // Content decides the initial state.
             notesOpen = true
@@ -296,6 +300,12 @@ struct MeetingDetailView: View {
                         .foregroundStyle(.tertiary)
                 }
                 Spacer()
+                if store.hasAudio(for: meeting.id) {
+                    Button("Improve transcript", action: polishTranscript)
+                        .buttonStyle(.linearQuietCompact)
+                        .disabled(polishing)
+                        .help("Re-transcribe the whole meeting from its saved audio with the accurate model")
+                }
                 if !meeting.lines.isEmpty {
                     Button(copiedTranscript ? "Copied" : "Copy") {
                         copyToPasteboard(meeting.transcriptText)
@@ -307,6 +317,12 @@ struct MeetingDetailView: View {
                     }
                     .buttonStyle(.linearQuietCompact)
                 }
+            }
+
+            if polishing {
+                ProgressLabel(text: "Re-transcribing with the accurate model — this takes a few minutes for long meetings…")
+            } else if let polishError {
+                Text(polishError).font(Theme.sub).foregroundStyle(Theme.red)
             }
 
             if transcriptOpen {
@@ -334,6 +350,41 @@ struct MeetingDetailView: View {
                         }
                         .buttonStyle(.linearQuietCompact)
                     }
+                }
+            }
+        }
+    }
+
+    /// Re-transcribes the whole meeting from its saved audio with the
+    /// accurate model and replaces the lines; notes/tags/actions are kept.
+    private func polishTranscript() {
+        guard !polishing else { return }
+        polishing = true
+        polishError = nil
+        let target = meeting
+        let audio = store.existingAudioURLs(for: target.id)
+        let terms = vocabulary.terms
+        Task {
+            do {
+                let lines = try await TranscriptPolisher().polish(meeting: target,
+                                                                  micURL: audio.mic,
+                                                                  systemURL: audio.system,
+                                                                  vocabulary: terms)
+                await MainActor.run {
+                    polishing = false
+                    guard !lines.isEmpty else {
+                        polishError = "The pass produced no lines — kept the original transcript."
+                        return
+                    }
+                    var updated = target
+                    updated.lines = lines
+                    store.save(updated)
+                    showFullTranscript = false
+                }
+            } catch {
+                await MainActor.run {
+                    polishing = false
+                    polishError = error.localizedDescription
                 }
             }
         }
