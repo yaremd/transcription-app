@@ -185,8 +185,9 @@ final class NotesGenerator {
         system += """
 
 
-        Rules: be concise, do not invent anything not supported by the transcript, and if a section \
-        has nothing, write "—". Write the notes in \(languageHint).
+        Rules: be concise and never invent anything not supported by the transcript. If a section \
+        would have nothing to report, omit that section entirely — heading and all — rather than \
+        writing a placeholder like "—" or "None". Write the notes in \(languageHint).
         """
 
         let user = userNotes.isEmpty

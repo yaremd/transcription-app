@@ -66,6 +66,41 @@ extension Meeting {
         !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// The title to show in lists (sidebar, the action-items inbox): the real
+    /// title, or — when the meeting is still unnamed — its content preview, so a
+    /// group is never an ambiguous "New transcription" among many identical ones.
+    var displayTitle: String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty && trimmed != Meeting.defaultTitle { return title }
+        let p = preview
+        if !p.isEmpty { return p }
+        return trimmed.isEmpty ? Meeting.defaultTitle : title
+    }
+
+    /// A one-line preview of what the meeting was about, for the sidebar: the
+    /// first real sentence of the generated notes (its summary) if there is
+    /// one, otherwise the first spoken line. This keeps the list scannable even
+    /// when a meeting still carries the placeholder title. Empty when there's
+    /// nothing to show yet.
+    var preview: String {
+        if hasNotes {
+            for raw in notes.components(separatedBy: .newlines) {
+                let line = raw.trimmingCharacters(in: .whitespaces)
+                if line.isEmpty || line.hasPrefix("#") { continue }   // skip blanks & headings
+                var text = line
+                while let first = text.first, "-*•>".contains(first) { text.removeFirst() }
+                text = text.replacingOccurrences(of: "**", with: "")
+                    .trimmingCharacters(in: .whitespaces)
+                if text.isEmpty || text == "—" { continue }
+                return text
+            }
+        }
+        if let first = lines.first(where: { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }) {
+            return first.text.trimmingCharacters(in: .whitespaces)
+        }
+        return ""
+    }
+
     var openActionItems: [ActionItem] {
         (actionItems ?? []).filter { !$0.done }
     }

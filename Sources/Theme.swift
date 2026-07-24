@@ -201,8 +201,12 @@ struct LinearButtonStyle: ButtonStyle {
                 .overlay(shape.strokeBorder(kind == .primary ? Color.clear : Theme.border, lineWidth: 1))
                 .opacity(isEnabled ? 1 : 0.45)
                 .contentShape(shape)
+                // A small dip on press so the button feels like it hears the
+                // click — the single cheapest bit of "this is alive" there is.
+                .scaleEffect(configuration.isPressed ? 0.97 : 1)
                 .onHover { hovering = $0 }
                 .animation(.easeOut(duration: 0.12), value: hovering)
+                .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
         }
 
         private var foreground: Color {

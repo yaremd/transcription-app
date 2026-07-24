@@ -27,17 +27,29 @@ struct TasksView: View {
                         description: Text("Open a meeting and tap “Find action items” to collect tasks here."))
                         .frame(maxWidth: .infinity, minHeight: 320)
                 } else {
-                    ForEach(Array(meetingsWithItems.enumerated()), id: \.element.id) { index, meeting in
-                        VStack(alignment: .leading, spacing: 8) {
-                            if index > 0 { ThemeDivider().padding(.bottom, 8) }
-                            HStack(alignment: .firstTextBaseline) {
-                                Text(meeting.title).font(Theme.bodyMedium)
+                    // One card per meeting, so each source's tasks are clearly
+                    // their own group (and never blur together when several
+                    // meetings are still unnamed).
+                    ForEach(meetingsWithItems) { meeting in
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text(meeting.displayTitle)
+                                    .font(Theme.bodyMedium)
+                                    .lineLimit(1)
+                                let open = meeting.openActionItems.count
+                                if open > 0 {
+                                    Text("\(open)")
+                                        .font(Theme.meta)
+                                        .monospacedDigit()
+                                        .foregroundStyle(.secondary)
+                                }
                                 Spacer()
                                 Text(meeting.date, style: .date)
                                     .font(Theme.meta)
                                     .foregroundStyle(.tertiary)
                             }
-                            VStack(alignment: .leading, spacing: 6) {
+                            ThemeDivider()
+                            VStack(alignment: .leading, spacing: 8) {
                                 ForEach(itemsToShow(for: meeting)) { item in
                                     Toggle(isOn: binding(meeting, item)) {
                                         Text(item.text)
@@ -49,6 +61,9 @@ struct TasksView: View {
                                 }
                             }
                         }
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .surfacePanel()
                     }
                 }
             }
