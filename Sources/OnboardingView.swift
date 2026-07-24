@@ -14,7 +14,7 @@ struct OnboardingView: View {
                 .surfacePanel(radius: 14)
 
             VStack(spacing: 6) {
-                Text("Welcome to LocalScribe")
+                Text("Welcome to Seal")
                     .font(.system(size: 17, weight: .semibold))
                 Text("A private meeting notepad. Recording, transcription, and notes all happen on your Mac — nothing leaves it unless you turn that on yourself.")
                     .font(Theme.body)

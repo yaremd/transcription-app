@@ -38,7 +38,7 @@ struct LocalScribeApp: App {
             }
         }
 
-        MenuBarExtra("LocalScribe", systemImage: monitor.isRunning ? "record.circle" : "mic") {
+        MenuBarExtra("Seal", systemImage: monitor.isRunning ? "record.circle" : "mic") {
             MenuBarView(monitor: monitor)
         }
 
@@ -51,7 +51,7 @@ struct LocalScribeApp: App {
 // MARK: - Floating recording pill
 
 /// Shows a small always-on-top pill while a recording runs in the background
-/// (LocalScribe not the active app) — the Zoom/Granola pattern: proof the app
+/// (Seal not the active app) — the Zoom/Granola pattern: proof the app
 /// still hears you, a pause/resume button, and a click brings the app back.
 /// Hidden the moment the app becomes active or the recording stops.
 final class FloatingPillController: ObservableObject {
@@ -153,7 +153,7 @@ private struct FloatingPillView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help("Open LocalScribe")
+            .help("Open Seal")
 
             Rectangle()
                 .fill(Theme.divider)

@@ -52,7 +52,7 @@ struct RecordingView: View {
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("LocalScribe")
+                Text("Seal")
                     .font(Theme.title)
                 Text("Live, private, on-device transcription")
                     .font(Theme.sub)

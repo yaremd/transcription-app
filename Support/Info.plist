@@ -26,6 +26,6 @@
 		<true/>
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>LocalScribe listens to your microphone to transcribe your side of the conversation, entirely on your Mac.</string>
+	<string>Seal listens to your microphone to transcribe your side of the conversation, entirely on your Mac.</string>
 </dict>
 </plist>

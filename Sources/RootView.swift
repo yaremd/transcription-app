@@ -89,7 +89,7 @@ struct RootView: View {
             .scrollContentBackground(.hidden)
             .background(Theme.sidebar)
             .searchable(text: $searchText, placement: .sidebar, prompt: "Search meetings")
-            .navigationTitle("LocalScribe")
+            .navigationTitle("Seal")
             .frame(minWidth: 240)
         } detail: {
             Group {

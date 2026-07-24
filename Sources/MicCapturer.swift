@@ -9,7 +9,7 @@ enum MicError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .permissionDenied:
-            return "macOS is blocking microphone access. Open System Settings → Privacy & Security → Microphone, switch LocalScribe on, then Stop and Start again."
+            return "macOS is blocking microphone access. Open System Settings → Privacy & Security → Microphone, switch Seal on, then Stop and Start again."
         case .noInput:
             return "no usable microphone input was found."
         }
