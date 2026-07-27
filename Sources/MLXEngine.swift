@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import Hub
 import Tokenizers
 import MLXLLM
@@ -50,6 +51,17 @@ actor MLXEngine {
     private(set) var downloadProgress: Double = 0
     private var progressObserver: (@Sendable (Double) -> Void)?
 
+    /// Frees the in-memory model under system memory pressure so a multi-GB model
+    /// isn't pinned when the user isn't taking notes; it reloads from the on-disk
+    /// weights (no re-download) on the next generate.
+    private var pressureSource: DispatchSourceMemoryPressure?
+    private var lastUsedAt = Date()
+    /// On a mild (warning) event the model is only released after it's been idle
+    /// this long — an active notes session keeps it; a critical event releases it
+    /// regardless.
+    private static let idleUnloadSeconds: TimeInterval = 30
+    private let log = Logger(subsystem: "com.yarem.Seal", category: "MLXEngine")
+
     /// Lets the UI observe first-run download progress.
     func setProgressObserver(_ observer: (@Sendable (Double) -> Void)?) {
         progressObserver = observer
@@ -69,6 +81,7 @@ actor MLXEngine {
         guard Self.isSupported else {
             throw EngineError(message: "On-device notes need an Apple-silicon Mac. Turn on a cloud model in Settings to use notes here.")
         }
+        lastUsedAt = Date()   // keeps the model from being released mid-session
         let container = try await ensureLoaded(modelID: modelID)
         let session = ChatSession(
             container,
@@ -112,6 +125,8 @@ actor MLXEngine {
             container = loaded
             downloadProgress = 1
             progressObserver?(1)
+            lastUsedAt = Date()
+            startPressureMonitoringIfNeeded()
             return loaded
         } catch {
             // Allow a retry after a failed download/load.
@@ -124,6 +139,39 @@ actor MLXEngine {
     private func updateProgress(_ fraction: Double) {
         downloadProgress = fraction
         progressObserver?(fraction)
+    }
+
+    // MARK: - Memory scheduling
+
+    /// Begins watching for system memory pressure once a model is loaded (a
+    /// no-op if already watching, and never started before there's anything to
+    /// release). On pressure the model is freed so its multi-GB footprint isn't
+    /// pinned while the user is doing other things.
+    private func startPressureMonitoringIfNeeded() {
+        guard pressureSource == nil else { return }
+        let source = DispatchSource.makeMemoryPressureSource(
+            eventMask: [.warning, .critical], queue: DispatchQueue.global(qos: .utility))
+        source.setEventHandler { [weak source] in
+            let critical = source?.data.contains(.critical) ?? true
+            Task { await MLXEngine.shared.handleMemoryPressure(critical: critical) }
+        }
+        source.resume()
+        pressureSource = source
+        log.notice("MLXEngine: memory-pressure monitoring active")
+    }
+
+    /// Releases the loaded model under memory pressure. A critical event always
+    /// releases it; a warning only once the model has gone idle, so an
+    /// in-progress notes session isn't yanked out from under the user. Weights
+    /// stay on disk, so the next generate reloads without re-downloading.
+    private func handleMemoryPressure(critical: Bool) {
+        guard container != nil else { return }   // nothing loaded (or a load is mid-flight)
+        if !critical && Date().timeIntervalSince(lastUsedAt) < Self.idleUnloadSeconds { return }
+        container = nil
+        loadedModelID = nil
+        loadTask = nil          // the completed load task also retains the model — drop it
+        downloadProgress = 0
+        log.notice("MLXEngine: released the model under \(critical ? "critical" : "warning", privacy: .public) memory pressure")
     }
 
     /// Models live under Application Support so they persist and stay out of the
