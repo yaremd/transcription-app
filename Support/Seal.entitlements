@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Seal entitlements. The app is NOT sandboxed (direct-download Developer ID, not
+  App Store), so this is deliberately minimal: under Hardened Runtime a notarized
+  build must declare microphone access to be granted it at runtime. System audio
+  (ScreenCaptureKit), Metal/MLX, and outgoing network need no entitlement for a
+  non-sandboxed hardened app; do NOT add com.apple.security.app-sandbox here.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+</dict>
+</plist>

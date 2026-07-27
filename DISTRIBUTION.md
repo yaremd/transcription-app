@@ -84,7 +84,9 @@ Branch: `main`, Folder: `/docs`**. Your page appears at
 
 ## What's already done
 - On-device AI (no Ollama) — verified working, including under Hardened Runtime.
-- Hardened Runtime is on (required for notarization).
+- Hardened Runtime is on (required for notarization), with a minimal, non-sandboxed
+  entitlements file (`Support/Seal.entitlements`) declaring microphone access — the
+  one entitlement a notarized hardened build needs to record.
 - Sparkle auto-update is wired into the app (menu: **Seal → Check for Updates…**).
 - The download page (`docs/index.html`) and appcast (`docs/appcast.xml`) are ready.
 
