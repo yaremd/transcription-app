@@ -167,10 +167,22 @@ final class AudioMonitor: ObservableObject {
     private var discarding = false
     private var titlingMeetingID: UUID?   // meeting with an auto-title request in flight
 
+    /// Below this much RAM the speech and notes models are kept from being
+    /// resident at once (they run at different times — recording vs. post-meeting
+    /// notes); at or above it, both stay loaded for speed.
+    private static let bothModelsRAMFloor: UInt64 = 16 * 1_073_741_824   // 16 GB
+
     init(store: MeetingStore, vocabulary: VocabularyStore, settings: AppSettings) {
         self.store = store
         self.vocabulary = vocabulary
         self.settings = settings
+        // On memory-tight Macs, free the speech model before the notes model
+        // loads. The hook runs at each notes-model load and no-ops unless Whisper
+        // is genuinely idle (not recording, and settled after the last meeting).
+        if ProcessInfo.processInfo.physicalMemory < Self.bothModelsRAMFloor {
+            let t = transcriber
+            Task { await MLXEngine.shared.setPreLoadHook { await t.releaseIfIdle(minIdle: 3) } }
+        }
     }
 
     private let speakerYou = "You"
@@ -307,6 +319,7 @@ final class AudioMonitor: ObservableObject {
 
     func stop() {
         teardownCapture(flush: true)
+        Task { await transcriber.endSession() }   // recording done — Whisper may be freed for notes once idle
         sessionEnd = Date()
         persistCurrentSession()
         statusMessage = transcript.isEmpty ? "Stopped." : "Saved to your library."

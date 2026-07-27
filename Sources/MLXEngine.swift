@@ -67,6 +67,11 @@ actor MLXEngine {
         progressObserver = observer
     }
 
+    /// Run just before the model is pulled into RAM — used to free other large
+    /// models first (the Whisper speech model) on memory-tight Macs.
+    private var preLoadHook: (@Sendable () async -> Void)?
+    func setPreLoadHook(_ hook: (@Sendable () async -> Void)?) { preLoadHook = hook }
+
     /// Whether the model weights are already loaded in memory (no download/UI needed).
     var isReady: Bool { container != nil }
 
@@ -109,6 +114,10 @@ actor MLXEngine {
     private func ensureLoaded(modelID: String) async throws -> ModelContainer {
         if let container, loadedModelID == modelID { return container }
         if let loadTask, loadedModelID == modelID { return try await loadTask.value }
+
+        // Free other resident big models (the Whisper speech model on a
+        // memory-tight Mac) before we pull this one into RAM.
+        await preLoadHook?()
 
         loadedModelID = modelID
         let downloader = HubSnapshotDownloader(hubApi: Self.makeHubApi())
