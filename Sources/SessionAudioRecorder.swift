@@ -8,7 +8,7 @@ import OSLog
 /// pipeline is never blocked; on any write error the recorder goes quiet
 /// rather than disturbing the live session.
 final class SessionAudioRecorder {
-    private let queue = DispatchQueue(label: "com.yarem.LocalScribe.audiowriter", qos: .utility)
+    private let queue = DispatchQueue(label: "com.yarem.Seal.audiowriter", qos: .utility)
     private var file: AVAudioFile?
     private var reportedError = false
     private let format = AVAudioFormat(
@@ -17,7 +17,7 @@ final class SessionAudioRecorder {
         channels: 1,
         interleaved: false
     )!
-    private let log = Logger(subsystem: "com.yarem.LocalScribe", category: "AudioRecorder")
+    private let log = Logger(subsystem: "com.yarem.Seal", category: "AudioRecorder")
 
     init?(url: URL) {
         let settings: [String: Any] = [

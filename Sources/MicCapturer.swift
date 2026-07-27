@@ -40,7 +40,7 @@ final class MicCapturer {
     private var engine: AVAudioEngine?
     private var resampler = AudioResampler()
     private var configObserver: NSObjectProtocol?
-    private let log = Logger(subsystem: "com.yarem.LocalScribe", category: "Mic")
+    private let log = Logger(subsystem: "com.yarem.Seal", category: "Mic")
     private var sessionActive = false
 
     // Written from the audio thread, read by the watchdog on the main thread.

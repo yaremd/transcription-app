@@ -61,7 +61,7 @@ targets:
         SUEnableAutomaticChecks: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.yarem.LocalScribe
+        PRODUCT_BUNDLE_IDENTIFIER: com.yarem.Seal
         PRODUCT_NAME: Seal
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -78,7 +78,7 @@ targets:
       - target: LocalScribe
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.yarem.LocalScribeTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.yarem.SealTests
         GENERATE_INFOPLIST_FILE: "YES"
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Seal.app/Contents/MacOS/Seal"
         BUNDLE_LOADER: "$(TEST_HOST)"

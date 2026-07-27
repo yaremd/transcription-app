@@ -15,7 +15,7 @@ final class AudioResampler {
     private var converter: AVAudioConverter?
     private var converterInputFormat: AVAudioFormat?
     private var reportedFailure = false
-    private let log = Logger(subsystem: "com.yarem.LocalScribe", category: "Resampler")
+    private let log = Logger(subsystem: "com.yarem.Seal", category: "Resampler")
 
     func resample(_ input: AVAudioPCMBuffer) -> [Float]? {
         guard input.frameLength > 0 else { return nil }

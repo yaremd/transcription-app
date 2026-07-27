@@ -17,9 +17,9 @@ final class SystemAudioCapturer: NSObject, SCStreamOutput {
     var onError: ((String) -> Void)?
 
     private var stream: SCStream?
-    private let sampleQueue = DispatchQueue(label: "com.yarem.LocalScribe.systemaudio")
+    private let sampleQueue = DispatchQueue(label: "com.yarem.Seal.systemaudio")
     private let resampler = AudioResampler()
-    private let log = Logger(subsystem: "com.yarem.LocalScribe", category: "SystemAudio")
+    private let log = Logger(subsystem: "com.yarem.Seal", category: "SystemAudio")
 
     func start() {
         Task {

@@ -59,6 +59,9 @@ final class AppSettings: ObservableObject {
             Keychain.set(legacy, account: Self.apiKeyAccount)
             d.removeObject(forKey: "cloudAPIKey")
         }
+        // The Keychain service was renamed com.yarem.LocalScribe → com.yarem.Seal
+        // in the 2026 rename; carry an existing key across to the new service, once.
+        Keychain.migrateService(account: Self.apiKeyAccount, from: "com.yarem.LocalScribe")
         cloudAPIKey = Keychain.get(account: Self.apiKeyAccount) ?? ""
     }
 

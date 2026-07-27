@@ -24,7 +24,7 @@ actor Transcriber {
     /// per loaded model; suppressed whenever decoding as Ukrainian.
     private var cachedRussianMarkerTokens: [Int]?
     private var filteredSegments = 0       // junk dropped this session, for tuning
-    private let log = Logger(subsystem: "com.yarem.LocalScribe", category: "Transcriber")
+    private let log = Logger(subsystem: "com.yarem.Seal", category: "Transcriber")
 
     /// Sets the custom vocabulary that biases transcription toward the user's
     /// names/jargon. Tokenized lazily on the next transcribe (it needs the loaded

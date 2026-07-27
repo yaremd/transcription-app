@@ -4,7 +4,7 @@ import Security
 /// Minimal wrapper over the macOS Keychain for storing small secrets (the
 /// optional cloud API key). Keeps secrets out of UserDefaults / the plist.
 enum Keychain {
-    private static let service = "com.yarem.LocalScribe"
+    private static let service = "com.yarem.Seal"
 
     /// Stores (or, for an empty value, removes) a secret for `account`.
     static func set(_ value: String, account: String) {
@@ -42,5 +42,29 @@ enum Keychain {
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
               let data = result as? Data else { return nil }
         return String(data: data, encoding: .utf8)
+    }
+
+    /// One-time move of a secret from a previous service name to the current one
+    /// — used for the com.yarem.LocalScribe → com.yarem.Seal rename. No-op if the
+    /// current service already holds a value, or the old one is empty/absent.
+    static func migrateService(account: String, from oldService: String) {
+        guard oldService != service, get(account: account) == nil else { return }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: oldService,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data,
+              let value = String(data: data, encoding: .utf8), !value.isEmpty else { return }
+        set(value, account: account)   // write under the new service
+        SecItemDelete([                 // drop the old-service copy
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: oldService,
+            kSecAttrAccount as String: account
+        ] as CFDictionary)
     }
 }
