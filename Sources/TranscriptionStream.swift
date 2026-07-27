@@ -7,6 +7,17 @@ enum TranscribeMode {
     case final
 }
 
+/// When an utterance's speech actually happened, derived from the stream's own
+/// audio clock rather than from when transcription finished. The two capture
+/// streams decode independently, so completion order says nothing about
+/// speaking order; these are what let the transcript interleave correctly and
+/// what tells consecutive utterances from one speaker apart from one
+/// continuous turn.
+struct UtteranceTiming {
+    let start: Date
+    let end: Date
+}
+
 /// Buffers 16 kHz mono samples for one audio source, segments them into
 /// utterances, and turns them into text.
 ///
@@ -24,8 +35,9 @@ enum TranscribeMode {
 final class TranscriptionStream {
     /// (utteranceID, text) — updated preview of the utterance still being spoken.
     var onLive: ((Int, String) -> Void)?
-    /// (utteranceID, text) — utterance finished. nil text = discarded as silence.
-    var onCommit: ((Int, String?) -> Void)?
+    /// (utteranceID, text, timing) — utterance finished. nil text = discarded
+    /// as silence. `timing` says when the speech happened, not when it decoded.
+    var onCommit: ((Int, String?, UtteranceTiming) -> Void)?
 
     private let label: String
     private let transcribe: ([Float], TranscribeMode) async -> String
@@ -50,6 +62,13 @@ final class TranscriptionStream {
     private var lastLiveStart = Date.distantPast
     private var lastLiveDuration = 0.0
     private var commitChain: Task<Void, Never>?
+    /// Wall clock at the stream's first sample, and the seconds of audio that
+    /// preceded `buffer[0]`. Together they date any point in the buffer from
+    /// the audio itself — capture is continuous, so counting samples is a far
+    /// better clock than `Date()` at commit time, which lags by however long
+    /// the model took.
+    private var streamStart: Date?
+    private var bufferStartOffset = 0.0
 
     private let commitSilence = 0.85        // quiet gap that ends an utterance
     private let minVoicedSeconds = 0.3      // speech needed before transcribing at all
@@ -78,6 +97,7 @@ final class TranscriptionStream {
         enum Action { case none, commit, forceCut, idleTrim, live }
 
         lock.lock()
+        if streamStart == nil { streamStart = Date() }
         buffer.append(contentsOf: samples)
         frames.append(Frame(sampleCount: samples.count, energy: energy))
 
@@ -168,14 +188,15 @@ final class TranscriptionStream {
         guard !buffer.isEmpty else { lock.unlock(); return }
         let id = utterance
         let audio = voicedSeconds >= minVoicedSeconds ? trimmedUtteranceLocked() : []
+        let timing = timingLocked(for: frames, offset: bufferStartOffset)
         resetUtteranceLocked()
-        enqueueCommitLocked(id: id, audio: audio)
+        enqueueCommitLocked(id: id, audio: audio, timing: timing)
         lock.unlock()
     }
 
     /// Commits run on a chain so final lines always append in speaking order,
     /// even when a short utterance transcribes faster than the long one before it.
-    private func enqueueCommitLocked(id: Int, audio: [Float]) {
+    private func enqueueCommitLocked(id: Int, audio: [Float], timing: UtteranceTiming) {
         let previous = commitChain
         commitChain = Task(priority: .userInitiated) {
             await previous?.value
@@ -186,8 +207,31 @@ final class TranscriptionStream {
                 self.setCommitBusy(false)
                 text = out.isEmpty ? nil : out
             }
-            self.onCommit?(id, text)
+            self.onCommit?(id, text, timing)
         }
+    }
+
+    /// Dates the voiced span of `frames`, which begin `offset` seconds into the
+    /// stream. Falls back to the frames' own span when nothing crossed the
+    /// speech threshold, so a timing always exists.
+    private func timingLocked(for frames: [Frame], offset: Double) -> UtteranceTiming {
+        let origin = streamStart ?? Date()
+        let threshold = speechOffThreshold
+        var elapsed = 0.0
+        var firstVoiced: Double?
+        var lastVoicedEnd: Double?
+        for frame in frames {
+            let frameStart = elapsed
+            elapsed += Double(frame.sampleCount) / sampleRate
+            if frame.energy >= threshold {
+                if firstVoiced == nil { firstVoiced = frameStart }
+                lastVoicedEnd = elapsed
+            }
+        }
+        let start = offset + (firstVoiced ?? 0)
+        let end = offset + (lastVoicedEnd ?? elapsed)
+        return UtteranceTiming(start: origin.addingTimeInterval(start),
+                               end: origin.addingTimeInterval(max(start, end)))
     }
 
     private func setCommitBusy(_ busy: Bool) {
@@ -197,6 +241,7 @@ final class TranscriptionStream {
     }
 
     private func resetUtteranceLocked() {
+        bufferStartOffset += Double(buffer.count) / sampleRate   // keep the audio clock running
         buffer.removeAll(keepingCapacity: true)
         frames.removeAll(keepingCapacity: true)
         inSpeech = false
@@ -246,14 +291,16 @@ final class TranscriptionStream {
             ? Self.trimmed(buffer: headBuffer, frames: headFrames, threshold: off,
                            padSamples: Int(trimPadSeconds * sampleRate))
             : []
+        let timing = timingLocked(for: headFrames, offset: bufferStartOffset)
 
+        bufferStartOffset += Double(cutSample) / sampleRate   // the head leaves the buffer
         buffer = tailBuffer
         frames = tailFrames
         voicedSeconds = Self.approxVoiced(tailFrames, threshold: off, sampleRate: sampleRate)
         inSpeech = tailFrames.last.map { $0.energy >= off } ?? false
         silenceRun = Self.trailingSilence(tailFrames, threshold: off, sampleRate: sampleRate)
         utterance += 1
-        enqueueCommitLocked(id: id, audio: headAudio)
+        enqueueCommitLocked(id: id, audio: headAudio, timing: timing)
         lock.unlock()
     }
 
@@ -272,6 +319,7 @@ final class TranscriptionStream {
                 dropFrames += 1
             }
             dropSamples = dropped
+            bufferStartOffset += Double(dropSamples) / sampleRate   // shed audio still counts on the clock
             buffer.removeFirst(dropSamples)
             frames.removeFirst(dropFrames)
             voicedSeconds = 0

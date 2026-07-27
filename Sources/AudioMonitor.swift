@@ -2,11 +2,55 @@ import Foundation
 import Combine
 
 struct TranscriptLine: Identifiable {
-    let id = UUID()
+    var id = UUID()
     let speaker: String
-    let text: String
-    /// When the line was committed — the anchor notes link to.
-    let at = Date()
+    /// The utterances making up this turn, in speaking order. Kept apart so an
+    /// echo ghost can be pulled back out of a merged turn without taking the
+    /// rest of the turn with it.
+    var fragments: [String]
+    /// When the speech started, from the capture stream's own audio clock —
+    /// not when transcription finished. This is what orders the mic and system
+    /// streams against each other, and the anchor notes link to.
+    let at: Date
+    /// When the speech ended; decides whether the speaker's next utterance
+    /// continues this turn or starts a new one.
+    var end: Date
+
+    var text: String { fragments.joined(separator: " ") }
+}
+
+extension Array where Element == TranscriptLine {
+    /// Places an utterance where it was spoken and returns the id of the line
+    /// it landed in.
+    ///
+    /// Two jobs the live path used to do neither of. Order comes from the
+    /// audio clock rather than from decode-completion order — the mic and
+    /// system streams transcribe independently, so a long utterance routinely
+    /// finishes after a short one that came later, and appending as results
+    /// arrived put replies ahead of the lines they answered. And an utterance
+    /// that simply continues the speaker's turn (the stream cuts one at every
+    /// 0.85 s pause) is merged into it, so a paragraph reads as a paragraph
+    /// instead of nine consecutive one-line turns — up to `characterCap`,
+    /// past which a barely-pausing speaker starts a fresh one.
+    mutating func place(speaker: String, text: String, timing: UtteranceTiming,
+                        mergeGap: TimeInterval, characterCap: Int) -> UUID {
+        // Usually an append: the scan starts at the end and stops at the first
+        // line no later than this one.
+        let insertAt = (lastIndex { $0.at <= timing.start }).map { $0 + 1 } ?? 0
+        let previous = insertAt - 1
+        if previous >= 0, previous < count,
+           self[previous].speaker == speaker,
+           timing.start.timeIntervalSince(self[previous].end) <= mergeGap,
+           self[previous].text.count < characterCap {
+            self[previous].fragments.append(text)
+            self[previous].end = Swift.max(self[previous].end, timing.end)
+            return self[previous].id
+        }
+        let line = TranscriptLine(speaker: speaker, fragments: [text],
+                                  at: timing.start, end: timing.end)
+        insert(line, at: insertAt)
+        return line.id
+    }
 }
 
 enum TranscriptLanguage: String, CaseIterable, Identifiable {
@@ -195,13 +239,26 @@ final class AudioMonitor: ObservableObject {
     /// "Others" line is dropped, and when the "Others" copy arrives *after*
     /// the ghost, the already-shown ghost is removed retroactively.
     private struct RecentCommit {
+        let id = UUID()
         let speaker: String
         let normalized: String
+        /// The utterance exactly as committed, so it can be pulled back out of
+        /// a turn that has since merged other utterances into it.
+        let fragment: String
         let at: Date
         let lineID: UUID
     }
     private var recentCommits: [RecentCommit] = []
     private let echoWindowSeconds: TimeInterval = 12
+
+    /// A speaker's continuous turn reaches us as several utterances — the
+    /// stream cuts one at every 0.85 s pause — and shown as separate lines it
+    /// reads as stutter rather than speech. Utterances this close together are
+    /// rejoined into one turn, the way the offline polisher already does.
+    private let turnMergeGap: TimeInterval = 2.0
+    /// …but a turn stops absorbing once it is this long, so a speaker who
+    /// barely pauses still produces readable paragraphs instead of one wall.
+    private let turnMergeCharacterCap = 600
 
     private let mic = MicCapturer()
     private let system = SystemAudioCapturer()
@@ -526,13 +583,14 @@ final class AudioMonitor: ObservableObject {
                 self.liveUtterance[speaker] = id
             }
         }
-        stream.onCommit = { [weak self] id, text in
+        stream.onCommit = { [weak self] id, text, timing in
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard self.currentMeetingID == sessionMeetingID else {
                     // Straggler from a session no longer on screen.
                     if let text, !text.isEmpty {
-                        self.appendToStoredMeeting(sessionMeetingID, speaker: speaker, text: text)
+                        self.appendToStoredMeeting(sessionMeetingID, speaker: speaker,
+                                                   text: text, at: timing.start)
                     }
                     return
                 }
@@ -543,7 +601,7 @@ final class AudioMonitor: ObservableObject {
                     self.liveUtterance[speaker] = nil
                 }
                 guard let text, !self.discarding else { return }   // silence, or dropped session
-                self.commitLine(speaker: speaker, text: text)
+                self.commitLine(speaker: speaker, text: text, timing: timing)
                 if !self.isRunning {
                     // A late line landed after Stop: save it, and (re)try the
                     // auto-title now that there is more/any content.
@@ -557,14 +615,16 @@ final class AudioMonitor: ObservableObject {
 
     /// Appends a straggler line to an already-saved meeting (no echo dedupe —
     /// by this point the session is closed and the line was worth keeping).
-    private func appendToStoredMeeting(_ meetingID: UUID, speaker: String, text: String) {
+    private func appendToStoredMeeting(_ meetingID: UUID, speaker: String, text: String, at: Date) {
         guard var meeting = store.meetings.first(where: { $0.id == meetingID }) else { return }
-        meeting.lines.append(StoredLine(speaker: speaker, text: text, at: Date()))
+        meeting.lines.append(StoredLine(speaker: speaker, text: text, at: at))
         store.save(meeting)
     }
 
-    /// Appends a final line, dropping mic-echo ghosts of the call audio.
-    private func commitLine(speaker: String, text: String) {
+    /// Places a final line in the transcript: at the moment it was spoken,
+    /// merged into the speaker's turn when it continues one, and dropped
+    /// outright when it is only the mic's echo of the call audio.
+    private func commitLine(speaker: String, text: String, timing: UtteranceTiming) {
         let now = Date()
         recentCommits.removeAll { now.timeIntervalSince($0.at) > echoWindowSeconds }
         let normalized = AudioMonitor.normalizedForEcho(text)
@@ -582,18 +642,28 @@ final class AudioMonitor: ObservableObject {
                 $0.speaker == speakerYou && AudioMonitor.isEchoPair(normalized, $0.normalized)
             }
             if !ghosts.isEmpty {
-                let ghostIDs = Set(ghosts.map(\.lineID))
-                transcript.removeAll { ghostIDs.contains($0.id) }
-                recentCommits.removeAll { ghostIDs.contains($0.lineID) }
+                ghosts.forEach(removeGhostFragment)
+                let ghostIDs = Set(ghosts.map(\.id))
+                recentCommits.removeAll { ghostIDs.contains($0.id) }
             }
         }
 
-        let line = TranscriptLine(speaker: speaker, text: text)
-        transcript.append(line)
-        recentCommits.append(RecentCommit(speaker: speaker, normalized: normalized, at: now, lineID: line.id))
+        let lineID = transcript.place(speaker: speaker, text: text, timing: timing,
+                                      mergeGap: turnMergeGap, characterCap: turnMergeCharacterCap)
+        recentCommits.append(RecentCommit(speaker: speaker, normalized: normalized,
+                                          fragment: text, at: now, lineID: lineID))
         // Committed text becomes decoder context for this source's next
         // utterances (consistent names/spelling, better continuations).
         Task { [transcriber] in await transcriber.noteCommitted(text, source: speaker) }
+    }
+
+    /// Pulls one echoed utterance back out of the transcript. Its turn may have
+    /// merged other utterances in since, so only the matching fragment goes —
+    /// the line survives unless that fragment was all of it.
+    private func removeGhostFragment(_ ghost: RecentCommit) {
+        guard let index = transcript.firstIndex(where: { $0.id == ghost.lineID }) else { return }
+        transcript[index].fragments.removeAll { $0 == ghost.fragment }
+        if transcript[index].fragments.isEmpty { transcript.remove(at: index) }
     }
 
     /// Lowercased, punctuation-free, single-spaced text for echo comparison.
