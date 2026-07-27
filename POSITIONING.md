@@ -2,7 +2,8 @@
 
 What we've built, and the argument for why someone picks it over the alternatives.
 
-Companion docs: [`Brand/BRAND.md`](Brand/BRAND.md) (identity), [`DISTRIBUTION.md`](DISTRIBUTION.md)
+Companion docs: [`ROADMAP.md`](ROADMAP.md) (shipped vs. planned, item by item),
+[`Brand/BRAND.md`](Brand/BRAND.md) (identity), [`DISTRIBUTION.md`](DISTRIBUTION.md)
 (shipping). Competitor pricing here was checked in **July 2026** — re-verify before
 putting any of it on the website.
 
@@ -123,8 +124,9 @@ Everything below is in the codebase today, not roadmap.
 
 ### Not built yet — say so honestly
 Calendar/Contacts integration, Obsidian/Notion export, cross-device sync, semantic
-search, cross-meeting memory, and in-person single-mic diarization are all backlog (see
-`LocalScribe-linear-tasks.csv`). Two of these are load-bearing for some buyers:
+search, cross-meeting memory, and in-person single-mic diarization are all open — see
+[`ROADMAP.md`](ROADMAP.md) for the full status and the recommended order. Two of these
+are load-bearing for some buyers:
 **no calendar integration** means meetings aren't auto-titled from invites or matched to
 attendees, and **no in-person mode** means two people sharing one microphone are not
 separated. Don't let the website imply otherwise.
