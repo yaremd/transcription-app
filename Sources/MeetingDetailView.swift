@@ -126,6 +126,7 @@ struct MeetingDetailView: View {
             suggestedNames = nil
             maybeSuggestTitle()
             maybeSuggestSpeakers()
+            maybeGenerateNotes()
         }
     }
 
@@ -195,6 +196,16 @@ struct MeetingDetailView: View {
                 if meeting.id == id { title = suggested }   // reflect in the open header
             }
         }
+    }
+
+    /// After Stop — and on any later open — fills the AI notes in automatically
+    /// when the meeting has none yet, so they're ready without a button. Only
+    /// generates when empty (a meeting whose notes were cleared stays clear
+    /// until asked) and stays silent on failure, leaving the manual Generate
+    /// button as the retry.
+    private func maybeGenerateNotes() {
+        guard !meeting.hasNotes, !meeting.lines.isEmpty, !generating else { return }
+        generateNotes()
     }
 
     private var header: some View {
@@ -427,7 +438,7 @@ struct MeetingDetailView: View {
     private var transcriptSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                sectionHeader("Transcript", isOpen: $transcriptOpen)
+                sectionHeader("Notes & transcript", isOpen: $transcriptOpen)
                 if !meeting.lines.isEmpty {
                     Text("\(meeting.lines.count) lines")
                         .font(Theme.meta)
@@ -485,28 +496,7 @@ struct MeetingDetailView: View {
                         .font(Theme.body)
                         .foregroundStyle(.tertiary)
                 } else {
-                    let lines = showFullTranscript ? meeting.lines : Array(meeting.lines.prefix(4))
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
-                            TranscriptRow(speaker: meeting.displayName(for: line.speaker),
-                                          text: line.text,
-                                          showSpeaker: index == 0 || lines[index - 1].speaker != line.speaker,
-                                          isYou: line.speaker == "You")
-                        }
-                    }
-                    .mask(
-                        // Fade the preview's tail so it reads as "there's more".
-                        LinearGradient(stops: previewFade,
-                                       startPoint: .top, endPoint: .bottom)
-                    )
-                    if meeting.lines.count > 4 {
-                        Button(showFullTranscript
-                               ? "Show less"
-                               : "Show full transcript (\(meeting.lines.count) lines)") {
-                            withAnimation(Self.sectionSpring) { showFullTranscript.toggle() }
-                        }
-                        .buttonStyle(.linearQuietCompact)
-                    }
+                    MeetingNotesWorkspace(meeting: meeting)
                 }
             }
         }
@@ -545,15 +535,6 @@ struct MeetingDetailView: View {
                 }
             }
         }
-    }
-
-    private var previewFade: [Gradient.Stop] {
-        if showFullTranscript || meeting.lines.count <= 4 {
-            return [.init(color: .black, location: 0), .init(color: .black, location: 1)]
-        }
-        return [.init(color: .black, location: 0),
-                .init(color: .black, location: 0.55),
-                .init(color: .black.opacity(0.15), location: 1)]
     }
 
     // MARK: - Tags
