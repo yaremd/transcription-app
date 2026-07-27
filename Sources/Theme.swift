@@ -37,6 +37,12 @@ enum Theme {
     static let red = dynamic(light: 0xDC3E42, dark: 0xEB5757)
     static let amber = dynamic(light: 0xBF7A18, dark: 0xE2A336)
 
+    /// Chip label text — a fixed neutral, deliberately NOT a semantic label
+    /// color: inside a selected, accent-filled sidebar row macOS flips semantic
+    /// labels to white, which then vanishes against the chip's own light
+    /// surface. A fixed gray stays legible on the chip in every row state.
+    static let chipText = dynamic(light: 0x565A63, dark: 0x9DA1AA)
+
     /// Dot colors for tag chips, assigned deterministically per tag.
     static let tagPalette: [Color] = [
         dynamic(light: 0x5E6AD2, dark: 0x6E79D6),  // indigo
@@ -142,7 +148,7 @@ struct TagChip: View {
                 .frame(width: 5, height: 5)
             Text(text)
                 .font(Theme.meta)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.chipText)
                 .lineLimit(1)
             if let onRemove {
                 Button(action: onRemove) {
