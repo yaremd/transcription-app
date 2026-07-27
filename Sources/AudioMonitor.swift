@@ -154,7 +154,7 @@ final class AudioMonitor: ObservableObject {
 
     /// Describes where notes are generated, for the UI.
     var notesEngineLabel: String {
-        settings.usingCloudNotes ? "your cloud model" : "\(settings.resolvedNotesModel), on your Mac"
+        settings.usingCloudNotes ? "your cloud model" : "on-device AI"
     }
 
     // Persistence — hands finished sessions to the on-disk MeetingStore.
@@ -352,7 +352,7 @@ final class AudioMonitor: ObservableObject {
         // notes model, so a name appears fast.
         let backend: NotesBackend = settings.usingCloudNotes
             ? .cloudOpenAICompatible(baseURL: settings.cloudBaseURL, apiKey: settings.cloudAPIKey, model: settings.cloudModel)
-            : .localOllama(model: settings.resolvedTitleModel)
+            : .localEmbedded(model: settings.embeddedModelID)
         Task { [weak self] in
             guard let self else { return }
             let title = try? await self.notesGenerator.suggestTitle(transcript: text, languageHint: hint, backend: backend)
@@ -440,7 +440,7 @@ final class AudioMonitor: ObservableObject {
         let tmpl = template
         let backend: NotesBackend = settings.usingCloudNotes
             ? .cloudOpenAICompatible(baseURL: settings.cloudBaseURL, apiKey: settings.cloudAPIKey, model: settings.cloudModel)
-            : .localOllama(model: settings.resolvedNotesModel)
+            : .localEmbedded(model: settings.embeddedModelID)
         let meetingID = currentMeetingID
         Task { [weak self] in
             guard let self else { return }

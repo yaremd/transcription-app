@@ -105,6 +105,13 @@ actor Transcriber {
 
         let candidates = await languageCandidates(samples: samples, source: source, mode: mode, pipe: pipe)
         let dominant = dominantLanguage(for: source)
+        // The language arbitration gives a head start to the one it shouldn't
+        // lightly abandon: the established dominant once momentum exists, or —
+        // while still bootstrapping — the acoustic detection's pick, which
+        // `languageCandidates` offers first. Without this, a short meeting has
+        // no momentum yet and Whisper's fluent English translations of
+        // Ukrainian would win on raw confidence alone.
+        let protected = dominant ?? (candidates.count > 1 ? (candidates.first ?? nil) : nil)
         var best: (text: String, score: Float, language: String?)?
         for candidate in candidates {
             var options = DecodingOptions()
@@ -134,11 +141,12 @@ actor Transcriber {
             let kept = results.flatMap { $0.segments }.filter { trustworthy($0) }
             let text = Self.cleaned(kept.map { $0.text }.joined(separator: " "))
             var score = Self.decodeScore(kept, isEmpty: text.isEmpty)
-            // Momentum: the language this source has been speaking all session
-            // starts ahead. Whisper's English *translations* of Ukrainian
-            // speech decode fluently (high confidence), so raw confidence
-            // alone would happily flip the meeting into English.
-            if mode == .final, let candidate, candidate == dominant, !text.isEmpty {
+            // Head start (see `protected` above): momentum for the established
+            // language, or the acoustic detection's pick while bootstrapping.
+            // Whisper's English *translations* of Ukrainian speech decode
+            // fluently (high confidence), so raw confidence alone would happily
+            // flip the meeting into English.
+            if mode == .final, let candidate, candidate == protected, !text.isEmpty {
                 score += 0.2
             }
             if best == nil || score > best!.score {
@@ -215,12 +223,27 @@ actor Transcriber {
         if let language { return [language] }
         let cached = detectedLanguage[source]
         if allowedLanguages.isEmpty { return [cached] }        // unrestricted auto
-        // Live previews can't afford a detection pass, so they reuse what the
-        // stream has settled on: its cached detection, else its dominant
-        // language. Only when nothing is known yet does it fall back to the
-        // allowed order — a blind default that finals immediately correct.
+        // Live previews reuse what the stream has settled on — cached detection,
+        // then the dominant language (momentum) — so they don't pay for a
+        // detection pass on every pass. Only when nothing is known yet (a fresh
+        // source's first utterance) do we spend one detection pass, rather than a
+        // blind Ukrainian-first default that would show an English speaker as
+        // Cyrillic until a final corrects it; and we adopt it only when confident.
         guard mode == .final else {
-            return [cached ?? dominantLanguage(for: source) ?? allowedLanguages.first]
+            if let cached { return [cached] }
+            if let dominant = dominantLanguage(for: source) { return [dominant] }
+            guard allowedLanguages.count > 1,
+                  let detection = try? await pipe.detectLangauge(audioArray: samples) else {
+                return [allowedLanguages.first]
+            }
+            let ranked = allowedLanguages
+                .map { (code: $0, prob: detection.langProbs[$0] ?? 0) }
+                .sorted { $0.prob > $1.prob }
+            let top = ranked[0]
+            let certain = top.prob >= 0.85 || ranked[1].prob == 0 || top.prob >= 6 * ranked[1].prob
+            guard certain else { return [allowedLanguages.first] }
+            detectedLanguage[source] = top.code   // confident enough to reuse
+            return [top.code]
         }
         guard allowedLanguages.count > 1 else { return [allowedLanguages.first] }
 
@@ -229,18 +252,21 @@ actor Transcriber {
                 .map { (code: $0, prob: detection.langProbs[$0] ?? 0) }
                 .sorted { $0.prob > $1.prob }
             let top = ranked[0], next = ranked[1]
-            // Single decode only when detection is near-certain — and flipping
-            // away from the language this source has spoken all session
-            // demands even more certainty. Detection on short utterances is
-            // noisy, and one wrong single-decode turns Ukrainian speech into
-            // an English translation. Everything ambiguous decodes both ways
-            // and lets arbitration (with its momentum bonus) decide.
             let dominant = dominantLanguage(for: source)
             let certain = top.prob >= 0.85 || next.prob == 0 || top.prob >= 6 * next.prob
-            let switchingAway = dominant != nil && top.code != dominant
-            if certain && (!switchingAway || top.prob >= 0.95) {
-                detectedLanguage[source] = top.code
-                return [top.code]
+            // Single-decode only to MAINTAIN an established language when a
+            // near-certain detection agrees with it. While bootstrapping (no
+            // dominant yet) NEVER trust one short-utterance detection: it
+            // mislabels Ukrainian-accented English as Ukrainian and, in a short
+            // meeting, locks every committed line into Cyrillic before momentum
+            // can form. Decode both instead and let decode-score arbitration
+            // pick — `transcribe` gives the detection's choice (returned first)
+            // a +0.2 head start, so genuinely Ukrainian audio, whose English
+            // translation also decodes fluently, still needs a decisively
+            // better English decode to flip. Fixes short English meetings
+            // without weakening the guard that keeps Ukrainian out of English.
+            if let dominant, top.code == dominant, certain {
+                return [dominant]
             }
             return [top.code, next.code]
         }

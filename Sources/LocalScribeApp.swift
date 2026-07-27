@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Combine
+import Sparkle
 
 @main
 struct LocalScribeApp: App {
@@ -11,7 +12,16 @@ struct LocalScribeApp: App {
     @StateObject private var pill: FloatingPillController
     @StateObject private var detector: MeetingDetector
 
+    /// Sparkle auto-updater: checks the appcast and installs signed updates.
+    private let updaterController: SPUStandardUpdaterController
+    @StateObject private var updaterViewModel: CheckForUpdatesViewModel
+
     init() {
+        let updaterController = SPUStandardUpdaterController(
+            startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        self.updaterController = updaterController
+        _updaterViewModel = StateObject(wrappedValue: CheckForUpdatesViewModel(updater: updaterController.updater))
+
         let store = MeetingStore()
         let vocabulary = VocabularyStore()
         let settings = AppSettings()
@@ -40,6 +50,10 @@ struct LocalScribeApp: App {
                 .onAppear { pill.ensureActive(); detector.activate() }
         }
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { updaterController.updater.checkForUpdates() }
+                    .disabled(!updaterViewModel.canCheckForUpdates)
+            }
             CommandGroup(after: .newItem) {
                 Button(monitor.isRunning ? "Stop Recording" : "Start Recording") {
                     monitor.toggle()
@@ -55,6 +69,15 @@ struct LocalScribeApp: App {
         Settings {
             SettingsView(vocabulary: vocabulary, settings: settings)
         }
+    }
+}
+
+/// Keeps the "Check for Updates…" menu item enabled only when Sparkle is
+/// actually able to check (updater started, not mid-check).
+final class CheckForUpdatesViewModel: ObservableObject {
+    @Published var canCheckForUpdates = false
+    init(updater: SPUUpdater) {
+        updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheckForUpdates)
     }
 }
 

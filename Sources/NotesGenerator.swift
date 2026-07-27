@@ -1,18 +1,17 @@
 import Foundation
+import NaturalLanguage
 
-/// Where notes are generated. Local by default (Ollama, fully offline); cloud
-/// only when the user opts in with their own key.
+/// Where notes are generated. On-device by default (a local MLX model, fully
+/// offline); cloud only when the user opts in with their own key.
 enum NotesBackend {
-    case localOllama(model: String)
+    /// On-device MLX model (the shipping default). `model` is a Hugging Face repo id.
+    case localEmbedded(model: String)
     case cloudOpenAICompatible(baseURL: String, apiKey: String, model: String)
 }
 
 /// Turns a transcript (and the user's rough notes) into structured meeting
-/// notes. Builds one prompt and sends it to whichever backend is selected.
-///
-/// NOTE: Ollama is the local dev-time engine. To ship we'll swap it for an
-/// embedded engine (MLX / llama.cpp) that auto-downloads its model — this file
-/// is the seam where that swap happens.
+/// notes. Builds one prompt and sends it to whichever backend is selected —
+/// the on-device MLX model by default, or a cloud model if the user opts in.
 final class NotesGenerator {
     struct GenerationError: LocalizedError {
         let message: String
@@ -24,24 +23,26 @@ final class NotesGenerator {
                   template: NotesTemplate,
                   languageHint: String,
                   backend: NotesBackend) async throws -> String {
+        let language = writeLanguage(hint: languageHint, transcript: transcript)
         let prompt = buildPrompt(transcript: transcript, userNotes: userNotes,
-                                 template: template, languageHint: languageHint)
-        switch backend {
-        case let .localOllama(model):
-            return try await sendOllama(model: model, system: prompt.system, user: prompt.user)
-        case let .cloudOpenAICompatible(baseURL, apiKey, model):
-            return try await sendOpenAICompatible(baseURL: baseURL, apiKey: apiKey, model: model,
-                                                  system: prompt.system, user: prompt.user)
+                                 template: template, language: language)
+        let result = try await dispatch(system: prompt.system, user: prompt.user, backend: backend)
+        // The small on-device model can occasionally leak a run of another
+        // language's script into long notes; if that happens, regenerate once.
+        if hasForeignScriptLeak(result, language: language) {
+            return try await dispatch(system: prompt.system, user: prompt.user, backend: backend)
         }
+        return result
     }
 
     /// Proposes a short, specific title saying what the conversation was about.
     func suggestTitle(transcript: String, languageHint: String, backend: NotesBackend) async throws -> String {
+        let language = writeLanguage(hint: languageHint, transcript: transcript)
         let system = """
         You name conversations. Given a meeting transcript, reply with ONLY a short title \
         (3–6 words) saying concretely what was discussed — specific topics, names, decisions. \
         Never generic ("Meeting", "Discussion", "Conversation"), no quotes, no trailing period, \
-        no explanation — just the title. Write it in \(languageHint).
+        no explanation — just the title. Write the title in \(language) — use \(language) only.
         """
         let raw = try await dispatch(system: system, user: clippedForTitle(transcript), backend: backend)
         let title = Self.cleanedTitle(raw)
@@ -105,11 +106,12 @@ final class NotesGenerator {
 
     /// Answers a question about the meeting using only the transcript.
     func answer(question: String, transcript: String, languageHint: String, backend: NotesBackend) async throws -> String {
+        let language = writeLanguage(hint: languageHint, transcript: transcript)
         let system = """
         You answer questions about a meeting using ONLY the transcript provided. \
         Lines labeled "You" are the app's user; "Others" are the other participants. \
         If the transcript doesn't contain the answer, say you don't see it in this meeting. \
-        Be concise and factual. Answer in \(languageHint).
+        Be concise and factual. \(languageRule(language))
         """
         let user = "TRANSCRIPT:\n\(transcript)\n\nQUESTION: \(question)"
         return try await dispatch(system: system, user: user, backend: backend)
@@ -118,9 +120,10 @@ final class NotesGenerator {
     /// Rewrites existing notes per an instruction, staying faithful to the transcript.
     func reshape(currentNotes: String, transcript: String, instruction: String,
                  languageHint: String, backend: NotesBackend) async throws -> String {
+        let language = writeLanguage(hint: languageHint, transcript: transcript)
         let system = """
         You rewrite meeting notes according to an instruction, staying faithful to the transcript \
-        and inventing nothing. Keep clear Markdown formatting. Write in \(languageHint).
+        and inventing nothing. Keep clear Markdown formatting. \(languageRule(language))
         """
         let user = "TRANSCRIPT:\n\(transcript)\n\nCURRENT NOTES:\n\(currentNotes)\n\nINSTRUCTION: \(instruction)"
         return try await dispatch(system: system, user: user, backend: backend)
@@ -128,12 +131,13 @@ final class NotesGenerator {
 
     /// Drafts a ready-to-send follow-up message from the meeting.
     func draftFollowUp(transcript: String, notes: String, languageHint: String, backend: NotesBackend) async throws -> String {
+        let language = writeLanguage(hint: languageHint, transcript: transcript)
         let system = """
         You draft a concise, professional follow-up email after a meeting, based only on the \
         transcript (and notes if given). Include: a short greeting, a one-line recap, the key \
         decisions, and clear next steps / action items (with owners if the transcript names them), \
         then a brief sign-off. Make it ready to send — avoid placeholder brackets like [Name] unless \
-        the transcript genuinely doesn't provide the detail. Write in \(languageHint).
+        the transcript genuinely doesn't provide the detail. \(languageRule(language))
         """
         var user = "TRANSCRIPT:\n\(transcript)"
         if !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -144,11 +148,12 @@ final class NotesGenerator {
 
     /// Extracts concrete action items from the meeting as a list of strings.
     func extractActionItems(transcript: String, notes: String, languageHint: String, backend: NotesBackend) async throws -> [String] {
+        let language = writeLanguage(hint: languageHint, transcript: transcript)
         let system = """
         Extract the concrete action items / tasks agreed in this meeting. \
         Output ONLY the tasks, one per line, with no numbering, bullets, or extra commentary. \
         Name the owner if the transcript does. If there are none, output exactly: NONE. \
-        Write in \(languageHint).
+        \(languageRule(language))
         """
         var user = "TRANSCRIPT:\n\(transcript)"
         if !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -175,17 +180,57 @@ final class NotesGenerator {
 
     private func dispatch(system: String, user: String, backend: NotesBackend) async throws -> String {
         switch backend {
-        case let .localOllama(model):
-            return try await sendOllama(model: model, system: system, user: user)
+        case let .localEmbedded(model):
+            return try await sendEmbedded(model: model, system: system, user: user)
         case let .cloudOpenAICompatible(baseURL, apiKey, model):
             return try await sendOpenAICompatible(baseURL: baseURL, apiKey: apiKey, model: model, system: system, user: user)
         }
     }
 
+    // MARK: - Language
+
+    /// The concrete language to write in. An explicit user choice (Ukrainian /
+    /// English) is trusted as-is; the vague auto hint ("the same language as the
+    /// transcript") is resolved to the transcript's detected language, so the
+    /// on-device model gets a firm target instead of drifting to English.
+    private func writeLanguage(hint: String, transcript: String) -> String {
+        guard hint.range(of: "same language", options: .caseInsensitive) != nil else { return hint }
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(transcript)
+        switch recognizer.dominantLanguage {
+        case .ukrainian: return "Ukrainian"
+        case .english: return "English"
+        case .russian: return "Russian"
+        case .some(let other):
+            return Locale(identifier: "en_US").localizedString(forLanguageCode: other.rawValue) ?? hint
+        case .none: return hint
+        }
+    }
+
+    /// A firm single-language instruction — the small model otherwise switches
+    /// or mixes languages, especially when the target isn't English.
+    private func languageRule(_ language: String) -> String {
+        "Write everything in \(language). Use \(language) only — do not switch to or mix in any other language."
+    }
+
+    /// True when the text carries a non-trivial run of CJK script while the
+    /// target language isn't CJK — the on-device model's rare cross-language leak.
+    private func hasForeignScriptLeak(_ text: String, language: String) -> Bool {
+        let cjkTargets: Set<String> = ["Chinese", "Japanese", "Korean"]
+        guard !cjkTargets.contains(language) else { return false }
+        let count = text.unicodeScalars.reduce(into: 0) { total, scalar in
+            let v = scalar.value
+            if (0x4E00...0x9FFF).contains(v) || (0x3040...0x30FF).contains(v) || (0xAC00...0xD7AF).contains(v) {
+                total += 1
+            }
+        }
+        return count >= 5
+    }
+
     // MARK: - Prompt
 
     private func buildPrompt(transcript: String, userNotes: String,
-                             template: NotesTemplate, languageHint: String) -> (system: String, user: String) {
+                             template: NotesTemplate, language: String) -> (system: String, user: String) {
         let sectionList = template.sections.map { "## \($0)" }.joined(separator: "\n")
 
         var system = """
@@ -215,7 +260,7 @@ final class NotesGenerator {
 
         Rules: be concise and never invent anything not supported by the transcript. If a section \
         would have nothing to report, omit that section entirely — heading and all — rather than \
-        writing a placeholder like "—" or "None". Write the notes in \(languageHint).
+        writing a placeholder like "—" or "None". \(languageRule(language))
         """
 
         let user = userNotes.isEmpty
@@ -224,34 +269,16 @@ final class NotesGenerator {
         return (system, user)
     }
 
-    // MARK: - Local (Ollama)
+    // MARK: - Local (embedded MLX)
 
-    private func sendOllama(model: String, system: String, user: String) async throws -> String {
-        let endpoint = URL(string: "http://localhost:11434/api/chat")!
-        let payload: [String: Any] = [
-            "model": model,
-            "stream": false,
-            "messages": [
-                ["role": "system", "content": system],
-                ["role": "user", "content": user]
-            ]
-        ]
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
-        request.timeoutInterval = 300
-
-        let (data, response) = try await send(request,
-            unreachable: "Couldn't reach the local AI (Ollama) at localhost:11434. Make sure Ollama is running.")
-        try checkStatus(response, data, context: "Ollama")
-
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let message = json["message"] as? [String: Any],
-              let content = message["content"] as? String else {
-            throw GenerationError(message: "Couldn't read Ollama's reply. Is the model \"\(model)\" installed? (run: ollama pull \(model))")
+    /// Runs the prompt on the on-device MLX model. This is the shipping default —
+    /// fully offline, nothing leaves the Mac. The model auto-downloads on first use.
+    private func sendEmbedded(model: String, system: String, user: String) async throws -> String {
+        do {
+            return try await MLXEngine.shared.generate(system: system, user: user, maxTokens: 2048, modelID: model)
+        } catch let error as MLXEngine.EngineError {
+            throw GenerationError(message: error.message)
         }
-        return try nonEmpty(content)
     }
 
     // MARK: - Cloud (OpenAI-compatible)

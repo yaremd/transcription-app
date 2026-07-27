@@ -970,14 +970,15 @@ struct MeetingDetailView: View {
     private var backend: NotesBackend {
         settings.usingCloudNotes
             ? .cloudOpenAICompatible(baseURL: settings.cloudBaseURL, apiKey: settings.cloudAPIKey, model: settings.cloudModel)
-            : .localOllama(model: settings.resolvedNotesModel)
+            : .localEmbedded(model: settings.embeddedModelID)
     }
 
-    /// Quick jobs: title + speaker-name suggestions run on the light model.
+    /// Quick jobs: title + speaker-name suggestions. On device these share the
+    /// one local model; with cloud they use the same cloud backend.
     private var titleBackend: NotesBackend {
         settings.usingCloudNotes
             ? backend
-            : .localOllama(model: settings.resolvedTitleModel)
+            : .localEmbedded(model: settings.embeddedModelID)
     }
 
     private var languageHint: String {
@@ -985,7 +986,7 @@ struct MeetingDetailView: View {
     }
 
     private var engineLabel: String {
-        settings.usingCloudNotes ? "your cloud model" : "\(settings.resolvedNotesModel), on your Mac"
+        settings.usingCloudNotes ? "your cloud model" : "on-device AI"
     }
 
     private var durationText: String {

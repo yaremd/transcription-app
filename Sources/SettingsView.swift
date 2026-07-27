@@ -102,52 +102,12 @@ private struct VocabularySettings: View {
 
 private struct NotesSettings: View {
     @ObservedObject var settings: AppSettings
-    @State private var models: [OllamaModel] = []
-    @State private var loadFailed = false
-
-    private let titleModelHint = "ollama pull llama3.2:3b"
+    @ObservedObject private var modelStatus = EmbeddedModelStatus.shared
 
     var body: some View {
         Form {
             Section("Notes model (on your Mac)") {
-                if !models.isEmpty {
-                    Picker("Model", selection: $settings.notesModel) {
-                        ForEach(models) { model in
-                            Text("\(model.name)  ·  \(model.sizeLabel)").tag(model.name)
-                        }
-                        // Keep a stored-but-uninstalled choice visible rather than blanking the picker.
-                        if !settings.notesModel.isEmpty,
-                           !models.contains(where: { $0.name == settings.notesModel }) {
-                            Text("\(settings.notesModel)  ·  not installed").tag(settings.notesModel)
-                        }
-                    }
-                    Text("Bigger models write better notes but run slower. Titles and speaker names automatically use your smallest model, so naming stays fast.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else if loadFailed {
-                    Text("Couldn't reach Ollama at localhost:11434. Start Ollama to choose a model — until then, notes use \(AppSettings.defaultNotesModel).")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Text("Looking for installed models…")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack(spacing: 6) {
-                    Text("Want instant titles? Install a small model:")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(titleModelHint)
-                        .font(.system(.caption, design: .monospaced))
-                    Button { copyToPasteboard(titleModelHint) } label: {
-                        Image(systemName: "doc.on.doc").font(.system(size: 10))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Copy")
-                }
+                modelStatusView
             }
             .disabled(settings.cloudNotesEnabled)
 
@@ -173,11 +133,40 @@ private struct NotesSettings: View {
             }
         }
         .formStyle(.grouped)
-        .task {
-            let list = await OllamaModels.installed()
-            models = list
-            loadFailed = list.isEmpty
-            settings.resolveModels(list)
+        .task { await modelStatus.attach() }
+    }
+
+    @ViewBuilder
+    private var modelStatusView: some View {
+        switch modelStatus.phase {
+        case .unsupported:
+            Label("On-device notes need an Apple-silicon Mac. Turn on a cloud model below to use notes here.", systemImage: "exclamationmark.triangle")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        case .ready:
+            Label("On-device model ready — notes, titles, and chat run privately on your Mac.", systemImage: "checkmark.seal.fill")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        case .downloading(let progress):
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Downloading the on-device model… \(Int(progress * 100))%")
+                    .font(.caption).foregroundStyle(.secondary)
+                ProgressView(value: progress)
+            }
+        case .failed(let message):
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Download failed: \(message)", systemImage: "exclamationmark.triangle")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Try again") { modelStatus.downloadNow() }
+            }
+        case .idle:
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Notes, titles, and chat run on a private AI model on your Mac — about 2–4 GB depending on your Mac's memory, downloaded once. It downloads automatically the first time you need notes, or get it now.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Download now") { modelStatus.downloadNow() }
+            }
         }
     }
 }

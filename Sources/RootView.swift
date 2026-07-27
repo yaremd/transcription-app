@@ -162,10 +162,11 @@ struct RootView: View {
             monitor.prewarmModel()
             settings.appearance.apply()
         }
-        // Pick fast local models from whatever Ollama has installed, so the
-        // first meeting's title and notes don't crawl on a 20B by default.
+        // Observe on-device model download progress. This does not start a
+        // download — the model is fetched lazily the first time notes or a
+        // title are generated (or on demand from Settings).
         .task {
-            settings.resolveModels(await OllamaModels.installed())
+            await EmbeddedModelStatus.shared.attach()
         }
         .sheet(isPresented: $showOnboarding) {
             OnboardingView {
