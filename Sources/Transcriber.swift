@@ -24,6 +24,11 @@ actor Transcriber {
     /// per loaded model; suppressed whenever decoding as Ukrainian.
     private var cachedRussianMarkerTokens: [Int]?
     private var filteredSegments = 0       // junk dropped this session, for tuning
+    /// Memory coordination (tight-RAM Macs): whether a recording is currently
+    /// using the speech model, and when it last ran — so the model is released
+    /// for the notes model only when it's genuinely idle. See `releaseIfIdle`.
+    private var recordingActive = false
+    private var lastTranscribeAt = Date.distantPast
     private let log = Logger(subsystem: "com.yarem.Seal", category: "Transcriber")
 
     /// Sets the custom vocabulary that biases transcription toward the user's
@@ -64,6 +69,23 @@ actor Transcriber {
         recentContext = [:]
         languageTally = [:]
         filteredSegments = 0
+        recordingActive = true
+    }
+
+    /// Marks the recording finished — the speech model may now be released for
+    /// the notes model once it goes idle (see `releaseIfIdle`).
+    func endSession() { recordingActive = false }
+
+    /// Releases the speech model to free RAM for the notes model, but only when
+    /// it's safe: no recording is using it, and it hasn't transcribed in the
+    /// last `minIdle` seconds (so a just-ended recording's final commits have
+    /// settled). The next recording reloads it; a no-op otherwise. For
+    /// post-meeting memory coordination on memory-tight Macs.
+    func releaseIfIdle(minIdle: TimeInterval) {
+        guard pipe != nil, !recordingActive,
+              Date().timeIntervalSince(lastTranscribeAt) >= minIdle else { return }
+        reset()
+        log.notice("released the speech model to free memory for notes")
     }
 
     /// Unloads the current model so the next load() can pick a different one
@@ -102,6 +124,7 @@ actor Transcriber {
     /// may decode twice when the language is ambiguous.
     func transcribe(_ samples: [Float], source: String, mode: TranscribeMode) async -> String {
         guard let pipe, samples.count >= 1600 else { return "" }   // need ≥ 0.1s of audio
+        lastTranscribeAt = Date()
 
         let candidates = await languageCandidates(samples: samples, source: source, mode: mode, pipe: pipe)
         let dominant = dominantLanguage(for: source)
