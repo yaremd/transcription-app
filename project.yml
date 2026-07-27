@@ -57,7 +57,7 @@ targets:
         #   SUFeedURL     → your GitHub Pages appcast URL
         #   SUPublicEDKey → the public key printed by Sparkle's generate_keys
         SUFeedURL: "https://yaremd.github.io/transcription-app/appcast.xml"
-        SUPublicEDKey: "REPLACE_WITH_SPARKLE_PUBLIC_KEY"
+        SUPublicEDKey: "C4hPB3oc/f+P3F6YEGgmdi7ay++/H5HpggNdv5cI50M="
         SUEnableAutomaticChecks: true
     settings:
       base:
