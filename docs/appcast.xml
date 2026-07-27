@@ -4,11 +4,8 @@
     <title>Seal</title>
     <description>Updates for Seal</description>
     <language>en</language>
-    <!--
-      Add one <item> per release. `scripts/release.sh` prints the
-      sparkle:edSignature and length to paste below. The enclosure url is the
-      DMG's public download URL (e.g. a GitHub Release asset).
-
+    <!-- Newest release first. scripts/release.sh prints the edSignature +
+         length; the enclosure url is the GitHub Release asset. -->
     <item>
       <title>Version 0.1</title>
       <sparkle:version>1</sparkle:version>
@@ -17,10 +14,9 @@
       <pubDate>Mon, 27 Jul 2026 00:00:00 +0000</pubDate>
       <enclosure
         url="https://github.com/yaremd/transcription-app/releases/download/v0.1/Seal.dmg"
-        sparkle:edSignature="PASTE_FROM_release.sh"
-        length="PASTE_FROM_release.sh"
+        sparkle:edSignature="n7727AJ8Wd3/bsxzuX5mK0aB7ojsWQCmatDgyea47GHkqT5rbp+sK5QnOspNcN5AObJZG5+AIBXItdnXSmSMDA=="
+        length="18577079"
         type="application/octet-stream" />
     </item>
-    -->
   </channel>
 </rss>
