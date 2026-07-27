@@ -1,13 +1,17 @@
 import SwiftUI
 
-/// The saved-meeting "notes ↔ transcript" workspace: the user's own timestamped
-/// notes on the left, the full transcript on the right — the same pairing they
-/// had live, kept for review. Clicking a note's time highlights the moment it
-/// was written; tapping a transcript line anchors the next note you add to that
-/// moment. Notes are editable, add-able, and delete-able here, and every change
-/// is persisted back into the meeting (debounced) — the transcript stays read-only.
+/// Full-height "notes ↔ transcript" workspace, shown in a sheet from the saved
+/// meeting so the transcript has room to scroll. The user's timestamped notes
+/// on the left, the full transcript on the right — the same pairing they had
+/// live. Clicking a note's time scrolls the transcript to that moment and
+/// highlights it; tapping a transcript line anchors the next note you add.
+/// Notes are editable, add-able, and delete-able here, and every change is
+/// persisted back into the meeting (debounced). The transcript is read-only.
 struct MeetingNotesWorkspace: View {
     let meeting: Meeting
+    /// A moment to jump to as soon as the workspace appears — set when the
+    /// sheet is opened by clicking a note in the meeting page.
+    var initialJump: Date? = nil
     @EnvironmentObject private var store: MeetingStore
 
     /// A local, editable copy of the user's notes. Seeded from the meeting and
@@ -17,8 +21,8 @@ struct MeetingNotesWorkspace: View {
     @FocusState private var draftFocused: Bool
 
     /// The moment a clicked note points at — drives the transcript's scroll +
-    /// highlight (via `jumpPulse`, bumped so the pane re-runs the jump even when
-    /// the same note is clicked twice).
+    /// highlight (via `jumpPulse`, bumped so the pane re-runs even when the same
+    /// note is clicked twice).
     @State private var jumpDate: Date?
     @State private var jumpPulse = 0
     /// Where a newly added note attaches: the transcript line the user last
@@ -26,19 +30,18 @@ struct MeetingNotesWorkspace: View {
     @State private var anchor: Date?
     @State private var saveTask: Task<Void, Never>?
 
-    private static let panelHeight: CGFloat = 460
-
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             notesColumn
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: 340)
+                .frame(maxHeight: .infinity)
             MeetingTranscriptColumn(meeting: meeting,
                                     jumpDate: jumpDate,
                                     jumpPulse: jumpPulse,
                                     onAnchor: { anchor = $0 })
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(height: Self.panelHeight)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: meeting.id, initial: true) { _, _ in
             blocks = meeting.noteBlocks ?? []
             draft = ""
@@ -46,6 +49,15 @@ struct MeetingNotesWorkspace: View {
             anchor = nil
         }
         .onChange(of: blocks) { _, _ in scheduleSave() }
+        .onAppear {
+            guard let initialJump else { return }
+            // Deferred so the transcript's scroll view is laid out before we
+            // ask it to scroll — otherwise the jump lands on nothing.
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                jumpTo(initialJump)
+            }
+        }
     }
 
     // MARK: - Notes column (left)
@@ -202,7 +214,9 @@ private struct MeetingNoteRow: View {
 
 /// The saved transcript beside the notes: read-only, but each line is tappable
 /// to anchor the next note to that moment. Scrolls to and highlights the lines
-/// around a clicked note's time (same behavior as the live transcript panel).
+/// around a clicked note's time. Lines saved before timestamps existed fall
+/// back to an even estimate across the meeting's duration, so anchoring still
+/// works approximately on older meetings.
 private struct MeetingTranscriptColumn: View {
     let meeting: Meeting
     let jumpDate: Date?
@@ -248,7 +262,7 @@ private struct MeetingTranscriptColumn: View {
                                           isYou: line.speaker == "You")
                                 .id(line.id)
                                 .contentShape(Rectangle())
-                                .onTapGesture { anchorTo(line) }
+                                .onTapGesture { anchorTo(index) }
                         }
                     }
                     .padding(12)
@@ -259,27 +273,38 @@ private struct MeetingTranscriptColumn: View {
         .insetPanel(radius: 8)
     }
 
+    /// Each line's time: its real commit time, or — for meetings saved before
+    /// timestamps were kept — an even estimate spread across the duration.
+    private func effectiveTime(_ index: Int) -> Date {
+        if let at = lines[index].at { return at }
+        guard lines.count > 1, meeting.duration > 0 else { return meeting.date }
+        let frac = Double(index) / Double(lines.count - 1)
+        return meeting.date.addingTimeInterval(meeting.duration * frac)
+    }
+
     /// Tapping a line anchors the next note to it and flashes it briefly so the
-    /// choice is visible; lines with no timestamp (older meetings) can't anchor.
-    private func anchorTo(_ line: StoredLine) {
-        guard let at = line.at else { return }
-        onAnchor(at)
-        tapped = line.id
+    /// choice is visible.
+    private func anchorTo(_ index: Int) {
+        onAnchor(effectiveTime(index))
+        let id = lines[index].id
+        tapped = id
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 900_000_000)
-            if tapped == line.id { tapped = nil }
+            if tapped == id { tapped = nil }
         }
     }
 
-    /// Scrolls to the line spoken at (or just before) the clicked note's time
-    /// and highlights everything within ~6s of it, then fades.
+    /// Scrolls to the line at (or just before) the clicked note's time and
+    /// highlights everything within ~6s of it, then fades.
     private func jump(_ proxy: ScrollViewProxy) {
         guard let jumpDate, !lines.isEmpty else { return }
-        let timed = lines.filter { $0.at != nil }
-        guard let target = timed.last(where: { ($0.at ?? .distantPast) <= jumpDate }) ?? timed.first else { return }
-        let targetAt = target.at ?? jumpDate
-        highlighted = Set(timed.filter { abs(($0.at ?? .distantPast).timeIntervalSince(targetAt)) < 6 }.map(\.id))
-        withAnimation { proxy.scrollTo(target.id, anchor: .center) }
+        var targetIndex = 0
+        for i in lines.indices where effectiveTime(i) <= jumpDate { targetIndex = i }
+        let targetAt = effectiveTime(targetIndex)
+        highlighted = Set(lines.indices
+            .filter { abs(effectiveTime($0).timeIntervalSince(targetAt)) < 6 }
+            .map { lines[$0].id })
+        withAnimation { proxy.scrollTo(lines[targetIndex].id, anchor: .center) }
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 1_800_000_000)
             withAnimation { highlighted = [] }
