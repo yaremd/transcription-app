@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		048C0CD38CEA989ABFAAEBF2 /* TranscriptQualityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 929411DADA5B682F021CFFFC /* TranscriptQualityTests.swift */; };
 		082E6DE8EA841A7B8C01803A /* PrivacyBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49B35EBF3B378BF924C4CBFF /* PrivacyBadge.swift */; };
 		0BE8A4D8080561A75824DE8A /* MeetingExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C59AA528A9CC916241530D5 /* MeetingExporter.swift */; };
 		0C071F7AA8E9BCC20C14BE3D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ECAA65E938B3B93FA8054BD9 /* Assets.xcassets */; };
@@ -85,6 +86,7 @@
 		879645123DA0B1ED8A7F547C /* Meeting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Meeting.swift; sourceTree = "<group>"; };
 		89711E2232B2DFE1F4165774 /* TranscriptPolisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptPolisher.swift; sourceTree = "<group>"; };
 		8C59AA528A9CC916241530D5 /* MeetingExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingExporter.swift; sourceTree = "<group>"; };
+		929411DADA5B682F021CFFFC /* TranscriptQualityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptQualityTests.swift; sourceTree = "<group>"; };
 		931078E75B584BFA3397DFB1 /* TranscriptionStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionStream.swift; sourceTree = "<group>"; };
 		98D3153FBC531FB658B9F1D3 /* NotesGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesGenerator.swift; sourceTree = "<group>"; };
 		BE8F90071AC0251E2F3B6EFC /* LocalScribeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalScribeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -174,6 +176,7 @@
 			isa = PBXGroup;
 			children = (
 				293CED8E6BF6F039CE78D60D /* MLXEngineSmokeTests.swift */,
+				929411DADA5B682F021CFFFC /* TranscriptQualityTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -297,6 +300,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				84CC0F7251B15C1F9EFC2CAE /* MLXEngineSmokeTests.swift in Sources */,
+				048C0CD38CEA989ABFAAEBF2 /* TranscriptQualityTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

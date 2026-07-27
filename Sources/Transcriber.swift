@@ -135,7 +135,10 @@ actor Transcriber {
         // no momentum yet and Whisper's fluent English translations of
         // Ukrainian would win on raw confidence alone.
         let protected = dominant ?? (candidates.count > 1 ? (candidates.first ?? nil) : nil)
-        var best: (text: String, score: Float, language: String?)?
+        var best: (text: String, score: Float, confidence: Float, language: String?)?
+        /// Whether the language this source has been speaking all session heard
+        /// nothing in this audio — see the silence check below.
+        var dominantHeardNothing = false
         for candidate in candidates {
             var options = DecodingOptions()
             options.task = .transcribe
@@ -163,7 +166,8 @@ actor Transcriber {
             guard let results = try? await pipe.transcribe(audioArray: samples, decodeOptions: options) else { continue }
             let kept = results.flatMap { $0.segments }.filter { trustworthy($0) }
             let text = Self.cleaned(kept.map { $0.text }.joined(separator: " "))
-            var score = Self.decodeScore(kept, isEmpty: text.isEmpty)
+            let confidence = Self.decodeScore(kept, isEmpty: text.isEmpty)
+            var score = confidence
             // Head start (see `protected` above): momentum for the established
             // language, or the acoustic detection's pick while bootstrapping.
             // Whisper's English *translations* of Ukrainian speech decode
@@ -172,13 +176,31 @@ actor Transcriber {
             if mode == .final, let candidate, candidate == protected, !text.isEmpty {
                 score += 0.2
             }
+            if text.isEmpty, let dominant, candidate == dominant {
+                dominantHeardNothing = true
+            }
             if best == nil || score > best!.score {
-                best = (text, score, candidate ?? results.first?.language)
+                best = (text, score, confidence, candidate ?? results.first?.language)
             }
         }
         guard let best else { return "" }
         if candidates.count > 1 {
             log.notice("bilingual arbitration on \(source, privacy: .public): picked \(best.language ?? "?", privacy: .public) (score \(best.score, format: .fixed(precision: 2)), dominant \(dominant ?? "-", privacy: .public))")
+        }
+
+        // The language this source has spoken all session heard nothing here.
+        // An empty decode is not a *worse* answer than a hallucinated one — for
+        // audio carrying no real speech it is the right answer — but it scores
+        // last, so any rival language that invents a word wins the arbitration
+        // outright. That is how an English speaker's "mhm" came back as "М-м":
+        // English correctly produced nothing, Ukrainian did not. Trust the
+        // silence. A genuine language switch arrives as a full phrase, so it
+        // still clears `establishesLanguage` and passes through untouched.
+        if dominantHeardNothing, !best.text.isEmpty, best.language != dominant,
+           !Self.establishesLanguage(best.text, confidence: best.confidence) {
+            filteredSegments += 1
+            log.notice("dropped invented \(best.language ?? "?", privacy: .public) on \(source, privacy: .public): dominant \(dominant ?? "-", privacy: .public) heard silence")
+            return ""
         }
 
         // Drop a lone one/two-word line whose language contradicts what this
@@ -204,7 +226,7 @@ actor Transcriber {
         if mode == .final || (language == nil && allowedLanguages.isEmpty),
            let lang = best.language, !lang.isEmpty,
            allowedLanguages.isEmpty || allowedLanguages.contains(lang),
-           Self.establishesLanguage(best.text) {
+           Self.establishesLanguage(best.text, confidence: best.confidence) {
             detectedLanguage[source] = lang
             if mode == .final {
                 languageTally[source, default: [:]][lang, default: 0] += 1
@@ -222,13 +244,53 @@ actor Transcriber {
         return leader.key
     }
 
-    /// Whether a line is long enough to reliably indicate its language. The
-    /// one- and two-word outputs Whisper hallucinates from silence ("Дякую",
-    /// "okay", "you") must never establish or reinforce a source's dominant
-    /// language — only a real phrase gets a vote.
-    private static func establishesLanguage(_ text: String) -> Bool {
-        text.split(whereSeparator: { $0.isWhitespace }).count >= 4
+    /// The language the meeting as a whole has settled on, across both sources.
+    /// A call is overwhelmingly conducted in one language, so when a source has
+    /// no momentum of its own — its first utterance, or a long run of "mhm"
+    /// that never earned a vote — the *other* side's established language is
+    /// far better evidence than a fixed default.
+    private func sessionDominantLanguage() -> String? {
+        var totals: [String: Int] = [:]
+        for tally in languageTally.values {
+            for (lang, count) in tally { totals[lang, default: 0] += count }
+        }
+        guard let leader = totals.max(by: { $0.value < $1.value }),
+              leader.value >= 2 else { return nil }
+        return leader.key
     }
+
+    /// What to decode as when nothing about this utterance is certain: this
+    /// source's own momentum, then the meeting's, and only then the allowed
+    /// set's first entry. That last resort used to be the *only* rule, which
+    /// meant every uncertain scrap of an all-English call was decoded as
+    /// Ukrainian (the auto set leads with "uk") and came back as Cyrillic.
+    private func fallbackLanguage(for source: String) -> String? {
+        dominantLanguage(for: source) ?? sessionDominantLanguage() ?? allowedLanguages.first
+    }
+
+    /// Whether a line is solid enough evidence to set or reinforce a source's
+    /// language. Word count alone was not enough: Whisper invents *fluent*
+    /// four-word lines from an English speaker's backchannel ("Я думаю, це
+    /// димитро", "Словляться і без мазу рух"), and those votes are what locked
+    /// a stream into the wrong language, after which every real line decoded as
+    /// that language's garbage. Three bars instead:
+    ///   - enough words to carry a language at all;
+    ///   - enough of them distinct and long enough to be words rather than
+    ///     grunts — "І сі, ага. Ага. І сі, ага." is seven tokens of nothing;
+    ///   - decoder confidence high enough that they were heard, not invented.
+    static func establishesLanguage(_ text: String, confidence: Float) -> Bool {
+        guard confidence >= languageVoteConfidence else { return false }
+        let words = text.split(whereSeparator: { $0.isWhitespace })
+        guard words.count >= 4 else { return false }
+        let substantial = Set(
+            words.map { $0.lowercased().filter(\.isLetter) }.filter { $0.count >= 3 })
+        return substantial.count >= 3
+    }
+
+    /// Mean decoder log-probability a line must beat before it may vote on
+    /// language. Whisper's own "this decode is poor" bar is -1.0; a vote
+    /// outlives the line it came from, so it is held to more.
+    private static let languageVoteConfidence: Float = -0.7
 
     /// A lone one- or two-word output — the shape of a silence-hallucination
     /// ("Дякую", "you", "okay") rather than a real phrase.
@@ -277,14 +339,19 @@ actor Transcriber {
             if let dominant = dominantLanguage(for: source) { return [dominant] }
             guard allowedLanguages.count > 1,
                   let detection = try? await pipe.detectLangauge(audioArray: samples) else {
-                return [allowedLanguages.first]
+                return [fallbackLanguage(for: source)]
             }
             let ranked = allowedLanguages
                 .map { (code: $0, prob: detection.langProbs[$0] ?? 0) }
                 .sorted { $0.prob > $1.prob }
             let top = ranked[0]
             let certain = top.prob >= 0.85 || ranked[1].prob == 0 || top.prob >= 6 * ranked[1].prob
-            guard certain else { return [allowedLanguages.first] }
+            // Not confident enough to cache — but an uncertain reading of this
+            // audio still beats a blind default, and the meeting's own settled
+            // language beats both.
+            guard certain else {
+                return [sessionDominantLanguage() ?? top.code]
+            }
             detectedLanguage[source] = top.code   // confident enough to reuse
             return [top.code]
         }
@@ -384,29 +451,52 @@ actor Transcriber {
     /// Reasons are logged as metrics only — never transcript text — so tuning
     /// stays data-driven without spoken content leaving the app.
     private func trustworthy(_ segment: TranscriptionSegment) -> Bool {
+        guard let reason = SegmentQuality.rejection(segment) else { return true }
         let words = segment.text.split(whereSeparator: { $0.isWhitespace }).count
-        let reason: String?
-        if segment.noSpeechProb > 0.8 && segment.avgLogprob < -0.7 {
-            reason = "probable-silence"
-        } else if segment.noSpeechProb > 0.6 && segment.avgLogprob < -1.0 {
-            reason = "weak-silence"
-        } else if segment.compressionRatio > 2.6 {
-            reason = "repetition-loop"
-        } else if words > 0 && words <= 2 && (segment.avgLogprob < -1.0 || segment.noSpeechProb > 0.6) {
-            reason = "short-junk"
-        } else {
-            reason = nil
-        }
-        guard let reason else { return true }
         filteredSegments += 1
         log.notice("filtered segment #\(self.filteredSegments) (\(reason, privacy: .public)): words=\(words) noSpeech=\(segment.noSpeechProb, format: .fixed(precision: 2)) logprob=\(segment.avgLogprob, format: .fixed(precision: 2))")
         return false
     }
 
+    private static func cleaned(_ raw: String) -> String {
+        let text = SegmentQuality.stripped(raw)
+        let normalized = AudioMonitor.normalizedForEcho(text)
+        if normalized.isEmpty || SegmentQuality.hallucinationPhrases.contains(normalized) { return "" }
+        return text
+    }
+}
+
+/// Output-quality rules shared by the live transcriber and the offline
+/// polisher. These existed as two hand-kept copies and had already drifted
+/// once — a fix landed in one and left the other filtering by the old rules —
+/// so both paths now read them from here.
+enum SegmentQuality {
+    /// Why this segment should be discarded, or nil to keep it. Reasons are
+    /// returned rather than logged so callers can report them as metrics
+    /// without spoken content ever leaving the app.
+    ///
+    /// Repetition needs two bars, not one. People really do talk in lists —
+    /// "amount, date, accounts payable… amount, date, paid via" — and a flat
+    /// compression-ratio cut discarded whole spoken requirements as if they
+    /// were decoder loops. A stuck decoder is repetitive *and* unsure of
+    /// itself, so moderate repetition goes only when confidence is also poor;
+    /// past 3.6 the output is degenerate whatever the confidence claims.
+    static func rejection(_ segment: TranscriptionSegment) -> String? {
+        if segment.noSpeechProb > 0.8 && segment.avgLogprob < -0.7 { return "probable-silence" }
+        if segment.noSpeechProb > 0.6 && segment.avgLogprob < -1.0 { return "weak-silence" }
+        if segment.compressionRatio > 3.6 { return "degenerate-loop" }
+        if segment.compressionRatio > 2.6 && segment.avgLogprob < -0.6 { return "repetition-loop" }
+        let words = segment.text.split(whereSeparator: { $0.isWhitespace }).count
+        if words > 0, words <= 2, segment.avgLogprob < -1.0 || segment.noSpeechProb > 0.6 {
+            return "short-junk"
+        }
+        return nil
+    }
+
     /// Stock phrases Whisper invents on near-silence (learned from YouTube
-    /// outros). Compared against the *whole* normalized output, so a real
+    /// outros). Compared against a *whole* normalized line, so a real
     /// "thank you" inside a sentence is never touched.
-    private static let hallucinationPhrases: Set<String> = [
+    static let hallucinationPhrases: Set<String> = [
         "thank you for watching", "thanks for watching", "subscribe to the channel",
         "please subscribe", "see you in the next video",
         "дякую за перегляд", "підписуйтесь на канал", "до зустрічі в наступному відео",
@@ -414,18 +504,11 @@ actor Transcriber {
         "спасибо за просмотр", "продолжение следует", "субтитры сделал dimatorzok",
     ]
 
-    private static func cleaned(_ raw: String) -> String {
-        // Whisper wraps non-speech events in brackets: [музика], [applause], …
-        var text = raw.replacingOccurrences(of: #"\[[^\]\n]{1,40}\]"#,
-                                            with: " ", options: .regularExpression)
-        text = text.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+    /// Whisper wraps non-speech events in brackets: [музика], [applause], …
+    /// Strips those and normalizes whitespace.
+    static func stripped(_ raw: String) -> String {
+        raw.replacingOccurrences(of: #"\[[^\]\n]{1,40}\]"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        let normalized = text.lowercased()
-            .components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-        if normalized.isEmpty || hallucinationPhrases.contains(normalized) { return "" }
-        return text
     }
 }

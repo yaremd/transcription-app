@@ -16,9 +16,18 @@ struct LocalScribeApp: App {
     private let updaterController: SPUStandardUpdaterController
     @StateObject private var updaterViewModel: CheckForUpdatesViewModel
 
+    /// True when the test runner launched this process. The app hosts the unit
+    /// tests, so its startup work runs at test startup too — and a test run has
+    /// no business fetching the appcast, listening for meetings, or putting a
+    /// floating panel on screen. (What actually blocked the runner was the
+    /// Keychain read in `AppSettings.init`; see `Keychain.isUnderTest`.)
+    static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
     init() {
         let updaterController = SPUStandardUpdaterController(
-            startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+            startingUpdater: !Self.isRunningTests, updaterDelegate: nil, userDriverDelegate: nil)
         self.updaterController = updaterController
         _updaterViewModel = StateObject(wrappedValue: CheckForUpdatesViewModel(updater: updaterController.updater))
 
@@ -47,7 +56,11 @@ struct LocalScribeApp: App {
                 // Touching the controllers here guarantees SwiftUI actually
                 // creates them — an @StateObject that body never reads may never
                 // be realized, and then no pill / no meeting nudge would appear.
-                .onAppear { pill.ensureActive(); detector.activate() }
+                .onAppear {
+                    guard !Self.isRunningTests else { return }
+                    pill.ensureActive()
+                    detector.activate()
+                }
         }
         .commands {
             CommandGroup(after: .appInfo) {

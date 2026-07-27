@@ -6,8 +6,21 @@ import Security
 enum Keychain {
     private static let service = "com.yarem.Seal"
 
+    /// Unit tests are hosted inside the app, so `AppSettings.init()` — and its
+    /// Keychain read — runs at test startup. The test host's signature differs
+    /// from the installed app's, and macOS answers that with an access prompt
+    /// no headless run can dismiss: `SecItemCopyMatching` blocks the main
+    /// thread and the test runner times out waiting to connect, reporting only
+    /// "hung before establishing connection". Tests have no business touching
+    /// the user's real secrets in any case, so the store reads as empty and
+    /// ignores writes there.
+    private static var isUnderTest: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
     /// Stores (or, for an empty value, removes) a secret for `account`.
     static func set(_ value: String, account: String) {
+        guard !isUnderTest else { return }
         let base: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -31,6 +44,7 @@ enum Keychain {
 
     /// Reads the secret for `account`, or nil if none is stored.
     static func get(account: String) -> String? {
+        guard !isUnderTest else { return nil }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -48,7 +62,7 @@ enum Keychain {
     /// — used for the com.yarem.LocalScribe → com.yarem.Seal rename. No-op if the
     /// current service already holds a value, or the old one is empty/absent.
     static func migrateService(account: String, from oldService: String) {
-        guard oldService != service, get(account: account) == nil else { return }
+        guard !isUnderTest, oldService != service, get(account: account) == nil else { return }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: oldService,

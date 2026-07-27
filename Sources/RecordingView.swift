@@ -277,7 +277,7 @@ private struct TranscriptPane: View {
                     }
                     .padding(12)
                 }
-                .onChange(of: monitor.transcript.count) { _, _ in
+                .onChange(of: transcriptGrowth) { _, _ in
                     guard !suspendAutoScroll else { return }
                     withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
                 }
@@ -295,6 +295,14 @@ private struct TranscriptPane: View {
 
     private var liveSpeakers: [String] {
         monitor.liveLines.keys.sorted { first, _ in first == "You" }
+    }
+
+    /// Changes whenever the transcript gains content. Line count alone is not
+    /// enough: an utterance continuing the current turn is merged into the last
+    /// line, growing it without adding one, and auto-scroll would stall for the
+    /// length of a long turn.
+    private var transcriptGrowth: Int {
+        monitor.transcript.count &+ (monitor.transcript.last?.text.count ?? 0)
     }
 
     /// Scrolls to the lines spoken around `jumpDate` and highlights them.

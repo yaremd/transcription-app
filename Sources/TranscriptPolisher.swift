@@ -16,16 +16,6 @@ actor TranscriptPolisher {
     /// Accuracy first — full large-v3 before the faster distillations.
     private static let modelCandidates = ["large-v3", "large-v3_turbo", "large-v3-v20240930_turbo", "small"]
 
-    /// Whisper's stock inventions on near-silence; a whole line matching one
-    /// of these is dropped (same list the live path uses).
-    private static let hallucinationPhrases: Set<String> = [
-        "thank you for watching", "thanks for watching", "subscribe to the channel",
-        "please subscribe", "see you in the next video",
-        "дякую за перегляд", "підписуйтесь на канал", "до зустрічі в наступному відео",
-        "субтитри створені спільнотою amara org", "субтитри створював dimatorzok",
-        "спасибо за просмотр", "продолжение следует", "субтитры сделал dimatorzok",
-    ]
-
     /// Transcribes both saved streams and interleaves them chronologically.
     /// `meeting.date` anchors segment times to wall-clock so note links keep
     /// working after the replacement.
@@ -134,8 +124,8 @@ actor TranscriptPolisher {
         var start = 0.0
         var lastEnd = -10.0
         for segment in results.flatMap({ $0.segments }) {
-            guard Self.trustworthy(segment) else { continue }
-            let piece = Self.cleaned(segment.text)
+            guard SegmentQuality.rejection(segment) == nil else { continue }
+            let piece = SegmentQuality.stripped(segment.text)
             guard !piece.isEmpty else { continue }
             if Double(segment.start) - lastEnd > 1.2, !text.isEmpty {
                 merged.append((speaker, start, text))
@@ -146,7 +136,9 @@ actor TranscriptPolisher {
             lastEnd = Double(segment.end)
         }
         if !text.isEmpty { merged.append((speaker, start, text)) }
-        return merged.filter { !Self.hallucinationPhrases.contains(AudioMonitor.normalizedForEcho($0.2)) }
+        return merged.filter {
+            !SegmentQuality.hallucinationPhrases.contains(AudioMonitor.normalizedForEcho($0.2))
+        }
     }
 
     /// Token ids containing letters Ukrainian never uses (ы э ъ ё) —
@@ -160,24 +152,6 @@ actor TranscriptPolisher {
             found.append(id)
         }
         return found
-    }
-
-    private static func trustworthy(_ segment: TranscriptionSegment) -> Bool {
-        if segment.noSpeechProb > 0.8 && segment.avgLogprob < -0.7 { return false }
-        if segment.noSpeechProb > 0.6 && segment.avgLogprob < -1.0 { return false }
-        if segment.compressionRatio > 2.6 { return false }
-        // Short fragments born of silence — the "Дякую"/"you" Whisper invents
-        // between utterances. A real one/two-word answer carries genuine speech,
-        // so its no-speech probability stays low and it still passes.
-        let words = segment.text.split(whereSeparator: { $0.isWhitespace }).count
-        if words > 0 && words <= 2 && (segment.avgLogprob < -1.0 || segment.noSpeechProb > 0.6) { return false }
-        return true
-    }
-
-    private static func cleaned(_ raw: String) -> String {
-        raw.replacingOccurrences(of: #"\[[^\]\n]{1,40}\]"#, with: " ", options: .regularExpression)
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Reads a saved stream back as 16 kHz mono Float (the recorder wrote it
