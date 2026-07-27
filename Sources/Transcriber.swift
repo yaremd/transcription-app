@@ -158,6 +158,19 @@ actor Transcriber {
             log.notice("bilingual arbitration on \(source, privacy: .public): picked \(best.language ?? "?", privacy: .public) (score \(best.score, format: .fixed(precision: 2)), dominant \(dominant ?? "-", privacy: .public))")
         }
 
+        // Drop a lone one/two-word line whose language contradicts what this
+        // source has spoken all session: the stray "Дякую" (in an English
+        // meeting) or "you"/"okay" (in a Ukrainian one) that survives the
+        // acoustic gate as a confident hallucination. A real short answer is in
+        // the stream's own language, and a genuine language switch arrives as a
+        // full phrase — never a lone word — so bilingual switching is untouched.
+        if let dominant, let lang = best.language, lang != dominant,
+           Self.isShortFiller(best.text) {
+            filteredSegments += 1
+            log.notice("dropped cross-language filler on \(source, privacy: .public): \(lang, privacy: .public) vs dominant \(dominant, privacy: .public)")
+            return ""
+        }
+
         // Remember what this source actually speaks — but only from a line
         // long enough to *mean* something. Short outputs ("Дякую", "okay",
         // "you") are exactly what Whisper invents from silence; letting them
@@ -192,6 +205,13 @@ actor Transcriber {
     /// language — only a real phrase gets a vote.
     private static func establishesLanguage(_ text: String) -> Bool {
         text.split(whereSeparator: { $0.isWhitespace }).count >= 4
+    }
+
+    /// A lone one- or two-word output — the shape of a silence-hallucination
+    /// ("Дякую", "you", "okay") rather than a real phrase.
+    private static func isShortFiller(_ text: String) -> Bool {
+        let words = text.split(whereSeparator: { $0.isWhitespace }).count
+        return words > 0 && words <= 2
     }
 
     /// Token ids whose text contains letters Ukrainian never uses (ы э ъ ё).
