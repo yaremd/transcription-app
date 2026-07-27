@@ -166,6 +166,11 @@ actor TranscriptPolisher {
         if segment.noSpeechProb > 0.8 && segment.avgLogprob < -0.7 { return false }
         if segment.noSpeechProb > 0.6 && segment.avgLogprob < -1.0 { return false }
         if segment.compressionRatio > 2.6 { return false }
+        // Short fragments born of silence — the "Дякую"/"you" Whisper invents
+        // between utterances. A real one/two-word answer carries genuine speech,
+        // so its no-speech probability stays low and it still passes.
+        let words = segment.text.split(whereSeparator: { $0.isWhitespace }).count
+        if words > 0 && words <= 2 && (segment.avgLogprob < -1.0 || segment.noSpeechProb > 0.6) { return false }
         return true
     }
 
