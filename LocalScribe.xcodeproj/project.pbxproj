@@ -38,6 +38,7 @@
 		ABC82EDD10AB03153376515B /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4DF2E2221BC76630B23DDF /* AppSettings.swift */; };
 		B4437BD448A055ACEC5B8A7A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 675D3B4978DB6B5C40EBB797 /* SettingsView.swift */; };
 		B8DBF5070182B786CC5AE11E /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = E2B13DCBC9DCF8E96808527D /* MLXHuggingFace */; };
+		C1B9F1FC04D4195E15B49AE2 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 08D4666DC7B4E71E16C024E5 /* Sparkle */; };
 		C5C8C4886694962DA43145D1 /* LocalScribeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8D6D6D87D0F1FDA33A2C808 /* LocalScribeApp.swift */; };
 		C98C3A0E5DD309CBE13A5E82 /* MicCapturer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8262FA732BF1CA1460F2B96E /* MicCapturer.swift */; };
 		E5ABF27450A934F1FE1D56CA /* SessionAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 582FA5EFBDD7B446610B1023 /* SessionAudioRecorder.swift */; };
@@ -105,6 +106,7 @@
 				B8DBF5070182B786CC5AE11E /* MLXHuggingFace in Frameworks */,
 				8C07BD0B0AFEDB6A259988A3 /* Tokenizers in Frameworks */,
 				4DEFC2B3A6B3C8706EBDC3F5 /* Hub in Frameworks */,
+				C1B9F1FC04D4195E15B49AE2 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -206,6 +208,7 @@
 				E2B13DCBC9DCF8E96808527D /* MLXHuggingFace */,
 				955FEF40D3CF8B7C97B7A5B1 /* Tokenizers */,
 				19AC89536ED05638602CFF69 /* Hub */,
+				08D4666DC7B4E71E16C024E5 /* Sparkle */,
 			);
 			productName = LocalScribe;
 			productReference = FEA85D0155AF8DFD6F67A9E3 /* LocalScribe.app */;
@@ -258,6 +261,7 @@
 			mainGroup = F360CB2873A705A5F2DDCA8F;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				415D1BC7DCA16B32848CFFD1 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				AD04386541DA6A36CD422562 /* XCRemoteSwiftPackageReference "WhisperKit" */,
 				AD0878222BE6FE9FD912FF06 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
 				F622B566148BABBF8BE650E6 /* XCRemoteSwiftPackageReference "swift-transformers" */,
@@ -379,7 +383,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = S4M9R72TXR;
-				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -440,7 +444,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = S4M9R72TXR;
-				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -573,6 +577,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		415D1BC7DCA16B32848CFFD1 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.0;
+			};
+		};
 		AD04386541DA6A36CD422562 /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/argmaxinc/WhisperKit";
@@ -604,6 +616,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AD0878222BE6FE9FD912FF06 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
 			productName = MLXLMCommon;
+		};
+		08D4666DC7B4E71E16C024E5 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 415D1BC7DCA16B32848CFFD1 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 		19AC89536ED05638602CFF69 /* Hub */ = {
 			isa = XCSwiftPackageProductDependency;

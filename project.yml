@@ -14,6 +14,9 @@ packages:
   swift-transformers:
     url: https://github.com/huggingface/swift-transformers
     minorVersion: 1.1.6
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
 settings:
   base:
     MARKETING_VERSION: "0.1"
@@ -21,7 +24,7 @@ settings:
     SWIFT_VERSION: "5.0"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: "S4M9R72TXR"
-    ENABLE_HARDENED_RUNTIME: "NO"
+    ENABLE_HARDENED_RUNTIME: "YES"
 targets:
   LocalScribe:
     type: application
@@ -41,6 +44,8 @@ targets:
         product: Tokenizers
       - package: swift-transformers
         product: Hub
+      - package: Sparkle
+        product: Sparkle
     info:
       path: Support/Info.plist
       properties:
@@ -48,6 +53,12 @@ targets:
         LSApplicationCategoryType: "public.app-category.productivity"
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        # Sparkle auto-update. Replace both placeholders before release:
+        #   SUFeedURL     → your GitHub Pages appcast URL
+        #   SUPublicEDKey → the public key printed by Sparkle's generate_keys
+        SUFeedURL: "https://CHANGE-ME.github.io/seal/appcast.xml"
+        SUPublicEDKey: "REPLACE_WITH_SPARKLE_PUBLIC_KEY"
+        SUEnableAutomaticChecks: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.yarem.LocalScribe
