@@ -472,7 +472,11 @@ final class AudioMonitor: ObservableObject {
     /// generated. Preserves an existing title/notes so a re-save never clobbers them.
     private func persistCurrentSession() {
         guard !transcript.isEmpty else { return }
-        let lines = transcript.map { StoredLine(speaker: $0.speaker, text: $0.text) }
+        // Carry each line's commit time into the saved meeting — it's what lets
+        // notes anchor to the transcript moment they were written in. Without
+        // it every saved line has a nil timestamp and note→transcript jumps
+        // have nothing to aim at.
+        let lines = transcript.map { StoredLine(speaker: $0.speaker, text: $0.text, at: $0.at) }
         let existing = store.meetings.first { $0.id == currentMeetingID }
         let joined = joinedNotes
         let jottedToStore: String? = joined.isEmpty ? existing?.userNotes : joined

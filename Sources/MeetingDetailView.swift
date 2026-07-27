@@ -40,6 +40,12 @@ struct MeetingDetailView: View {
     @State private var polishing = false
     @State private var polishError: String?
 
+    // The notes<->transcript workspace opens as a full-height sheet (the inline
+    // box was too cramped to scroll); `workspaceJump` carries the moment to
+    // scroll to when it's opened by clicking a note.
+    @State private var showWorkspace = false
+    @State private var workspaceJump: Date?
+
     // Ephemeral chat — a floating widget, closed until opened.
     @State private var chat: [ChatMessage] = []
     @State private var chatInput = ""
@@ -126,7 +132,9 @@ struct MeetingDetailView: View {
             suggestedNames = nil
             maybeSuggestTitle()
             maybeSuggestSpeakers()
+            maybeGenerateNotes()
         }
+        .sheet(isPresented: $showWorkspace) { workspaceSheet }
     }
 
     /// Asks the local model who was actually talking (from self-intros and
@@ -195,6 +203,16 @@ struct MeetingDetailView: View {
                 if meeting.id == id { title = suggested }   // reflect in the open header
             }
         }
+    }
+
+    /// After Stop — and on any later open — fills the AI notes in automatically
+    /// when the meeting has none yet, so they're ready without a button. Only
+    /// generates when empty (a meeting whose notes were cleared stays clear
+    /// until asked) and stays silent on failure, leaving the manual Generate
+    /// button as the retry.
+    private func maybeGenerateNotes() {
+        guard !meeting.hasNotes, !meeting.lines.isEmpty, !generating else { return }
+        generateNotes()
     }
 
     private var header: some View {
@@ -427,7 +445,7 @@ struct MeetingDetailView: View {
     private var transcriptSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                sectionHeader("Transcript", isOpen: $transcriptOpen)
+                sectionHeader("Notes & transcript", isOpen: $transcriptOpen)
                 if !meeting.lines.isEmpty {
                     Text("\(meeting.lines.count) lines")
                         .font(Theme.meta)
@@ -485,28 +503,14 @@ struct MeetingDetailView: View {
                         .font(Theme.body)
                         .foregroundStyle(.tertiary)
                 } else {
-                    let lines = showFullTranscript ? meeting.lines : Array(meeting.lines.prefix(4))
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
-                            TranscriptRow(speaker: meeting.displayName(for: line.speaker),
-                                          text: line.text,
-                                          showSpeaker: index == 0 || lines[index - 1].speaker != line.speaker,
-                                          isYou: line.speaker == "You")
-                        }
+                    notesPreview
+                    Button {
+                        workspaceJump = nil
+                        showWorkspace = true
+                    } label: {
+                        Label("Open notes & transcript", systemImage: "rectangle.split.2x1")
                     }
-                    .mask(
-                        // Fade the preview's tail so it reads as "there's more".
-                        LinearGradient(stops: previewFade,
-                                       startPoint: .top, endPoint: .bottom)
-                    )
-                    if meeting.lines.count > 4 {
-                        Button(showFullTranscript
-                               ? "Show less"
-                               : "Show full transcript (\(meeting.lines.count) lines)") {
-                            withAnimation(Self.sectionSpring) { showFullTranscript.toggle() }
-                        }
-                        .buttonStyle(.linearQuietCompact)
-                    }
+                    .buttonStyle(.linearQuietCompact)
                 }
             }
         }
@@ -547,13 +551,74 @@ struct MeetingDetailView: View {
         }
     }
 
-    private var previewFade: [Gradient.Stop] {
-        if showFullTranscript || meeting.lines.count <= 4 {
-            return [.init(color: .black, location: 0), .init(color: .black, location: 1)]
+    // MARK: - Notes & transcript workspace
+
+    private static let noteTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+
+    /// A compact, read-only glance at the notes taken during the call, right in
+    /// the page. Clicking one opens the full workspace scrolled to that moment;
+    /// the "Open" button below opens it at the top.
+    private var notesPreview: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let nb = meeting.noteBlocks, !nb.isEmpty {
+                ForEach(nb) { block in
+                    Button {
+                        workspaceJump = block.at
+                        showWorkspace = true
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(Self.noteTimeFormatter.string(from: block.at))
+                                .font(Theme.meta).monospacedDigit()
+                                .foregroundStyle(Theme.accent.opacity(0.7))
+                            Text(block.text)
+                                .font(Theme.body)
+                                .foregroundStyle(.primary)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                            Spacer(minLength: 0)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open the transcript at this moment")
+                }
+            } else {
+                Text("No notes were taken during this meeting. Open the workspace to add notes anchored to the transcript.")
+                    .font(Theme.sub)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
-        return [.init(color: .black, location: 0),
-                .init(color: .black, location: 0.55),
-                .init(color: .black.opacity(0.15), location: 1)]
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .insetPanel(radius: 8)
+    }
+
+    /// The full-height notes ↔ transcript workspace in a resizable sheet, so the
+    /// transcript has room to scroll and a jump is easy to follow.
+    private var workspaceSheet: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Notes & transcript")
+                    .font(Theme.bodyMedium)
+                Spacer()
+                Button("Done") { showWorkspace = false }
+                    .buttonStyle(.linearPrimaryCompact)
+                    .keyboardShortcut(.cancelAction)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            ThemeDivider()
+            MeetingNotesWorkspace(meeting: meeting, initialJump: workspaceJump)
+                .environmentObject(store)
+                .padding(12)
+        }
+        .frame(minWidth: 820, idealWidth: 1060, maxWidth: .infinity,
+               minHeight: 540, idealHeight: 720, maxHeight: .infinity)
     }
 
     // MARK: - Tags
