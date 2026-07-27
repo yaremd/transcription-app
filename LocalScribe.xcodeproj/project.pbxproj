@@ -490,7 +490,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.yarem.LocalScribe;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yarem.Seal;
 				PRODUCT_NAME = Seal;
 				SDKROOT = macosx;
 			};
@@ -508,7 +508,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.yarem.LocalScribe;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yarem.Seal;
 				PRODUCT_NAME = Seal;
 				SDKROOT = macosx;
 			};
@@ -525,7 +525,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.yarem.LocalScribeTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yarem.SealTests;
 				SDKROOT = macosx;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Seal.app/Contents/MacOS/Seal";
 			};
@@ -542,7 +542,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.yarem.LocalScribeTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yarem.SealTests;
 				SDKROOT = macosx;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Seal.app/Contents/MacOS/Seal";
 			};

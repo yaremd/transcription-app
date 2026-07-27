@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 /// Loads and saves meetings as individual JSON files in
-/// ~/Library/Application Support/LocalScribe/Meetings — one file per meeting.
+/// ~/Library/Application Support/Seal/Meetings — one file per meeting.
 /// The data is transparent (plain JSON the user can inspect or back up) and
 /// never leaves the Mac. For personal use the whole set is small enough to keep
 /// in memory, so `meetings` is the single source of truth the UI observes.
@@ -14,10 +14,30 @@ final class MeetingStore: ObservableObject {
     private let decoder: JSONDecoder
 
     init() {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? FileManager.default.temporaryDirectory
-        directory = base.appendingPathComponent("LocalScribe/Meetings", isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let fm = FileManager.default
+        let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? fm.temporaryDirectory
+        let dir = base.appendingPathComponent("Seal/Meetings", isDirectory: true)
+        let legacy = base.appendingPathComponent("LocalScribe/Meetings", isDirectory: true)
+
+        // One-time move for the 2026 LocalScribe → Seal rename: relocate the whole
+        // meetings folder (JSON + its sibling audio) to the new location. A single
+        // atomic directory move — and if it can't complete, we fall back to the
+        // legacy folder so meetings are never lost. Runs only until it succeeds
+        // (once the new folder exists, this is skipped).
+        var resolved = dir
+        if !fm.fileExists(atPath: dir.path), fm.fileExists(atPath: legacy.path) {
+            try? fm.createDirectory(at: base.appendingPathComponent("Seal", isDirectory: true),
+                                    withIntermediateDirectories: true)
+            do {
+                try fm.moveItem(at: legacy, to: dir)
+            } catch {
+                NSLog("MeetingStore: LocalScribe→Seal migration failed, keeping legacy folder — \(error.localizedDescription)")
+                resolved = legacy
+            }
+        }
+        directory = resolved
+        try? fm.createDirectory(at: directory, withIntermediateDirectories: true)
 
         encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
