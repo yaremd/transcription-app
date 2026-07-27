@@ -176,7 +176,7 @@ Notion AI meeting notes — free-in-the-box, cloud, and locked to one platform.
 | Audio stays on device | ✅ | ✅ (not stored) | ❌ | ✅ | ✅ |
 | Transcript stays on device | ✅ | ❌ cloud | ❌ cloud | ✅ | ✅ |
 | Notes generated on device | ✅ | ❌ cloud | ❌ cloud | ✅ | n/a |
-| Works fully offline | ✅ | ❌ | ❌ | ✅ | ✅ |
+| Works fully offline | ⚠️ **broken — YAR-70** | ❌ | ❌ | ✅ | ✅ |
 | No account required | ✅ | ❌ | ❌ | ✅ | ✅ |
 | No bot in the call | ✅ | ✅ | ❌ | ✅ | n/a |
 | Jot-then-AI-expands | ✅ | ✅ | ❌ | ✅ | ❌ |
@@ -259,12 +259,24 @@ promise" beats "secure and private" because it's falsifiable and competitors can
 the sentence.
 
 **The proof points, in order of persuasive power:**
-1. There is no server. Nothing to opt out of, nothing to configure, no account.
+1. There is no server for your meetings. No account, nothing to configure.
 2. Turn off the wifi and it still works.
 3. Your meetings are plain JSON files in a folder you can open right now.
 4. The privacy badge is on screen the whole time and turns amber the moment anything
    would leave.
 5. No bot appears in the participant list.
+
+> ⚠️ **Two of these are not true yet — see YAR-70, YAR-71, YAR-72.**
+> Proof point 2 is currently false: `Transcriber.swift:105` builds `WhisperKitConfig`
+> with no local-first path, so a model load always reaches for the network (YAR-70).
+> Proof point 1 originally read "nothing to opt out of" — that was wrong: Sparkle's
+> `SUEnableAutomaticChecks` suppresses the first-run consent dialog and Settings has no
+> update toggle, so the app checks for updates with no in-app way to decline. The
+> wording above is corrected; the underlying issue still needs the toggle.
+> Separately, Whisper weights land in `~/Documents/huggingface` (9.2 GB, iCloud-synced
+> for many users) while `MLXEngine` correctly uses Application Support (YAR-71).
+> **Fix the product, don't soften the copy** — these are the headline claims, and the
+> launch audience (Show HN, r/privacy, r/macapps) will check them.
 
 **Against Granola specifically** — don't attack them, extend them. They taught the
 market the jot-then-expand interaction; we agree with it and moved the compute. The

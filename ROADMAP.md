@@ -3,11 +3,40 @@
 Status of every feature, checked against the code on 27 July 2026. Companion to
 [`POSITIONING.md`](POSITIONING.md).
 
-**Headline: 20 of the 32 tasks in `LocalScribe-linear-tasks.csv` are done, 2 are
-partial, 10 are open** — and 8 of those 10 were filed Low priority. Eight *shipped*
-items were filed as "Backlog", so the tracker reads far behind where the product
-actually is. A second, larger group of shipped work was never filed at all
-(§3). Reconcile the tracker before planning from it.
+> **Source of truth is Linear** (project *Seal*, team `YAR`), not
+> `LocalScribe-linear-tasks.csv`. The CSV is the original 32-item import and is now
+> superseded — Linear carries **61 issues**, including all the work listed in §3 that
+> the CSV never had. Treat the CSV as a historical artifact.
+
+**Live status after the 27 Jul re-prioritization: 28 Done, 15 In Review, 18 Backlog.**
+
+Two **Urgent** bugs (YAR-70, YAR-71) were sitting in Backlog. Both falsify public
+claims on the landing page, so they outrank every feature below — see §0.
+
+---
+
+## 0. Ship-blockers — do these first
+
+Both are Urgent, both are one constructor call in one file, and both should ship
+together with a single runtime verification pass.
+
+| Issue | Problem | Why it outranks features |
+|---|---|---|
+| **YAR-70** | Whisper model load always hits the network — no local-first path | Falsifies **"Works offline"**, a headline claim on the landing page |
+| **YAR-71** | Whisper weights download to `~/Documents/huggingface` — 9.2 GB, iCloud-synced for many users | Falsifies the spirit of **"nothing leaves your Mac"** for the app whose entire pitch is that |
+
+Both trace to `Sources/Transcriber.swift:105`, which builds `WhisperKitConfig` with no
+`downloadBase` and no cached-model check. The codebase already solved this once:
+`Sources/MLXEngine.swift:188` deliberately points its `HubApi` at
+`Application Support/Seal/models` — *"so they persist and stay out of the user's
+visible Documents folder."* `Transcriber` and `TranscriptPolisher` just never got the
+same treatment. YAR-71 needs a migration, or every existing user re-downloads several GB.
+
+**YAR-72** (pre-launch landing page truthfulness) is now marked **blocked by both** —
+the page cannot honestly claim offline support until YAR-70 ships. Its own audit found
+more: "nothing to opt out of" is false while Sparkle's `SUEnableAutomaticChecks`
+suppresses first-run consent with no Settings toggle, and the DMG has no `/Applications`
+symlink to drag to.
 
 ---
 
@@ -109,42 +138,50 @@ undercounts:
 
 ---
 
-## 4. Open — recommended order
+## 4. Open — priority as now set in Linear
 
-Reordered from the CSV by competitive leverage rather than by original phase.
+Reordered by competitive leverage rather than by original phase. Priorities below were
+applied to Linear on 27 Jul 2026.
 
-### Next
-1. **Calendar & Contacts integration** *(CSV: Low, Phase 5)* — **should be the top
-   item.** It's our most-felt gap against every competitor: meetings aren't
-   auto-titled from the invite and attendees aren't named. It also feeds the
-   speaker-name flow that already exists, so it's cheaper than it looks. Promote it.
-2. **Core Audio process tap** *(CSV: Medium, Phase 2)* — replaces ScreenCaptureKit and
-   removes the Screen Recording permission prompt. This is a **positioning fix**, not
-   just a technical one: asking for screen access on first run directly undercuts the
-   privacy pitch at the worst possible moment. `SystemAudioCapturer` is written as a
-   single swappable file, so nothing else changes.
-3. **Finish the two partials** — folders, and rich-text notes. Small, and they close
-   out Phase 1 properly.
+### Urgent — ship-blockers
+| Issue | | Change |
+|---|---|---|
+| YAR-70 | Offline transcription broken | unchanged (already Urgent) |
+| YAR-71 | Models in `~/Documents`, 9.2 GB, iCloud | unchanged (already Urgent) |
 
-### Then
-4. **In-person mode** *(single-mic diarization)* — the one capture scenario we can't
-   handle. Opens up non-call meetings entirely, but needs a diarization model.
-5. **Semantic search** *(local embeddings)* — meaningful once users have a few months
-   of history; not before.
-6. **Cross-meeting memory** — people, recurring topics, decisions across meetings.
-   The most differentiated of the remaining AI features, and the most expensive.
-7. **Obsidian / Notion export** — cheap, and it fits the "your data is yours" story
-   better than any cloud integration does.
+### High — the next build order
+| Issue | | Change | Why |
+|---|---|---|---|
+| YAR-72 | Pre-launch landing page truthfulness | unchanged; **now blocked by YAR-70 + YAR-71** | Can't publish claims the build doesn't meet |
+| YAR-36 | Calendar & Contacts | **Low → High** | Our most-felt gap against Granola, Otter *and* Hyprnote. Meetings aren't auto-titled from the invite; attendees aren't named. Feeds the speaker-name flow that already exists, so it's cheaper than its 3-point estimate suggests |
+| YAR-26 | Core Audio process tap | **Medium → High** | A **positioning** fix, not a technical one — asking for Screen Recording on first run undercuts the privacy pitch at the worst moment. `SystemAudioCapturer` is one swappable file |
+| YAR-46 | QA: Phase 2–4 acceptance | **Medium → High** | 15 issues sit In Review, code-complete but not runtime-verified. That queue has to clear before v0.2 |
 
-### Later / reconsider
-8. **Morning brief / daily digest** — depends on 6 being good first.
-9. **Inline suggestions** *(task rollover, recurrence, delegation)* — nice-to-have.
-10. **Slack / Gmail actions** — the first feature that would *send* something on the
-    user's behalf. It cuts against the copy-out-only stance the follow-up draft
-    deliberately takes. If we do it, it needs to stay explicitly user-triggered.
-11. **Encrypted cross-device sync** — the only item needing server infrastructure,
-    which is exactly what "we don't have a server" currently buys us. Estimated 8
-    points and it complicates the core claim. I'd hold this indefinitely.
+### Medium
+| Issue | | Change |
+|---|---|---|
+| YAR-40 | In-person mode (single-mic diarization) | **Low → Medium** |
+| YAR-68 | Real Whisper download % in first-run banner | **Low → Medium** — same load path as YAR-70/71, do it in that pass |
+| YAR-45 | True system-wide global hotkey | **Low → Medium** |
+| YAR-37 | Obsidian / Notion export | **Low → Medium** — cheap, and it fits "your data is yours" better than any cloud integration |
+| YAR-50 | Hybrid decoding (turbo live, large-v3 committed) | unchanged |
+
+### Low — unchanged
+YAR-29 cross-meeting memory · YAR-30 semantic search · YAR-33 morning brief ·
+YAR-35 inline suggestions
+
+### Low — and worth a second thought before building
+- **YAR-38 Slack / Gmail actions** — the first feature that would *send* something on
+  the user's behalf, cutting against the copy-out-only stance the follow-up draft takes
+  deliberately. If built, keep it explicitly user-triggered.
+- **YAR-39 Encrypted cross-device sync** — the only item needing server infrastructure,
+  which is exactly what "we don't have a server" currently buys us. 8 points, and it
+  complicates the core claim. Recommend holding indefinitely.
+
+### Also still open
+- **The two partials** from §2 — folders, and rich-text notes. Small; they close out
+  Phase 1 properly.
+- **YAR-59** wax-seal stop animation — left at No priority, as you called it.
 
 ---
 
