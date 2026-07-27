@@ -54,7 +54,7 @@ The repo URLs are set to `github.com/yaremd/transcription-app`:
 - `SUFeedURL` → `https://yaremd.github.io/transcription-app/appcast.xml`
 - the download links in `docs/index.html` and `docs/appcast.xml` → the repo's release assets
 
-The only placeholder left is `SUPublicEDKey` (step 3 — your Sparkle public key).
+All placeholders are now filled — `SUPublicEDKey` is set to your Sparkle public key.
 
 ---
 
