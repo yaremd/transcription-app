@@ -16,7 +16,7 @@
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <pubDate>Mon, 27 Jul 2026 00:00:00 +0000</pubDate>
       <enclosure
-        url="https://github.com/CHANGE-ME/seal/releases/download/v0.1/Seal.dmg"
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.1/Seal.dmg"
         sparkle:edSignature="PASTE_FROM_release.sh"
         length="PASTE_FROM_release.sh"
         type="application/octet-stream" />

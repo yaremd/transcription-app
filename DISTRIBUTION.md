@@ -48,13 +48,13 @@ These let Seal verify that an update really came from you.
 3. Paste the public key into `project.yml` → `SUPublicEDKey` (replacing
    `REPLACE_WITH_SPARKLE_PUBLIC_KEY`).
 
-### 4. Fix the placeholders  **[me, once you pick names]**
+### 4. Placeholders  ✅ done
 
-Search the repo for `CHANGE-ME` and `SUFeedURL`. Set:
-- `SUFeedURL` (project.yml) → `https://<your-github-username>.github.io/<repo>/appcast.xml`
-- the download URL in `docs/index.html` and `docs/appcast.xml` → your release asset URL
+The repo URLs are set to `github.com/yaremd/transcription-app`:
+- `SUFeedURL` → `https://yaremd.github.io/transcription-app/appcast.xml`
+- the download links in `docs/index.html` and `docs/appcast.xml` → the repo's release assets
 
-Tell me your GitHub username + repo name and I'll fill these in.
+The only placeholder left is `SUPublicEDKey` (step 3 — your Sparkle public key).
 
 ---
 
@@ -78,7 +78,7 @@ Then:
 
 In your repo on github.com: **Settings → Pages → Source: Deploy from a branch →
 Branch: `main`, Folder: `/docs`**. Your page appears at
-`https://<username>.github.io/<repo>/`.
+`https://yaremd.github.io/transcription-app/`.
 
 ---
 

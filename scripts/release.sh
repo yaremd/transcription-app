@@ -19,7 +19,7 @@ TEAM_ID="S4M9R72TXR"
 DEV_ID="Developer ID Application: Dmytro Yaremchuk (${TEAM_ID})"
 NOTARY_PROFILE="seal-notary"
 # Where the DMG will be downloadable (used in the appcast enclosure):
-DOWNLOAD_URL_BASE="https://github.com/CHANGE-ME/seal/releases/latest/download"
+DOWNLOAD_URL_BASE="https://github.com/yaremd/transcription-app/releases/latest/download"
 # -----------------------------------------------------
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

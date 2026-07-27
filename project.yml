@@ -56,7 +56,7 @@ targets:
         # Sparkle auto-update. Replace both placeholders before release:
         #   SUFeedURL     → your GitHub Pages appcast URL
         #   SUPublicEDKey → the public key printed by Sparkle's generate_keys
-        SUFeedURL: "https://CHANGE-ME.github.io/seal/appcast.xml"
+        SUFeedURL: "https://yaremd.github.io/transcription-app/appcast.xml"
         SUPublicEDKey: "REPLACE_WITH_SPARKLE_PUBLIC_KEY"
         SUEnableAutomaticChecks: true
     settings:
