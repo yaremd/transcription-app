@@ -143,6 +143,10 @@ struct RootView: View {
             }
         }
         .tint(Theme.accent)
+        // A first-run banner spanning both panes while the models download:
+        // real progress for the notes model, a preparing state for the (opaque)
+        // speech model. Collapses to zero height once nothing is downloading.
+        .safeAreaInset(edge: .top, spacing: 0) { FirstRunDownloadBanner(monitor: monitor) }
         // Stop saved a meeting: land on its page (notes, actions, follow-up
         // all live there). The recording screen resets when next visited.
         .onChange(of: monitor.finishedMeetingID) { _, id in
@@ -172,6 +176,12 @@ struct RootView: View {
             OnboardingView {
                 settings.hasOnboarded = true
                 showOnboarding = false
+                // Fetch the notes model in the background now, so it's ready by
+                // the time the first meeting ends — instead of a cold, blocking
+                // download on first notes. Only when on-device notes are in use.
+                if !settings.usingCloudNotes {
+                    EmbeddedModelStatus.shared.startIfNeeded()
+                }
             }
         }
         .confirmationDialog(
@@ -304,6 +314,61 @@ private struct WelcomeView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// App-wide first-run banner shown while the on-device models download, so the
+/// user sees "it's fetching" across every pane instead of a silent wait. The
+/// notes model reports a real percentage (`EmbeddedModelStatus`); the speech
+/// model's download is opaque through WhisperKit's prewarm, so it shows a
+/// "preparing" state. Renders nothing once neither is in flight — zero height.
+private struct FirstRunDownloadBanner: View {
+    @ObservedObject var monitor: AudioMonitor
+    @ObservedObject private var notes = EmbeddedModelStatus.shared
+
+    var body: some View {
+        let speechPreparing = !monitor.modelStatus.isEmpty
+        let notesProgress: Double? = { if case .downloading(let p) = notes.phase { return p }; return nil }()
+
+        if speechPreparing || notesProgress != nil {
+            VStack(alignment: .leading, spacing: 8) {
+                if speechPreparing {
+                    row(icon: "waveform", title: "Preparing the speech model…", progress: nil)
+                }
+                if let p = notesProgress {
+                    row(icon: "sparkles",
+                        title: "Downloading the on-device notes model… \(Int(p * 100))%",
+                        progress: p)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.surface)
+            .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .animation(.easeOut(duration: 0.2), value: speechPreparing)
+            .animation(.easeOut(duration: 0.2), value: notesProgress != nil)
+        }
+    }
+
+    @ViewBuilder
+    private func row(icon: String, title: String, progress: Double?) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.accent)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(Theme.sub)
+                    .foregroundStyle(.secondary)
+                if let progress {
+                    ProgressView(value: progress).frame(maxWidth: 320)
+                }
+            }
+            if progress == nil { ProgressView().controlSize(.small) }
+            Spacer(minLength: 0)
+        }
     }
 }
 

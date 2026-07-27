@@ -35,11 +35,9 @@ struct RecordingView: View {
                             .font(Theme.meta)
                             .foregroundStyle(Theme.amber)
                             .fixedSize(horizontal: false, vertical: true)
-                    } else if !monitor.modelStatus.isEmpty {
-                        Text(monitor.modelStatus)
-                            .font(Theme.meta)
-                            .foregroundStyle(.tertiary)
                     }
+                    // Model-download status moved to the app-wide first-run
+                    // banner (RootView) so it shows across panes, with progress.
                     RecordingControlBar(monitor: monitor,
                                         transcriptVisible: transcriptVisible,
                                         toggleTranscript: { withAnimation(Self.panelSpring) { transcriptVisible.toggle() } },
