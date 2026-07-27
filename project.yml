@@ -47,8 +47,18 @@ targets:
       - package: Sparkle
         product: Sparkle
     info:
+      # NOTE: Support/Info.plist is GENERATED from this block on every
+      # `xcodegen generate` — edits to that file are silently overwritten.
       path: Support/Info.plist
       properties:
+        # Version keys must be declared here, or XcodeGen fills the generated
+        # plist with its own defaults (1.0 / 1) and those outrank the settings
+        # below: v0.1 shipped reporting itself as 1.0. Sparkle decides an update
+        # is newer by comparing the appcast's sparkle:version against the
+        # installed CFBundleVersion, so a bundle version frozen at 1 makes every
+        # future release re-offer itself forever.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSMicrophoneUsageDescription: "Seal listens to your microphone to transcribe your side of the conversation, entirely on your Mac."
         LSApplicationCategoryType: "public.app-category.productivity"
         NSAppTransportSecurity:
