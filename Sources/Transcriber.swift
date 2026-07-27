@@ -150,14 +150,19 @@ actor Transcriber {
             log.notice("bilingual arbitration on \(source, privacy: .public): picked \(best.language ?? "?", privacy: .public) (score \(best.score, format: .fixed(precision: 2)), dominant \(dominant ?? "-", privacy: .public))")
         }
 
-        // Remember what this source actually speaks. Final passes are informed
-        // (arbitrated) choices; in unrestricted auto any detection is better
-        // than none.
+        // Remember what this source actually speaks — but only from a line
+        // long enough to *mean* something. Short outputs ("Дякую", "okay",
+        // "you") are exactly what Whisper invents from silence; letting them
+        // vote on language is how two hallucinations lock a stream into the
+        // wrong language, after which every real line decodes as that
+        // language's garbage and gets filtered away. Final passes are informed
+        // (arbitrated) choices; in unrestricted auto any detection beats none.
         if mode == .final || (language == nil && allowedLanguages.isEmpty),
            let lang = best.language, !lang.isEmpty,
-           allowedLanguages.isEmpty || allowedLanguages.contains(lang) {
+           allowedLanguages.isEmpty || allowedLanguages.contains(lang),
+           Self.establishesLanguage(best.text) {
             detectedLanguage[source] = lang
-            if mode == .final && !best.text.isEmpty {
+            if mode == .final {
                 languageTally[source, default: [:]][lang, default: 0] += 1
             }
         }
@@ -171,6 +176,14 @@ actor Transcriber {
               let leader = tally.max(by: { $0.value < $1.value }),
               leader.value >= 2 else { return nil }
         return leader.key
+    }
+
+    /// Whether a line is long enough to reliably indicate its language. The
+    /// one- and two-word outputs Whisper hallucinates from silence ("Дякую",
+    /// "okay", "you") must never establish or reinforce a source's dominant
+    /// language — only a real phrase gets a vote.
+    private static func establishesLanguage(_ text: String) -> Bool {
+        text.split(whereSeparator: { $0.isWhitespace }).count >= 4
     }
 
     /// Token ids whose text contains letters Ukrainian never uses (ы э ъ ё).
@@ -202,7 +215,13 @@ actor Transcriber {
         if let language { return [language] }
         let cached = detectedLanguage[source]
         if allowedLanguages.isEmpty { return [cached] }        // unrestricted auto
-        guard mode == .final else { return [cached ?? allowedLanguages.first] }
+        // Live previews can't afford a detection pass, so they reuse what the
+        // stream has settled on: its cached detection, else its dominant
+        // language. Only when nothing is known yet does it fall back to the
+        // allowed order — a blind default that finals immediately correct.
+        guard mode == .final else {
+            return [cached ?? dominantLanguage(for: source) ?? allowedLanguages.first]
+        }
         guard allowedLanguages.count > 1 else { return [allowedLanguages.first] }
 
         if let detection = try? await pipe.detectLangauge(audioArray: samples) {
@@ -287,10 +306,14 @@ actor Transcriber {
     // MARK: - Output quality filters
 
     /// Drops segments the decoder itself marked as dubious: probable silence,
-    /// degenerate repetition loops, and low-confidence 1–2 word fragments (the
-    /// "you" / "Thank you." Whisper invents from near-silence). Reasons are
-    /// logged as metrics only — never transcript text — so tuning stays
-    /// data-driven without spoken content leaving the app.
+    /// degenerate repetition loops, and 1–2 word fragments born of near-silence
+    /// (the "you" / "Thank you." / "Дякую" Whisper invents between utterances).
+    /// A short fragment is junk when it is either low-confidence *or* comes with
+    /// a high no-speech probability — the latter catches the confident-sounding
+    /// hallucinations that slipped through the old confidence-only test, while
+    /// a genuine one-word answer (real speech, low no-speech prob) still passes.
+    /// Reasons are logged as metrics only — never transcript text — so tuning
+    /// stays data-driven without spoken content leaving the app.
     private func trustworthy(_ segment: TranscriptionSegment) -> Bool {
         let words = segment.text.split(whereSeparator: { $0.isWhitespace }).count
         let reason: String?
@@ -300,7 +323,7 @@ actor Transcriber {
             reason = "weak-silence"
         } else if segment.compressionRatio > 2.6 {
             reason = "repetition-loop"
-        } else if words > 0 && words <= 2 && segment.avgLogprob < -1.0 {
+        } else if words > 0 && words <= 2 && (segment.avgLogprob < -1.0 || segment.noSpeechProb > 0.6) {
             reason = "short-junk"
         } else {
             reason = nil
