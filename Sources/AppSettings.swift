@@ -37,12 +37,6 @@ final class AppSettings: ObservableObject {
     /// default; the files stay next to the meeting JSON, ~15 MB per hour.
     @Published var keepAudio: Bool { didSet { d.set(keepAudio, forKey: "keepAudio") } }
 
-    /// The local Ollama model for notes and chat. Empty until resolved against
-    /// what's installed; `resolvedNotesModel` supplies the fallback.
-    @Published var notesModel: String { didSet { d.set(notesModel, forKey: "notesModel") } }
-    /// A small, fast model used for the quick jobs (titles, speaker names).
-    /// Auto-set to the lightest installed model — the user never picks it.
-    @Published var titleModel: String { didSet { d.set(titleModel, forKey: "titleModel") } }
     @Published var appearance: AppAppearance { didSet { d.set(appearance.rawValue, forKey: "appearance"); appearance.apply() } }
     /// Offer to record when a call app comes to the front. On by default.
     @Published var suggestRecording: Bool { didSet { d.set(suggestRecording, forKey: "suggestRecording") } }
@@ -50,18 +44,12 @@ final class AppSettings: ObservableObject {
     private let d = UserDefaults.standard
     private static let apiKeyAccount = "cloudAPIKey"
 
-    /// Used until a lighter installed model is resolved (and if Ollama can't be
-    /// reached to enumerate models at all).
-    static let defaultNotesModel = "gpt-oss:20b"
-
     init() {
         cloudNotesEnabled = d.bool(forKey: "cloudNotesEnabled")
         cloudBaseURL = d.string(forKey: "cloudBaseURL") ?? "https://api.openai.com/v1"
         cloudModel = d.string(forKey: "cloudModel") ?? "gpt-4o-mini"
         hasOnboarded = d.bool(forKey: "hasOnboarded")
         keepAudio = d.object(forKey: "keepAudio") == nil ? true : d.bool(forKey: "keepAudio")
-        notesModel = d.string(forKey: "notesModel") ?? ""
-        titleModel = d.string(forKey: "titleModel") ?? ""
         appearance = AppAppearance(rawValue: d.string(forKey: "appearance") ?? "") ?? .system
         suggestRecording = d.object(forKey: "suggestRecording") == nil ? true : d.bool(forKey: "suggestRecording")
 
@@ -79,21 +67,8 @@ final class AppSettings: ObservableObject {
         cloudNotesEnabled && !cloudAPIKey.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    /// The model heavy jobs (notes, follow-up, chat) run on.
-    var resolvedNotesModel: String { notesModel.isEmpty ? Self.defaultNotesModel : notesModel }
-    /// The model quick jobs (titles, speaker names) run on — the light one.
-    var resolvedTitleModel: String { titleModel.isEmpty ? resolvedNotesModel : titleModel }
+    /// The on-device model id, chosen automatically by the machine's RAM — the
+    /// user never picks it. Powers notes/titles/chat when not using the cloud.
+    var embeddedModelID: String { MLXEngine.defaultModelID }
 
-    /// Picks sensible defaults from the models actually installed (passed in
-    /// sorted lightest-first): titles always use the lightest; notes default to
-    /// the lightest model still big enough to write well, unless the user has
-    /// already chosen one that's installed.
-    @MainActor func resolveModels(_ installed: [OllamaModel]) {
-        guard !installed.isEmpty else { return }
-        if notesModel.isEmpty || !installed.contains(where: { $0.name == notesModel }) {
-            notesModel = installed.first(where: { $0.sizeBytes >= 3_000_000_000 })?.name
-                ?? installed.first!.name
-        }
-        titleModel = installed.first!.name
-    }
 }
