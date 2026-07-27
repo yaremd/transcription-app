@@ -12,6 +12,9 @@ struct MeetingDetailView: View {
     @EnvironmentObject private var vocabulary: VocabularyStore
 
     private let generator = NotesGenerator()
+    /// The on-device notes model's download status — so the very first notes
+    /// generation shows real download progress instead of an opaque spinner.
+    @ObservedObject private var embeddedStatus = EmbeddedModelStatus.shared
     private static let sectionSpring = Animation.spring(response: 0.3, dampingFraction: 1.0)
 
     @State private var title = ""
@@ -343,7 +346,15 @@ struct MeetingDetailView: View {
             }
 
             if generating {
-                ProgressLabel(text: "Generating notes… (\(engineLabel))")
+                if case .downloading(let p) = embeddedStatus.phase {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Downloading the on-device notes model… \(Int(p * 100))%")
+                            .font(Theme.sub).foregroundStyle(.secondary)
+                        ProgressView(value: p).frame(maxWidth: 320)
+                    }
+                } else {
+                    ProgressLabel(text: "Generating notes… (\(engineLabel))")
+                }
             } else if let generateError {
                 Text(generateError).font(Theme.sub).foregroundStyle(Theme.red)
             }

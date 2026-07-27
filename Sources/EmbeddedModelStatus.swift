@@ -56,6 +56,15 @@ final class EmbeddedModelStatus: ObservableObject {
         }
     }
 
+    /// Start fetching the model in the background if it hasn't begun — used to
+    /// kick the download off right after onboarding so notes are ready by the
+    /// first meeting, instead of a cold blocking download on first use. No-op if
+    /// the model is unsupported, already downloading, or already ready.
+    func startIfNeeded() {
+        guard MLXEngine.isSupported, case .idle = phase else { return }
+        downloadNow()
+    }
+
     private func apply(fraction: Double) {
         phase = fraction >= 1 ? .ready : .downloading(fraction)
     }
