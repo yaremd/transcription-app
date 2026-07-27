@@ -102,7 +102,7 @@ actor Transcriber {
         var lastError: Error?
         for name in candidates {
             do {
-                let loaded = try await WhisperKit(WhisperKitConfig(model: name, prewarm: true))
+                let loaded = try await WhisperKit(Self.config(for: name))
                 pipe = loaded
                 loadedModel = name
                 // Warm the Russian-marker suppress list while we're already in
@@ -116,6 +116,25 @@ actor Transcriber {
         }
         throw lastError ?? NSError(domain: "Transcriber", code: -1,
                                    userInfo: [NSLocalizedDescriptionKey: "No transcription model could be loaded."])
+    }
+
+    /// Local-first: when the variant is already downloaded we hand WhisperKit
+    /// the folder, which sends `setupModels` down its local branch and skips the
+    /// Hub API entirely — the difference between transcribing on a plane and
+    /// failing to start (YAR-70). Otherwise we fall through to a download, but
+    /// always into our own cache root rather than the user's Documents folder
+    /// (YAR-71). `downloadBase` also seeds `tokenizerFolder`, so the tokenizer
+    /// resolves from the same place instead of reaching for the network.
+    static func config(for variant: String) -> WhisperKitConfig {
+        let base = ModelStore.hubBase
+        if let cached = ModelStore.cachedWhisperFolder(variant: variant) {
+            return WhisperKitConfig(model: variant,
+                                    downloadBase: base,
+                                    modelFolder: cached.path,
+                                    prewarm: true,
+                                    download: false)
+        }
+        return WhisperKitConfig(model: variant, downloadBase: base, prewarm: true)
     }
 
     /// `source` keys the auto-detected language ("You" may speak a different

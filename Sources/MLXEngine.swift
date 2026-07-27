@@ -184,12 +184,11 @@ actor MLXEngine {
     }
 
     /// Models live under Application Support so they persist and stay out of the
-    /// user's visible Documents folder.
+    /// user's visible Documents folder. The root is shared with WhisperKit — see
+    /// `ModelStore`, which now owns this decision for both engines.
     private static func makeHubApi() -> HubApi {
-        let base = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("Seal/models", isDirectory: true)
-        return HubApi(downloadBase: base)
+        ModelStore.prepare()
+        return HubApi(downloadBase: ModelStore.hubBase)
     }
 }
 

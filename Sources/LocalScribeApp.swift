@@ -26,6 +26,10 @@ struct LocalScribeApp: App {
     }
 
     init() {
+        // Relocate any pre-fix model cache out of ~/Documents before anything
+        // can load a model. Idempotent and cheap once done (YAR-71).
+        if !Self.isRunningTests { ModelStore.prepare() }
+
         let updaterController = SPUStandardUpdaterController(
             startingUpdater: !Self.isRunningTests, updaterDelegate: nil, userDriverDelegate: nil)
         self.updaterController = updaterController

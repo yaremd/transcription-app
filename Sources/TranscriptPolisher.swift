@@ -24,7 +24,9 @@ actor TranscriptPolisher {
         var lastError: Error?
         for name in Self.modelCandidates {
             do {
-                pipe = try await WhisperKit(WhisperKitConfig(model: name, prewarm: true))
+                // Same local-first config the live path uses, so "Improve
+                // transcript" works offline too (YAR-70/71).
+                pipe = try await WhisperKit(Transcriber.config(for: name))
                 break
             } catch {
                 lastError = error
