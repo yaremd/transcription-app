@@ -83,13 +83,39 @@ if grep -q "<sparkle:version>$BUILD_VERSION</sparkle:version>" "$APPCAST"; then
 fi
 
 echo "▶︎ Signing the update for Sparkle…"
-SIGN_UPDATE="$(find ~/Library/Developer/Xcode/DerivedData -name sign_update -type f 2>/dev/null | head -1)"
+# Match the EdDSA tool by its full path. A bare `-name sign_update` also matches
+# bin/old_dsa_scripts/sign_update — the deprecated DSA script, which takes a
+# different argument list — and with several LocalScribe-* DerivedData dirs the
+# order `find` returns them in is arbitrary, so `head -1` is a coin flip.
+SIGN_UPDATE="$(find ~/Library/Developer/Xcode/DerivedData \
+  -path "*artifacts/sparkle/Sparkle/bin/sign_update" -type f 2>/dev/null | head -1)"
 SIGNATURE_ATTRS=""
 if [ -z "${SIGN_UPDATE:-}" ]; then
-  echo "  (sign_update not found — build once so Sparkle's artifacts exist, or run bin/sign_update)"
+  echo "  (sign_update not found — build once so Sparkle's artifacts exist)"
   SIGNATURE_ATTRS='sparkle:edSignature="PASTE_ME" length="PASTE_ME"'
 else
   SIGNATURE_ATTRS="$("$SIGN_UPDATE" "$DMG")"
+
+  # Verify what we just produced. A signature the client rejects fails silently
+  # here otherwise: the appcast looks fine and every user's update fails.
+  echo "▶︎ Verifying the signature…"
+  EDSIG="$(printf '%s' "$SIGNATURE_ATTRS" | sed -n 's/.*edSignature="\([^"]*\)".*/\1/p')"
+  "$SIGN_UPDATE" --verify "$DMG" "$EDSIG"
+  echo "  signature verifies against the Keychain key"
+
+  # …and confirm that key is the one the app trusts. If SUPublicEDKey belongs to
+  # a different keypair, --verify still passes but every client rejects the update.
+  APP_PUBKEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$APP/Contents/Info.plist")"
+  GENERATE_KEYS="$(dirname "$SIGN_UPDATE")/generate_keys"
+  KEYCHAIN_PUBKEY="$("$GENERATE_KEYS" 2>&1 | grep -oE "[A-Za-z0-9+/]{43}=" | head -1)"
+  if [ "$APP_PUBKEY" != "$KEYCHAIN_PUBKEY" ]; then
+    echo "  ✗ SUPublicEDKey in the app does not match the signing key in your Keychain."
+    echo "    app:      $APP_PUBKEY"
+    echo "    keychain: $KEYCHAIN_PUBKEY"
+    echo "    Every client would reject this update. Fix SUPublicEDKey in project.yml."
+    exit 1
+  fi
+  echo "  SUPublicEDKey matches the signing key"
 fi
 
 echo ""
