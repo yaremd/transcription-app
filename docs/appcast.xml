@@ -4,8 +4,39 @@
     <title>Seal</title>
     <description>Updates for Seal</description>
     <language>en</language>
-    <!-- Newest release first. scripts/release.sh prints the edSignature +
-         length; the enclosure url is the GitHub Release asset. -->
+    <!-- Newest release first. scripts/release.sh prints a complete <item> —
+         paste it here and add a <description>. Never edit an older item's
+         edSignature: each one belongs to the DMG that shipped with it. -->
+    <item>
+      <title>Version 0.2</title>
+      <sparkle:version>2</sparkle:version>
+      <sparkle:shortVersionString>0.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Tue, 28 Jul 2026 06:06:44 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Noticeably more accurate transcripts</h3>
+        <ul>
+          <li><b>No more Cyrillic in English recordings.</b> Seal could invent
+          Russian or Ukrainian words in places where nobody had actually
+          spoken — in one English-only call, 17% of lines came back in the
+          wrong alphabet. Silence is now read as silence.</li>
+          <li><b>Repetitive speech is kept.</b> Saying similar phrases in a row,
+          like reading out a list, no longer looks like a stuck decoder, so
+          those words are no longer discarded.</li>
+          <li><b>Lines appear in the order they were spoken.</b> A reply could
+          previously show up above the remark it answered. Consecutive lines
+          from the same speaker now join into one turn instead of being split
+          at every short pause.</li>
+        </ul>
+        <p>Seal also reports its real version number now, so this is the first
+        release that can keep itself up to date automatically.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.2/Seal.dmg"
+        sparkle:edSignature="2XdZRmb2TUvbSXCmUxzZ8qmoSw2xPyi9UAOloIi7xfbLd6DiAzslPukDGOB/wsNXztEKMXay7IdO1H5UjZ0ZCg=="
+        length="18587648"
+        type="application/octet-stream" />
+    </item>
     <item>
       <title>Version 0.1</title>
       <sparkle:version>1</sparkle:version>
