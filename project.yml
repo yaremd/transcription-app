@@ -49,6 +49,12 @@ targets:
     info:
       path: Support/Info.plist
       properties:
+        # XcodeGen writes its own defaults (1.0 / 1) for these unless they are
+        # declared here, so point them at the build settings above. Sparkle
+        # compares CFBundleVersion against sparkle:version in docs/appcast.xml —
+        # without this, every build reports 1 and no update is ever offered.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSMicrophoneUsageDescription: "Seal listens to your microphone to transcribe your side of the conversation, entirely on your Mac."
         LSApplicationCategoryType: "public.app-category.productivity"
         NSAppTransportSecurity:

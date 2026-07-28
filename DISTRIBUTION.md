@@ -60,18 +60,30 @@ All placeholders are now filled — `SUPublicEDKey` is set to your Sparkle publi
 
 ## Cut a release
 
+First bump both versions in `project.yml` (`settings.base`):
+
+- `MARKETING_VERSION` — what users see, e.g. `0.2`
+- `CURRENT_PROJECT_VERSION` — **must increase every release**. Sparkle compares
+  this number (`CFBundleVersion`) against `sparkle:version` in the appcast; if it
+  doesn't go up, installed copies never see the update.
+
 ```bash
 ./scripts/release.sh
 ```
 
 This regenerates the project, builds Release, signs with your Developer ID,
-notarizes, staples, and produces `.release/Seal.dmg`. It prints a Sparkle
-signature line at the end.
+notarizes, staples, and produces `.release/Seal.dmg`. At the end it reads the
+version back out of the app it just built and prints a complete `<item>` block —
+versions, pubDate, enclosure URL, and Sparkle signature already filled in. It
+also warns if the appcast already advertises that `sparkle:version`, which means
+you forgot to bump.
 
 Then:
-1. Create a **GitHub Release** and upload `Seal.dmg` as an asset.
-2. Add an `<item>` to `docs/appcast.xml` (uncomment the template) with the DMG's
-   URL and the signature/length the script printed.
+1. Create a **GitHub Release** tagged `v<MARKETING_VERSION>` (e.g. `v0.2`) and
+   upload the DMG as `Seal.dmg` — the printed enclosure URL assumes that exact
+   tag and asset name.
+2. Paste the printed `<item>` at the top of the `<channel>` in `docs/appcast.xml`.
+   Leave older items alone: each one's `edSignature` belongs to its own DMG.
 3. Commit and push. Done — existing users get the update automatically.
 
 ## Put the download page online (GitHub Pages)  **[you, one time]**
