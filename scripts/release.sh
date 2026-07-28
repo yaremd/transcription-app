@@ -7,8 +7,11 @@
 #   2. Notarization credentials stored:  xcrun notarytool store-credentials "seal-notary"
 #   3. Sparkle EdDSA keys created:       ./bin/generate_keys   (public key pasted into project.yml)
 #
-# NOTE: This script has not been run end-to-end yet (it needs the credentials
-# above). It encodes the standard flow; expect to tweak the CONFIG values.
+# All three prerequisites are in place and this script shipped v0.1 end-to-end
+# (notarization accepted 2026-07-27), so the CONFIG values below are known good.
+#
+# Bump MARKETING_VERSION and CURRENT_PROJECT_VERSION in project.yml before
+# running — Sparkle will not offer an update unless the latter increases.
 
 set -euo pipefail
 
