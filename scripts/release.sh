@@ -7,8 +7,11 @@
 #   2. Notarization credentials stored:  xcrun notarytool store-credentials "seal-notary"
 #   3. Sparkle EdDSA keys created:       ./bin/generate_keys   (public key pasted into project.yml)
 #
-# NOTE: This script has not been run end-to-end yet (it needs the credentials
-# above). It encodes the standard flow; expect to tweak the CONFIG values.
+# All three prerequisites are in place and this script shipped v0.1 end-to-end
+# (notarization accepted 2026-07-27), so the CONFIG values below are known good.
+#
+# Bump MARKETING_VERSION and CURRENT_PROJECT_VERSION in project.yml before
+# running — Sparkle will not offer an update unless the latter increases.
 
 set -euo pipefail
 
@@ -18,8 +21,10 @@ SCHEME="LocalScribe"
 TEAM_ID="S4M9R72TXR"
 DEV_ID="Developer ID Application: Dmytro Yaremchuk (${TEAM_ID})"
 NOTARY_PROFILE="seal-notary"
-# Where the DMG will be downloadable (used in the appcast enclosure):
-DOWNLOAD_URL_BASE="https://github.com/yaremd/transcription-app/releases/latest/download"
+# Where the DMG will be downloadable. This is per-release and versioned on
+# purpose: an appcast enclosure must be an immutable URL, so /releases/latest/
+# would repoint older items at a newer DMG and break their edSignature.
+RELEASE_URL_BASE="https://github.com/yaremd/transcription-app/releases/download"
 # -----------------------------------------------------
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -61,18 +66,53 @@ xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
 echo "▶︎ Stapling the notarization ticket…"
 xcrun stapler staple "$DMG"
 
+# Read the versions back out of the app we just built, rather than out of
+# project.yml — the built bundle is the only thing that proves the version keys
+# actually expanded. Sparkle compares CFBundleVersion, so if this prints 1 for
+# every release, no update will ever be offered.
+PLIST="$APP/Contents/Info.plist"
+SHORT_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")"
+BUILD_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")"
+echo "▶︎ Built bundle reports version $SHORT_VERSION ($BUILD_VERSION)"
+
+APPCAST="$ROOT/docs/appcast.xml"
+if grep -q "<sparkle:version>$BUILD_VERSION</sparkle:version>" "$APPCAST"; then
+  echo "  ⚠️  docs/appcast.xml already advertises sparkle:version $BUILD_VERSION."
+  echo "     Installed copies report the same number, so Sparkle will NOT offer"
+  echo "     this update. Bump CURRENT_PROJECT_VERSION in project.yml and rebuild."
+fi
+
 echo "▶︎ Signing the update for Sparkle…"
 SIGN_UPDATE="$(find ~/Library/Developer/Xcode/DerivedData -name sign_update -type f 2>/dev/null | head -1)"
+SIGNATURE_ATTRS=""
 if [ -z "${SIGN_UPDATE:-}" ]; then
   echo "  (sign_update not found — build once so Sparkle's artifacts exist, or run bin/sign_update)"
+  SIGNATURE_ATTRS='sparkle:edSignature="PASTE_ME" length="PASTE_ME"'
 else
-  echo "  Paste the following into a new <item> in docs/appcast.xml:"
-  "$SIGN_UPDATE" "$DMG"
+  SIGNATURE_ATTRS="$("$SIGN_UPDATE" "$DMG")"
 fi
 
 echo ""
 echo "✅ Built: $DMG"
+echo ""
+echo "Paste this <item> at the top of the <channel> in docs/appcast.xml:"
+echo ""
+cat <<ITEM
+    <item>
+      <title>Version $SHORT_VERSION</title>
+      <sparkle:version>$BUILD_VERSION</sparkle:version>
+      <sparkle:shortVersionString>$SHORT_VERSION</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>$(date -u "+%a, %d %b %Y %H:%M:%S +0000")</pubDate>
+      <enclosure
+        url="$RELEASE_URL_BASE/v$SHORT_VERSION/$APP_NAME.dmg"
+        $SIGNATURE_ATTRS
+        type="application/octet-stream" />
+    </item>
+ITEM
+echo ""
 echo "Next:"
-echo "  1. Upload $DMG to a GitHub Release (its URL becomes the appcast enclosure)."
-echo "  2. Add an <item> to docs/appcast.xml with that URL + the edSignature/length above."
+echo "  1. Create GitHub Release tag v$SHORT_VERSION and upload $DMG as $APP_NAME.dmg"
+echo "     (the enclosure URL above assumes exactly that tag and asset name)."
+echo "  2. Add the <item> above to docs/appcast.xml."
 echo "  3. Commit & push docs/ — GitHub Pages serves the page and the appcast."

@@ -2,3 +2,4 @@
 .spm/
 .DS_Store
 xcuserdata/
+.release/
