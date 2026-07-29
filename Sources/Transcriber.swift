@@ -269,6 +269,21 @@ actor Transcriber {
             return ""
         }
 
+        // A lone word whose script contradicts the language that decoded it:
+        // "Дякую." emitted under an *English* language token, from keyboard
+        // noise after a video ended (2026-07-29 afternoon report). Such a line
+        // wears the dominant language's label, so the cross-language rule
+        // above never sees it. A real short answer is written in its own
+        // decode's script, and a genuine language switch arrives as a full
+        // phrase through the uk candidate — so this ghost is never real, in
+        // any momentum state.
+        if Self.isScriptContradiction(best.text, language: best.language) {
+            filteredSegments += 1
+            log.notice("dropped wrong-script filler on \(source, privacy: .public): decoded as \(best.language ?? "?", privacy: .public)")
+            diagnostics?("[\(source)] DROP wrong-script filler (\(best.language ?? "?")): \"\(best.text.prefix(40))\"")
+            return ""
+        }
+
         // Before any momentum exists the cross-language rule above has nothing
         // to compare against — and recording start is exactly where Whisper
         // meets its first near-silence (the join chime, a breath, the keyboard)
@@ -365,6 +380,14 @@ actor Transcriber {
     private static func isShortFiller(_ text: String) -> Bool {
         let words = text.split(whereSeparator: { $0.isWhitespace }).count
         return words > 0 && words <= 2
+    }
+
+    /// A short line written in a script its own decode language wouldn't use —
+    /// Cyrillic out of an English decode, Latin out of a Ukrainian one. The
+    /// hallucination shape that wears the *right* language label and so slips
+    /// every cross-language guard.
+    static func isScriptContradiction(_ text: String, language: String?) -> Bool {
+        isShortFiller(text) && !scriptCompatible(text, with: language)
     }
 
     /// Whether a line is one of Whisper's stock lone-word silence inventions,
