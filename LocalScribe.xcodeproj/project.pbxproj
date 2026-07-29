@@ -32,6 +32,7 @@
 		6C73F3A1AF8A0A4B18A98F59 /* TranscriptionStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 931078E75B584BFA3397DFB1 /* TranscriptionStream.swift */; };
 		78E4E20C27F9A10013E81FF9 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = C913E189926AE6B1BBE7C16E /* MLXLLM */; };
 		7C60C2A8EA86F11A5A5B0B5D /* SystemAudioCapturer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12E28AA1D4B46F62332318F9 /* SystemAudioCapturer.swift */; };
+		7E3F633C5DB807057F92908E /* SystemAudioTapSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26D2EA0D194F90236A10F429 /* SystemAudioTapSmokeTests.swift */; };
 		84CC0F7251B15C1F9EFC2CAE /* MLXEngineSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 293CED8E6BF6F039CE78D60D /* MLXEngineSmokeTests.swift */; };
 		8661B8B42753BE4E24DAE6F1 /* RecordingControlBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630515BB911012935E39C78E /* RecordingControlBar.swift */; };
 		86B8CBD7061CDD8A1BAA14F6 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = E41A8103CF6ADC9DA41EBC50 /* WhisperKit */; };
@@ -67,6 +68,7 @@
 		12E28AA1D4B46F62332318F9 /* SystemAudioCapturer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemAudioCapturer.swift; sourceTree = "<group>"; };
 		13C896480EC392B9E3FB0B74 /* MLXEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXEngine.swift; sourceTree = "<group>"; };
 		23D25BE197E2BF83D498BFF1 /* MeetingNotesWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingNotesWorkspace.swift; sourceTree = "<group>"; };
+		26D2EA0D194F90236A10F429 /* SystemAudioTapSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemAudioTapSmokeTests.swift; sourceTree = "<group>"; };
 		27045D08ADD93EA94112834F /* NotesTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesTemplate.swift; sourceTree = "<group>"; };
 		293CED8E6BF6F039CE78D60D /* MLXEngineSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXEngineSmokeTests.swift; sourceTree = "<group>"; };
 		2C9FAB4017A722CF9180F84A /* Transcriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcriber.swift; sourceTree = "<group>"; };
@@ -179,6 +181,7 @@
 			children = (
 				293CED8E6BF6F039CE78D60D /* MLXEngineSmokeTests.swift */,
 				6E1A798E4FC53A1F3EAFDFF0 /* SessionReplayTests.swift */,
+				26D2EA0D194F90236A10F429 /* SystemAudioTapSmokeTests.swift */,
 				929411DADA5B682F021CFFFC /* TranscriptQualityTests.swift */,
 			);
 			path = Tests;
@@ -304,6 +307,7 @@
 			files = (
 				84CC0F7251B15C1F9EFC2CAE /* MLXEngineSmokeTests.swift in Sources */,
 				3D4EB337AA7D3586DF877CD6 /* SessionReplayTests.swift in Sources */,
+				7E3F633C5DB807057F92908E /* SystemAudioTapSmokeTests.swift in Sources */,
 				048C0CD38CEA989ABFAAEBF2 /* TranscriptQualityTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

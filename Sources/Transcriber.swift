@@ -519,6 +519,11 @@ actor Transcriber {
         "you", "thank you", "thanks", "thank you very much", "bye", "bye bye",
         "дякую", "дякую вам", "будь ласка", "до побачення",
         "спасибо", "пока",
+        // What Whisper labels music with when the bracket convention slips —
+        // "[музика]" is stripped elsewhere, but the bare word sneaks through
+        // when a recording opens on a soundtrack (2026-07-29 screenshot:
+        // "Others: Music / Музика" as the first lines of a session).
+        "music", "музика", "музыка",
     ]
 
     /// Token ids whose text contains letters Ukrainian never uses (ы э ъ ё).
