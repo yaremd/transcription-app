@@ -149,6 +149,30 @@ final class TranscriptQualityTests: XCTestCase {
                      "an empty transcript is evidence of nothing")
     }
 
+    // MARK: - Wrong-script lone words
+
+    /// The 2026-07-29 afternoon report: after a video ended, keyboard noise
+    /// decoded — under the *English* language token — as "Дякую." twice. The
+    /// line carried language=en, matched the dominant, and slipped every
+    /// cross-language rule. A short line whose script contradicts its own
+    /// decode language is never real.
+    func testWrongScriptLoneWordsAreContradictions() {
+        XCTAssertTrue(Transcriber.isScriptContradiction("Дякую.", language: "en"))
+        XCTAssertTrue(Transcriber.isScriptContradiction("Дякую. М-м.", language: "en"))
+        XCTAssertTrue(Transcriber.isScriptContradiction("okay", language: "uk"))
+    }
+
+    /// Same-script short answers and full phrases are untouched — and so is
+    /// anything decoded without a language label.
+    func testMatchingScriptAndFullPhrasesAreNotContradictions() {
+        XCTAssertFalse(Transcriber.isScriptContradiction("Okay.", language: "en"))
+        XCTAssertFalse(Transcriber.isScriptContradiction("Дякую.", language: "uk"),
+                       "a real Ukrainian thanks in a Ukrainian decode must survive")
+        XCTAssertFalse(Transcriber.isScriptContradiction("Дякую вам, до зустрічі завтра вранці", language: "en"),
+                       "full phrases are the genuine-switch shape and are judged elsewhere")
+        XCTAssertFalse(Transcriber.isScriptContradiction("Дякую.", language: nil))
+    }
+
     // MARK: - Bootstrap stock fillers
 
     /// Line one of the 2026-07-29 call: nobody had spoken, and the meeting-join
