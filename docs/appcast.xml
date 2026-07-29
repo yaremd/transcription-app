@@ -8,6 +8,38 @@
          paste it here and add a <description>. Never edit an older item's
          edSignature: each one belongs to the DMG that shipped with it. -->
     <item>
+      <title>Version 0.3</title>
+      <sparkle:version>3</sparkle:version>
+      <sparkle:shortVersionString>0.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 29 Jul 2026 07:17:24 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Fixes meetings coming out nearly empty on English calls</h3>
+        <ul>
+          <li><b>Whole meetings are no longer lost to a language mix-up.</b>
+          Seal read its language detector's answer backwards, so an English
+          call could be treated as "certainly Ukrainian" — the transcript then
+          filtered itself down to a handful of lines, or filled with Cyrillic
+          look-alikes of English words. Detection is now read correctly, and a
+          line needs real evidence before it can pull the meeting toward
+          another language.</li>
+          <li><b>No more invented words at the start of a recording.</b> The
+          meeting-join chime could appear as "Дякую!" or "you" before anyone
+          spoke. Stock filler words are ignored until someone has actually
+          said something — real greetings still come through.</li>
+          <li><b>"Improve transcript" fixed too</b> — it had the same backwards
+          reading and could redo an entire English meeting in the wrong
+          language.</li>
+          <li>On Macs with less memory, lines from the very end of a meeting
+          can no longer be silently lost while notes are being prepared.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.3/Seal.dmg"
+        sparkle:edSignature="ygF3uFuymMFytDsJaxqKLFOk+4jnHktjJ9UvEzneoP5pM6uNCf2Cv0AiYm+aey6IfzGGaw9OHA63X3jn43kJBA==" length="18603280"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.2</title>
       <sparkle:version>2</sparkle:version>
       <sparkle:shortVersionString>0.2</sparkle:shortVersionString>
