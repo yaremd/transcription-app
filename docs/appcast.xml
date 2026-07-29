@@ -8,6 +8,32 @@
          paste it here and add a <description>. Never edit an older item's
          edSignature: each one belongs to the DMG that shipped with it. -->
     <item>
+      <title>Version 0.8</title>
+      <sparkle:version>8</sparkle:version>
+      <sparkle:shortVersionString>0.8</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 29 Jul 2026 15:50:00 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Recording no longer disturbs your Mac's audio playback</h3>
+        <ul>
+          <li><b>The deeper fix for Bluetooth headphones.</b> 0.7 stopped Seal
+          from using the headset's microphone, but the system-audio capturer
+          itself could still make playback lag, go silent, or disconnect the
+          headset. Seal now captures the Mac's audio through a lighter
+          mechanism that leaves the output device completely untouched.</li>
+          <li><b>One new permission, one old one retired.</b> The first
+          recording will ask to allow "System Audio Recording" — click Allow.
+          The broader Screen Recording permission is no longer needed.</li>
+          <li>Sessions that start on music no longer open with stray
+          "Music"/"Музика" lines.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.8/Seal.dmg"
+        sparkle:edSignature="LaAACZcxgPNiPaaNRy0vQZCL666iJ+v07aEjuRjuZr6343OryWrJDkeGV2rKMtSN2vCJyZh6zRouNvwx6r/BAQ==" length="18660619"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.7</title>
       <sparkle:version>7</sparkle:version>
       <sparkle:shortVersionString>0.7</sparkle:shortVersionString>
