@@ -149,6 +149,19 @@ final class TranscriptQualityTests: XCTestCase {
                      "an empty transcript is evidence of nothing")
     }
 
+    // MARK: - Input-device choice
+
+    /// Whatever this machine's devices are, the wired-mic fallback must never
+    /// itself pick a Bluetooth device — that would recreate the telephony-
+    /// profile downgrade it exists to avoid (AirPods playback went unlistenable
+    /// whenever recording was on, 2026-07-29).
+    func testPreferredWiredInputIsNeverBluetooth() {
+        guard let wired = MicCapturer.preferredWiredInput() else { return }   // headless rig: nothing to check
+        XCTAssertFalse(MicCapturer.isBluetooth(wired.id),
+                       "\(wired.name) was chosen as the wired fallback but is Bluetooth")
+        XCTAssertFalse(wired.name.isEmpty)
+    }
+
     // MARK: - Model-call timeout
 
     /// A hung model call must free its caller: the 2026-07-29 test session's
