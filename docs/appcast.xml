@@ -8,6 +8,33 @@
          paste it here and add a <description>. Never edit an older item's
          edSignature: each one belongs to the DMG that shipped with it. -->
     <item>
+      <title>Version 0.5</title>
+      <sparkle:version>5</sparkle:version>
+      <sparkle:shortVersionString>0.5</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 29 Jul 2026 12:35:00 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Transcription no longer silently stops mid-meeting</h3>
+        <ul>
+          <li><b>A rare glitch could freeze one side of the transcript</b> —
+          audio kept being captured, but no new lines appeared for that
+          speaker until the end of the meeting. The engine's internal jobs now
+          run strictly one at a time, and each has a time limit: if anything
+          ever gets stuck again, Seal abandons that one sentence and keeps
+          going. Worst case changed from "rest of the meeting lost" to "one
+          sentence lost."</li>
+          <li>Two more guards against invented lines in the opening seconds of
+          a recording, before the meeting's language has settled.</li>
+        </ul>
+        <p>If an earlier meeting was affected, its audio is saved — open it
+        and use "Improve transcript" to recover the full text.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.5/Seal.dmg"
+        sparkle:edSignature="zOdil3Nou84VM+Sz7x7MD+QRDd/I+rCcD//Fm3GlVs/waz0QV2ReuIuRZQ63EP+H5Hi1zGg0nHOPwvFJBm5rBQ==" length="18625233"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.4</title>
       <sparkle:version>4</sparkle:version>
       <sparkle:shortVersionString>0.4</sparkle:shortVersionString>
