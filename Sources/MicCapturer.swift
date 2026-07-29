@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreAudio
 import OSLog
 
 /// Errors surfaced to the UI when the microphone can't be started at all.
@@ -89,6 +90,33 @@ final class MicCapturer {
             }
         }
 
+        // A Bluetooth default input drags the whole headset into the telephony
+        // profile the moment capture starts: playback in the user's ears turns
+        // low-fi and choppy for the entire recording (first report 2026-07-29 —
+        // AirPods went unlistenable whenever record was on). Capture from a
+        // wired mic instead; the headset keeps full-quality playback. The
+        // route-change observer rebuilds the engine, so this re-evaluates
+        // whenever devices come and go.
+        if let current = Self.defaultInputDevice(), Self.isBluetooth(current) {
+            if let wired = Self.preferredWiredInput(), let unit = input.audioUnit {
+                var device = wired.id
+                let status = AudioUnitSetProperty(
+                    unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global,
+                    0, &device, UInt32(MemoryLayout<AudioDeviceID>.size))
+                if status == noErr {
+                    log.notice("default input is Bluetooth; capturing from \(wired.name, privacy: .public) so the headset keeps full-quality playback")
+                    onNotice?("Using \(wired.name) so your headphones keep full audio quality.")
+                } else {
+                    log.warning("couldn't switch capture to \(wired.name, privacy: .public) (err \(status)); staying on the Bluetooth mic")
+                    onNotice?("Recording from your Bluetooth headset's mic — headphone audio may sound worse while recording.")
+                }
+            } else {
+                // No wired mic on this Mac: the degradation is unavoidable,
+                // but at least it isn't a mystery.
+                onNotice?("Recording from your Bluetooth headset's mic — headphone audio may sound worse while recording.")
+            }
+        }
+
         let format = input.inputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else {
             throw MicError.noInput
@@ -130,6 +158,93 @@ final class MicCapturer {
         }
 
         armWatchdog()
+    }
+
+    // MARK: - Input-device choice (CoreAudio)
+
+    /// The system's current default input device.
+    static func defaultInputDevice() -> AudioDeviceID? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var device = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let status = AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject),
+                                                &address, 0, nil, &size, &device)
+        return status == noErr && device != kAudioObjectUnknown ? device : nil
+    }
+
+    static func isBluetooth(_ device: AudioDeviceID) -> Bool {
+        let transport = Self.transport(of: device)
+        return transport == kAudioDeviceTransportTypeBluetooth
+            || transport == kAudioDeviceTransportTypeBluetoothLE
+    }
+
+    /// The microphone to use when the default input is a Bluetooth headset:
+    /// the built-in mic first — it exists on every portable and always works —
+    /// then any wired external (USB / Thunderbolt / DisplayPort / PCI, e.g. a
+    /// Studio Display). Virtual, aggregate, AirPlay, and continuity devices
+    /// are never picked: capturing from those is a different feature.
+    static func preferredWiredInput() -> (id: AudioDeviceID, name: String)? {
+        let inputs = allDevices().filter { hasInputStreams($0) }
+        let wiredTransports: [UInt32] = [
+            kAudioDeviceTransportTypeUSB, kAudioDeviceTransportTypeThunderbolt,
+            kAudioDeviceTransportTypeDisplayPort, kAudioDeviceTransportTypePCI,
+            kAudioDeviceTransportTypeFireWire,
+        ]
+        let builtIn = inputs.first { transport(of: $0) == kAudioDeviceTransportTypeBuiltIn }
+        let wired = inputs.first { wiredTransports.contains(transport(of: $0) ?? 0) }
+        guard let chosen = builtIn ?? wired else { return nil }
+        return (chosen, name(of: chosen) ?? "the Mac's microphone")
+    }
+
+    private static func allDevices() -> [AudioDeviceID] {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var size = UInt32(0)
+        guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject),
+                                             &address, 0, nil, &size) == noErr else { return [] }
+        var devices = [AudioDeviceID](repeating: 0, count: Int(size) / MemoryLayout<AudioDeviceID>.size)
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject),
+                                         &address, 0, nil, &size, &devices) == noErr else { return [] }
+        return devices
+    }
+
+    private static func transport(of device: AudioDeviceID) -> UInt32? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyTransportType,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var transport = UInt32(0)
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &transport) == noErr else { return nil }
+        return transport
+    }
+
+    private static func hasInputStreams(_ device: AudioDeviceID) -> Bool {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreams,
+            mScope: kAudioObjectPropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain)
+        var size = UInt32(0)
+        guard AudioObjectGetPropertyDataSize(device, &address, 0, nil, &size) == noErr else { return false }
+        return size > 0
+    }
+
+    private static func name(of device: AudioDeviceID) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioObjectPropertyName,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var name: CFString?
+        var size = UInt32(MemoryLayout<CFString?>.size)
+        let status = withUnsafeMutablePointer(to: &name) { pointer in
+            AudioObjectGetPropertyData(device, &address, 0, nil, &size, pointer)
+        }
+        return status == noErr ? name as String? : nil
     }
 
     private func tearDownEngine() {
