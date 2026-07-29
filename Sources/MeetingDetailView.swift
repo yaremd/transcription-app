@@ -22,16 +22,28 @@ struct MeetingDetailView: View {
     @State private var editingNotes = false
     @State private var tags: [String] = []
     @State private var newTag = ""
-    @State private var reshaping = false
-    @State private var generating = false
+    // Long-running model jobs are keyed by the meeting they were started for.
+    // This view's @State storage survives navigating between meetings, and the
+    // plain Bools these used to be leaked one meeting's "Generating…" spinner
+    // (and, worse, its finished text) onto whichever meeting was open when the
+    // job ended. A job shows progress only on its own meeting; the computed
+    // accessors below keep every render site reading naturally.
+    @State private var reshapingID: UUID?
+    @State private var generatingID: UUID?
+    @State private var draftingFollowUpID: UUID?
+    @State private var extractingActionsID: UUID?
     @State private var generateError: String?
     @State private var templateID = NotesTemplate.general.id
     @State private var followUp = ""
-    @State private var draftingFollowUp = false
     @State private var followUpError: String?
-    @State private var extractingActions = false
     @State private var actionsError: String?
     @State private var newAction = ""
+
+    private var generating: Bool { generatingID == meeting.id }
+    private var reshaping: Bool { reshapingID == meeting.id }
+    private var draftingFollowUp: Bool { draftingFollowUpID == meeting.id }
+    private var extractingActions: Bool { extractingActionsID == meeting.id }
+    private var polishing: Bool { polishingID == meeting.id }
 
     // Section collapse state — re-derived per meeting ("content decides").
     @State private var notesOpen = true
@@ -40,7 +52,7 @@ struct MeetingDetailView: View {
     @State private var followUpOpen = false
     @State private var showFullTranscript = false
     @State private var copiedTranscript = false
-    @State private var polishing = false
+    @State private var polishingID: UUID?
     @State private var polishError: String?
 
     // The notes<->transcript workspace opens as a full-height sheet (the inline
@@ -214,7 +226,7 @@ struct MeetingDetailView: View {
     /// until asked) and stays silent on failure, leaving the manual Generate
     /// button as the retry.
     private func maybeGenerateNotes() {
-        guard !meeting.hasNotes, !meeting.lines.isEmpty, !generating else { return }
+        guard !meeting.hasNotes, !meeting.lines.isEmpty, generatingID == nil else { return }
         generateNotes()
     }
 
@@ -302,7 +314,7 @@ struct MeetingDetailView: View {
                         .menuStyle(.borderlessButton)
                         .controlSize(.small)
                         .fixedSize()
-                        .disabled(generating || reshaping)
+                        .disabled(generatingID != nil || reshapingID != nil)
 
                         Button("Edit") {
                             notesText = meeting.notes
@@ -325,7 +337,7 @@ struct MeetingDetailView: View {
                         .menuStyle(.borderlessButton)
                         .controlSize(.small)
                         .fixedSize()
-                        .disabled(generating)
+                        .disabled(generatingID != nil)
 
                         Button("Add notes") {
                             notesText = meeting.notes
@@ -399,8 +411,9 @@ struct MeetingDetailView: View {
     /// Builds (or rebuilds) the meeting's notes from its stored transcript and
     /// the notes the user jotted during it — available anytime.
     private func generateNotes() {
-        guard !meeting.lines.isEmpty else { return }
-        generating = true
+        guard !meeting.lines.isEmpty, generatingID == nil else { return }
+        let id = meeting.id
+        generatingID = id
         generateError = nil
         let b = backend
         let hint = languageHint
@@ -413,23 +426,33 @@ struct MeetingDetailView: View {
                 let result = try await generator.generate(transcript: transcript, userNotes: jotted,
                                                           template: template, languageHint: hint, backend: b)
                 await MainActor.run {
-                    var updated = meeting
-                    updated.notes = result
-                    updated.templateID = chosenTemplateID
-                    store.save(updated)
+                    generatingID = nil
+                    // Rebase on the freshest stored copy — the user may have
+                    // retitled or tagged the meeting while the model ran, and
+                    // saving the captured snapshot would erase that.
+                    if var updated = store.meetings.first(where: { $0.id == id }) {
+                        updated.notes = result
+                        updated.templateID = chosenTemplateID
+                        store.save(updated)
+                    }
+                    // On-screen state belongs to whichever meeting is open now.
+                    guard meeting.id == id else { return }
                     notesText = result
-                    generating = false
                     withAnimation(Self.sectionSpring) { notesOpen = true }
                 }
             } catch {
-                await MainActor.run { generateError = error.localizedDescription; generating = false }
+                await MainActor.run {
+                    generatingID = nil
+                    if meeting.id == id { generateError = error.localizedDescription }
+                }
             }
         }
     }
 
     private func reshape(_ instruction: String) {
-        guard meeting.hasNotes else { return }
-        reshaping = true
+        guard meeting.hasNotes, reshapingID == nil else { return }
+        let id = meeting.id
+        reshapingID = id
         let b = backend
         let hint = languageHint
         let transcript = meeting.aiTranscript
@@ -439,14 +462,16 @@ struct MeetingDetailView: View {
                 let result = try await generator.reshape(currentNotes: current, transcript: transcript,
                                                          instruction: instruction, languageHint: hint, backend: b)
                 await MainActor.run {
-                    var updated = meeting
-                    updated.notes = result
-                    store.save(updated)
+                    reshapingID = nil
+                    if var updated = store.meetings.first(where: { $0.id == id }) {
+                        updated.notes = result
+                        store.save(updated)
+                    }
+                    guard meeting.id == id else { return }
                     notesText = result
-                    reshaping = false
                 }
             } catch {
-                await MainActor.run { reshaping = false }
+                await MainActor.run { reshapingID = nil }
             }
         }
     }
@@ -466,7 +491,7 @@ struct MeetingDetailView: View {
                 if store.hasAudio(for: meeting.id) {
                     Button("Improve transcript", action: polishTranscript)
                         .buttonStyle(.linearQuietCompact)
-                        .disabled(polishing)
+                        .disabled(polishingID != nil)
                         .help("Re-transcribe the whole meeting from its saved audio with the accurate model")
                 }
                 if !meeting.lines.isEmpty {
@@ -530,8 +555,9 @@ struct MeetingDetailView: View {
     /// Re-transcribes the whole meeting from its saved audio with the
     /// accurate model and replaces the lines; notes/tags/actions are kept.
     private func polishTranscript() {
-        guard !polishing else { return }
-        polishing = true
+        guard polishingID == nil else { return }
+        let id = meeting.id
+        polishingID = id
         polishError = nil
         let target = meeting
         let audio = store.existingAudioURLs(for: target.id)
@@ -543,20 +569,24 @@ struct MeetingDetailView: View {
                                                                   systemURL: audio.system,
                                                                   vocabulary: terms)
                 await MainActor.run {
-                    polishing = false
+                    polishingID = nil
                     guard !lines.isEmpty else {
-                        polishError = "The pass produced no lines — kept the original transcript."
+                        if meeting.id == id {
+                            polishError = "The pass produced no lines — kept the original transcript."
+                        }
                         return
                     }
-                    var updated = target
-                    updated.lines = lines
-                    store.save(updated)
+                    if var updated = store.meetings.first(where: { $0.id == id }) {
+                        updated.lines = lines
+                        store.save(updated)
+                    }
+                    guard meeting.id == id else { return }
                     showFullTranscript = false
                 }
             } catch {
                 await MainActor.run {
-                    polishing = false
-                    polishError = error.localizedDescription
+                    polishingID = nil
+                    if meeting.id == id { polishError = error.localizedDescription }
                 }
             }
         }
@@ -691,7 +721,7 @@ struct MeetingDetailView: View {
                         extractActions()
                     }
                     .buttonStyle(.linearQuietCompact)
-                    .disabled(extractingActions)
+                    .disabled(extractingActionsID != nil)
                 }
             }
             if extractingActions {
@@ -757,7 +787,9 @@ struct MeetingDetailView: View {
     }
 
     private func extractActions() {
-        extractingActions = true
+        guard extractingActionsID == nil else { return }
+        let id = meeting.id
+        extractingActionsID = id
         actionsError = nil
         let b = backend
         let hint = languageHint
@@ -767,17 +799,22 @@ struct MeetingDetailView: View {
             do {
                 let found = try await generator.extractActionItems(transcript: transcript, notes: notes, languageHint: hint, backend: b)
                 await MainActor.run {
-                    var updated = meeting
+                    extractingActionsID = nil
+                    // Merge into the freshest copy — the user may have added
+                    // items by hand while the model ran.
+                    guard var updated = store.meetings.first(where: { $0.id == id }) else { return }
                     var items = updated.actionItems ?? []
                     for text in found where !items.contains(where: { $0.text.caseInsensitiveCompare(text) == .orderedSame }) {
                         items.append(ActionItem(text: text))
                     }
                     updated.actionItems = items.isEmpty ? nil : items
                     store.save(updated)
-                    extractingActions = false
                 }
             } catch {
-                await MainActor.run { actionsError = error.localizedDescription; extractingActions = false }
+                await MainActor.run {
+                    extractingActionsID = nil
+                    if meeting.id == id { actionsError = error.localizedDescription }
+                }
             }
         }
     }
@@ -794,7 +831,7 @@ struct MeetingDetailView: View {
                     draftFollowUp()
                 }
                 .buttonStyle(.linearQuietCompact)
-                .disabled(draftingFollowUp || meeting.lines.isEmpty)
+                .disabled(draftingFollowUpID != nil || meeting.lines.isEmpty)
                 if !followUp.isEmpty {
                     Button("Copy") { copyToPasteboard(followUp) }
                         .buttonStyle(.linearQuietCompact)
@@ -824,7 +861,9 @@ struct MeetingDetailView: View {
     }
 
     private func draftFollowUp() {
-        draftingFollowUp = true
+        guard draftingFollowUpID == nil else { return }
+        let id = meeting.id
+        draftingFollowUpID = id
         followUpError = nil
         let b = backend
         let hint = languageHint
@@ -834,12 +873,16 @@ struct MeetingDetailView: View {
             do {
                 let result = try await generator.draftFollowUp(transcript: transcript, notes: notes, languageHint: hint, backend: b)
                 await MainActor.run {
+                    draftingFollowUpID = nil
+                    guard meeting.id == id else { return }   // drafted for a meeting no longer on screen
                     followUp = result
-                    draftingFollowUp = false
                     withAnimation(Self.sectionSpring) { followUpOpen = true }
                 }
             } catch {
-                await MainActor.run { followUpError = error.localizedDescription; draftingFollowUp = false }
+                await MainActor.run {
+                    draftingFollowUpID = nil
+                    if meeting.id == id { followUpError = error.localizedDescription }
+                }
             }
         }
     }
