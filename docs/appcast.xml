@@ -8,6 +8,31 @@
          paste it here and add a <description>. Never edit an older item's
          edSignature: each one belongs to the DMG that shipped with it. -->
     <item>
+      <title>Version 0.6</title>
+      <sparkle:version>6</sparkle:version>
+      <sparkle:shortVersionString>0.6</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 29 Jul 2026 13:35:00 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Meeting pages no longer share state with each other</h3>
+        <ul>
+          <li><b>"Generating notes" showed on every meeting, not just the one
+          generating.</b> Each AI job (Generate notes, Reshape, Improve
+          transcript, Draft follow-up, Extract actions) now belongs to the
+          meeting it was started for and shows progress only there.</li>
+          <li><b>Results always land on the right meeting</b> — a finished
+          generation can no longer drop its text into whichever meeting was
+          open, and a title or tag edited while the model worked is no longer
+          reverted when it finishes.</li>
+          <li>Heavy AI jobs no longer stack — one at a time.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.6/Seal.dmg"
+        sparkle:edSignature="47Nd+It/fioaGPA6MQOEuj3AEQIlRhtyB+/yV1h6c7qZ4enCE1oGgySZ+U0vdTLQn0oHqdMs+ranROUqNtBvAw==" length="18648095"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.5</title>
       <sparkle:version>5</sparkle:version>
       <sparkle:shortVersionString>0.5</sparkle:shortVersionString>
