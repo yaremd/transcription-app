@@ -8,6 +8,29 @@
          paste it here and add a <description>. Never edit an older item's
          edSignature: each one belongs to the DMG that shipped with it. -->
     <item>
+      <title>Version 0.4</title>
+      <sparkle:version>4</sparkle:version>
+      <sparkle:shortVersionString>0.4</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 29 Jul 2026 11:05:00 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Removes the last way a foreign word could sneak in</h3>
+        <ul>
+          <li><b>No more invented words in the wrong alphabet — anywhere in a
+          meeting.</b> After a recording went quiet (a video ended, everyone
+          stopped talking), background noise could still appear as a word like
+          "Дякую." even in an all-English session. A short line written in an
+          alphabet that doesn't match its own language is now recognized as
+          noise and dropped, at any point in a meeting. Real short answers and
+          genuine language switches are untouched.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.4/Seal.dmg"
+        sparkle:edSignature="ZQSbH/+PbJ2ybO8jjrO33qaQJhCUN75odq0aTOYFCfqgRa9Os7j13v2e6PVkmKaQ/bVLAEAyQH1+n1l9r1+JBA==" length="18609857"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.3</title>
       <sparkle:version>3</sparkle:version>
       <sparkle:shortVersionString>0.3</sparkle:shortVersionString>
