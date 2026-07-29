@@ -14,6 +14,11 @@ import AVFoundation
 ///   xcodebuild test -scheme LocalScribe -only-testing:LocalScribeTests/SessionReplayTests ...
 ///
 /// Optional: TEST_RUNNER_SEAL_REPLAY_SECONDS caps how much audio is replayed.
+/// Optional: TEST_RUNNER_SEAL_REPLAY_PACE feeds audio at that multiple of
+/// real time (1 = live speed) instead of as fast as possible. Pacing is what
+/// makes live-preview passes fire on their production cadence, overlapping
+/// the final decodes on the shared WhisperKit — the concurrency the fast
+/// replay never exercises.
 final class SessionReplayTests: XCTestCase {
 
     /// Collects diagnostics + commits from concurrently-running decode chains.
@@ -101,10 +106,16 @@ final class SessionReplayTests: XCTestCase {
         // Interleave the two feeds on the audio timeline, chunked the way the
         // capturers deliver: ~20 ms buffers from ScreenCaptureKit, ~85 ms from
         // the AVAudioEngine mic tap.
+        let pace = env["SEAL_REPLAY_PACE"].flatMap(Double.init) ?? 0
         let sysChunk = 320, micChunk = 1365
         var iSys = 0, iMic = 0
         while iSys < system.count || iMic < mic.count {
             let tSys = Double(iSys) / 16_000, tMic = Double(iMic) / 16_000
+            if pace > 0 {
+                let target = feedStart.addingTimeInterval(min(tSys, tMic) / pace)
+                let wait = target.timeIntervalSinceNow
+                if wait > 0 { try await Task.sleep(nanoseconds: UInt64(wait * 1e9)) }
+            }
             if iMic >= mic.count || (iSys < system.count && tSys <= tMic) {
                 let end = min(iSys + sysChunk, system.count)
                 systemStream.append(Array(system[iSys..<end]))

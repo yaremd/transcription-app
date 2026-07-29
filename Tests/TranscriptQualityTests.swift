@@ -149,6 +149,44 @@ final class TranscriptQualityTests: XCTestCase {
                      "an empty transcript is evidence of nothing")
     }
 
+    // MARK: - Model-call timeout
+
+    /// A hung model call must free its caller: the 2026-07-29 test session's
+    /// mic stream stopped mid-recording because one decode never resumed and
+    /// the commit chain starved behind it, silently, forever.
+    func testAHungCallFreesItsCallerAfterTheTimeout() async {
+        let hung = Task<Int, Error> {
+            try await Task.sleep(nanoseconds: 60_000_000_000)
+            return 1
+        }
+        do {
+            _ = try await Transcriber.awaiting(hung, upTo: 0.2)
+            XCTFail("a hung call must not return")
+        } catch {
+            XCTAssertTrue(error is Transcriber.DecodeTimeout)
+        }
+        hung.cancel()
+    }
+
+    /// …and a call that finishes in time passes its result through untouched.
+    func testAHealthyCallReturnsItsResult() async throws {
+        let quick = Task<Int, Error> { 42 }
+        let value = try await Transcriber.awaiting(quick, upTo: 5)
+        XCTAssertEqual(value, 42)
+    }
+
+    /// Errors from the call itself must surface as themselves, not as timeouts.
+    func testACallsOwnErrorSurvivesTheRace() async {
+        struct Boom: Error {}
+        let failing = Task<Int, Error> { throw Boom() }
+        do {
+            _ = try await Transcriber.awaiting(failing, upTo: 5)
+            XCTFail("the call's error must propagate")
+        } catch {
+            XCTAssertTrue(error is Boom)
+        }
+    }
+
     // MARK: - Wrong-script lone words
 
     /// The 2026-07-29 afternoon report: after a video ended, keyboard noise

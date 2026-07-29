@@ -1,4 +1,5 @@
 import Foundation
+import os
 import OSLog
 import WhisperKit
 
@@ -34,6 +35,15 @@ actor Transcriber {
     /// and the model could be freed mid-decode — after which every utterance
     /// still queued on the commit chain silently transcribed to "".
     private var activeDecodes = 0
+    /// Tail of the WhisperKit call queue. The actor suspends at every `await
+    /// pipe…`, so live previews and both streams' final passes used to run
+    /// *concurrently inside WhisperKit* — and once in a while one of those
+    /// collisions never resumed. A commit chain awaiting that decode then
+    /// starved silently and the stream stopped producing lines for the rest of
+    /// the meeting (2026-07-29: the mic went quiet mid-test right after its
+    /// live passes started overlapping a long final; same signature on the
+    /// morning call's system stream). All model calls now run one at a time.
+    private var pipeTail: Task<Void, Never>?
     private let log = Logger(subsystem: "com.yarem.Seal", category: "Transcriber")
     /// Diagnostic tap for the offline replay harness (SessionReplayTests): one
     /// line per decode decision, including transcript text. Nil in production —
@@ -166,6 +176,9 @@ actor Transcriber {
         /// Whether the language this source has been speaking all session heard
         /// nothing in this audio — see the silence check below.
         var dominantHeardNothing = false
+        /// Same signal for the protected candidate while bootstrapping: the
+        /// language the *detector* picked heard nothing here.
+        var protectedHeardNothing = false
         for candidate in ordered {
             var options = DecodingOptions()
             options.task = .transcribe
@@ -192,7 +205,9 @@ actor Transcriber {
             }
             let results: [TranscriptionResult]
             do {
-                results = try await pipe.transcribe(audioArray: samples, decodeOptions: options)
+                results = try await serializedModelCall(timeout: 120) {
+                    try await pipe.transcribe(audioArray: samples, decodeOptions: options)
+                }
             } catch {
                 // A decode failure used to vanish into a `try?` — a stream that
                 // errors on every pass looked exactly like one hearing silence.
@@ -215,6 +230,9 @@ actor Transcriber {
             }
             if text.isEmpty, let dominant, candidate == dominant {
                 dominantHeardNothing = true
+            }
+            if text.isEmpty, let protected, candidate == protected {
+                protectedHeardNothing = true
             }
             let peakNoSpeech = all.map(\.noSpeechProb).max() ?? 0
             diagnostics?("[\(source)]   \(candidate ?? "auto"): conf=\(String(format: "%.2f", confidence)) score=\(String(format: "%.2f", score)) ns=\(String(format: "%.2f", peakNoSpeech)) kept=\(kept.count)/\(all.count) \"\(text.prefix(120))\"")
@@ -266,6 +284,33 @@ actor Transcriber {
             filteredSegments += 1
             log.notice("dropped cross-language filler on \(source, privacy: .public): \(lang, privacy: .public) vs dominant \(dominant, privacy: .public)")
             diagnostics?("[\(source)] DROP cross-language filler: \"\(best.text.prefix(80))\"")
+            return ""
+        }
+
+        // The bootstrap face of trust-the-silence: no momentum exists yet, but
+        // the acoustic detection picked a language — and that language heard
+        // *nothing* in this audio. A rival that "heard" something anyway must
+        // have clearly heard it; Whisper invents fluent-looking phrases from
+        // hard accented audio at middling confidence ("Я покажу, как я щадлю
+        // на скринь." at -0.41 for English speech whose en decode was empty),
+        // and one of those as an early line is how a meeting opens Cyrillic.
+        // Real first utterances in the other language decode clearly and pass.
+        if dominant == nil, protectedHeardNothing, !best.text.isEmpty,
+           best.language != protected, best.confidence < Self.clearlyHeard {
+            filteredSegments += 1
+            log.notice("dropped bootstrap invention on \(source, privacy: .public): detection's \(protected ?? "?", privacy: .public) heard silence")
+            diagnostics?("[\(source)] DROP bootstrap trust-the-silence (\(best.language ?? "?") conf \(String(format: "%.2f", best.confidence))): \"\(best.text.prefix(60))\"")
+            return ""
+        }
+
+        // And with no momentum *and* no usable detection, nothing at all
+        // vouches for a lone one/two-word output — the filler shape Whisper
+        // invents from noise ("Я біжу?"). A real one-word opener rides on the
+        // next utterance's evidence; losing it costs almost nothing.
+        if dominant == nil, !leadHasEvidence, Self.isShortFiller(best.text) {
+            filteredSegments += 1
+            log.notice("dropped unvouched bootstrap filler on \(source, privacy: .public)")
+            diagnostics?("[\(source)] DROP unvouched bootstrap filler: \"\(best.text.prefix(40))\"")
             return ""
         }
 
@@ -375,6 +420,73 @@ actor Transcriber {
     /// outlives the line it came from, so it is held to more.
     private static let languageVoteConfidence: Float = -0.7
 
+    /// The bar for "clearly heard": what a rival language must reach to
+    /// override the detection's pick having heard silence, while no momentum
+    /// exists to judge by. Genuine speech in the rival language decodes above
+    /// this; Whisper's fluent inventions from hard audio sit below it.
+    static let clearlyHeard: Float = -0.35
+
+    // MARK: - Model-call discipline
+
+    struct DecodeTimeout: Error, LocalizedError {
+        var errorDescription: String? { "the model call did not finish in time" }
+    }
+
+    /// Runs one WhisperKit call: strictly after every earlier one (FIFO), and
+    /// never allowed to stall its caller past `timeout`. The serialization
+    /// removes the concurrent-call overlap that intermittently never resumed;
+    /// the timeout is the backstop for anything that still hangs — the caller
+    /// gets an error and the commit chain keeps flowing, losing one utterance
+    /// instead of every line after it.
+    private func serializedModelCall<T>(timeout: TimeInterval, _ op: @escaping () async throws -> T) async throws -> T {
+        let previous = pipeTail
+        let work = Task { () throws -> T in
+            await previous?.value
+            return try await op()
+        }
+        // Installed before any suspension, so callers queue in arrival order.
+        pipeTail = Task { _ = try? await work.value }
+        do {
+            return try await Self.awaiting(work, upTo: timeout)
+        } catch is DecodeTimeout {
+            log.fault("model call stalled beyond \(timeout, format: .fixed(precision: 0))s — abandoning it so the stream keeps transcribing")
+            work.cancel()
+            // Unhook new arrivals from the wedged link — they'd inherit the
+            // stall through the chain otherwise. Callers already queued behind
+            // it each free themselves the same way this one just did.
+            pipeTail = nil
+            throw DecodeTimeout()
+        }
+    }
+
+    /// Awaits `work`, giving up after `seconds`. A continuation resumed by
+    /// whichever finishes first — deliberately not a task group, because
+    /// awaiting a task's value never reacts to cancellation, so a genuinely
+    /// hung call would hold a group (and with it the stream) hostage. The
+    /// watcher task that stays behind on a hung call is the price of freeing
+    /// the chain, and it costs nothing unless the call eventually returns.
+    static func awaiting<T>(_ work: Task<T, Error>, upTo seconds: TimeInterval) async throws -> T {
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<T, Error>) in
+            let resumed = OSAllocatedUnfairLock(initialState: false)
+            @Sendable func resumeOnce(with result: Result<T, Error>) {
+                let mine = resumed.withLock { done -> Bool in
+                    if done { return false }
+                    done = true
+                    return true
+                }
+                if mine { cont.resume(with: result) }
+            }
+            Task {
+                do { resumeOnce(with: .success(try await work.value)) }
+                catch { resumeOnce(with: .failure(error)) }
+            }
+            Task {
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                resumeOnce(with: .failure(DecodeTimeout()))
+            }
+        }
+    }
+
     /// A lone one- or two-word output — the shape of a silence-hallucination
     /// ("Дякую", "you", "okay") rather than a real phrase.
     private static func isShortFiller(_ text: String) -> Bool {
@@ -455,7 +567,7 @@ actor Transcriber {
             if let cached { return ([cached], true) }
             if let dominant = dominantLanguage(for: source) { return ([dominant], true) }
             guard allowedLanguages.count > 1,
-                  let detection = try? await pipe.detectLangauge(audioArray: samples),
+                  let detection = try? await serializedModelCall(timeout: 30, { try await pipe.detectLangauge(audioArray: samples) }),
                   let top = Self.interpretDetection(detection, allowed: allowedLanguages) else {
                 return ([fallbackLanguage(for: source)], true)
             }
@@ -471,7 +583,7 @@ actor Transcriber {
         }
         guard allowedLanguages.count > 1 else { return ([allowedLanguages.first], true) }
 
-        let detection = try? await pipe.detectLangauge(audioArray: samples)
+        let detection = try? await serializedModelCall(timeout: 30, { try await pipe.detectLangauge(audioArray: samples) })
         let dominant = dominantLanguage(for: source)
         let top = detection.flatMap { Self.interpretDetection($0, allowed: allowedLanguages) }
         if let detection {
