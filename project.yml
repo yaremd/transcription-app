@@ -56,6 +56,7 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSMicrophoneUsageDescription: "Seal listens to your microphone to transcribe your side of the conversation, entirely on your Mac."
+        NSAudioCaptureUsageDescription: "Seal captures your Mac's audio output to transcribe the other side of a call, entirely on your Mac."
         LSApplicationCategoryType: "public.app-category.productivity"
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true

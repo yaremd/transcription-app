@@ -230,7 +230,7 @@ final class TranscriptQualityTests: XCTestCase {
     /// chime came through as "Others: Дякую!". Before a source has language
     /// momentum, Whisper's stock lone-word silence inventions must not commit.
     func testStockFillersAreDroppedBeforeMomentumExists() {
-        for text in ["Дякую!", "you", "Thank you.", "Спасибо.", "Bye-bye."] {
+        for text in ["Дякую!", "you", "Thank you.", "Спасибо.", "Bye-bye.", "Music", "Музика"] {
             XCTAssertTrue(
                 Transcriber.isBootstrapHallucination(text, hasMomentum: false),
                 "\"\(text)\" is a stock silence filler and must not open a transcript")
