@@ -56,14 +56,21 @@ actor TranscriptPolisher {
         }
         let ruSuppress = Self.russianMarkerTokens(pipe: pipe)
 
+        // When acoustic detection has nothing usable to say, the meeting's own
+        // live transcript is real evidence of its language — better than the
+        // allowed list's order, which is a guess.
+        let scriptFallback = Self.scriptMajorityLanguage(of: meeting.lines, allowed: allowed)
+
         var utterances: [(speaker: String, start: Double, text: String)] = []
         if let micURL, let audio = Self.loadAudio(micURL) {
             utterances += try await transcribeStream(pipe: pipe, audio: audio, speaker: "You",
-                                                     options: options, allowed: allowed, ruSuppress: ruSuppress)
+                                                     options: options, allowed: allowed,
+                                                     fallback: scriptFallback, ruSuppress: ruSuppress)
         }
         if let systemURL, let audio = Self.loadAudio(systemURL) {
             utterances += try await transcribeStream(pipe: pipe, audio: audio, speaker: "Others",
-                                                     options: options, allowed: allowed, ruSuppress: ruSuppress)
+                                                     options: options, allowed: allowed,
+                                                     fallback: scriptFallback, ruSuppress: ruSuppress)
         }
         guard !utterances.isEmpty else {
             throw PolishError(message: "The saved audio contained nothing transcribable.")
@@ -99,18 +106,23 @@ actor TranscriptPolisher {
     /// nobody was speaking.
     private func transcribeStream(pipe: WhisperKit, audio: [Float], speaker: String,
                                   options: DecodingOptions, allowed: [String],
+                                  fallback: String?,
                                   ruSuppress: [Int]) async throws -> [(String, Double, String)] {
         guard audio.count >= 1600 else { return [] }
         var options = options
         if options.language == nil {
+            // interpretDetection, not raw langProbs: WhisperKit reports only
+            // the winning language (as a LOG prob), and reading the absent one
+            // as 0 used to *invert* the choice — an English meeting polished
+            // itself into forced-Ukrainian. Out-of-set picks fall back to the
+            // script of the live transcript, then the allowed list's head.
             if allowed.count == 1 {
                 options.language = allowed.first
-            } else if let detection = try? await pipe.detectLangauge(audioArray: Array(audio.prefix(30 * 16_000))) {
-                options.language = allowed.max {
-                    (detection.langProbs[$0] ?? 0) < (detection.langProbs[$1] ?? 0)
-                }
+            } else if let detection = try? await pipe.detectLangauge(audioArray: Array(audio.prefix(30 * 16_000))),
+                      let top = Transcriber.interpretDetection(detection, allowed: allowed) {
+                options.language = top.code
             } else {
-                options.language = allowed.first
+                options.language = fallback ?? allowed.first
             }
             options.detectLanguage = false
         }
@@ -139,6 +151,22 @@ actor TranscriptPolisher {
         return merged.filter {
             !SegmentQuality.hallucinationPhrases.contains(AudioMonitor.normalizedForEcho($0.2))
         }
+    }
+
+    /// Which allowed language the live transcript's script points to — real
+    /// evidence from the meeting itself, for when detection is unusable.
+    static func scriptMajorityLanguage(of lines: [StoredLine], allowed: [String]) -> String? {
+        var cyrillic = 0, latin = 0
+        for scalar in lines.map(\.text).joined().unicodeScalars {
+            switch scalar.value {
+            case 0x0400...0x04FF: cyrillic += 1
+            case 0x0041...0x005A, 0x0061...0x007A: latin += 1
+            default: break
+            }
+        }
+        guard cyrillic != latin else { return nil }
+        let code = cyrillic > latin ? "uk" : "en"
+        return allowed.contains(code) ? code : nil
     }
 
     /// Token ids containing letters Ukrainian never uses (ы э ъ ё) —

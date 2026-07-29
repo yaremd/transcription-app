@@ -29,7 +29,18 @@ actor Transcriber {
     /// for the notes model only when it's genuinely idle. See `releaseIfIdle`.
     private var recordingActive = false
     private var lastTranscribeAt = Date.distantPast
+    /// Decodes currently inside the model. The idle clock alone was not enough:
+    /// it was stamped at decode *start*, so one long decode looked like idleness
+    /// and the model could be freed mid-decode — after which every utterance
+    /// still queued on the commit chain silently transcribed to "".
+    private var activeDecodes = 0
     private let log = Logger(subsystem: "com.yarem.Seal", category: "Transcriber")
+    /// Diagnostic tap for the offline replay harness (SessionReplayTests): one
+    /// line per decode decision, including transcript text. Nil in production —
+    /// the only cost there is a nil check, and text never reaches the os_log.
+    private var diagnostics: (@Sendable (String) -> Void)?
+
+    func setDiagnostics(_ sink: (@Sendable (String) -> Void)?) { diagnostics = sink }
 
     /// Sets the custom vocabulary that biases transcription toward the user's
     /// names/jargon. Tokenized lazily on the next transcribe (it needs the loaded
@@ -82,7 +93,7 @@ actor Transcriber {
     /// settled). The next recording reloads it; a no-op otherwise. For
     /// post-meeting memory coordination on memory-tight Macs.
     func releaseIfIdle(minIdle: TimeInterval) {
-        guard pipe != nil, !recordingActive,
+        guard pipe != nil, !recordingActive, activeDecodes == 0,
               Date().timeIntervalSince(lastTranscribeAt) >= minIdle else { return }
         reset()
         log.notice("released the speech model to free memory for notes")
@@ -125,21 +136,37 @@ actor Transcriber {
     func transcribe(_ samples: [Float], source: String, mode: TranscribeMode) async -> String {
         guard let pipe, samples.count >= 1600 else { return "" }   // need ≥ 0.1s of audio
         lastTranscribeAt = Date()
+        activeDecodes += 1
+        // Completion re-stamps the idle clock: idleness is measured from when
+        // the model finished working, not from when it last started.
+        defer { activeDecodes -= 1; lastTranscribeAt = Date() }
 
-        let candidates = await languageCandidates(samples: samples, source: source, mode: mode, pipe: pipe)
+        let (candidates, leadHasEvidence) = await languageCandidates(samples: samples, source: source, mode: mode, pipe: pipe)
         let dominant = dominantLanguage(for: source)
         // The language arbitration gives a head start to the one it shouldn't
         // lightly abandon: the established dominant once momentum exists, or —
         // while still bootstrapping — the acoustic detection's pick, which
-        // `languageCandidates` offers first. Without this, a short meeting has
-        // no momentum yet and Whisper's fluent English translations of
-        // Ukrainian would win on raw confidence alone.
-        let protected = dominant ?? (candidates.count > 1 ? (candidates.first ?? nil) : nil)
+        // `languageCandidates` offers first (and only when it is real evidence,
+        // not a list-order tie break). Without this, a short meeting has no
+        // momentum yet and Whisper's fluent English translations of Ukrainian
+        // would win on raw confidence alone.
+        var protected = dominant ?? (leadHasEvidence && candidates.count > 1 ? (candidates.first ?? nil) : nil)
+        if let p = protected, !candidates.contains(p) { protected = nil }
+        diagnostics?("[\(source)] \(mode == .live ? "live" : "FINAL") audio=\(String(format: "%.1f", Double(samples.count) / 16_000))s candidates=[\(candidates.map { $0 ?? "auto" }.joined(separator: ","))] protected=\(protected ?? "-") dominant=\(dominant ?? "-")")
+        // The protected language decodes first, so every later candidate is
+        // judged as a challenger against its result (see the evidence bar in
+        // the loop). Matters when the dominant differs from the detection's
+        // pick — the dominant is protected but was offered second.
+        var ordered = candidates
+        if let protected, let at = ordered.firstIndex(of: protected), at > 0 {
+            ordered.remove(at: at)
+            ordered.insert(protected, at: 0)
+        }
         var best: (text: String, score: Float, confidence: Float, language: String?)?
         /// Whether the language this source has been speaking all session heard
         /// nothing in this audio — see the silence check below.
         var dominantHeardNothing = false
-        for candidate in candidates {
+        for candidate in ordered {
             var options = DecodingOptions()
             options.task = .transcribe
             options.skipSpecialTokens = true
@@ -163,8 +190,18 @@ actor Transcriber {
             if (candidate ?? language) == "uk" {
                 options.supressTokens = russianMarkerTokens(pipe: pipe)
             }
-            guard let results = try? await pipe.transcribe(audioArray: samples, decodeOptions: options) else { continue }
-            let kept = results.flatMap { $0.segments }.filter { trustworthy($0) }
+            let results: [TranscriptionResult]
+            do {
+                results = try await pipe.transcribe(audioArray: samples, decodeOptions: options)
+            } catch {
+                // A decode failure used to vanish into a `try?` — a stream that
+                // errors on every pass looked exactly like one hearing silence.
+                log.error("decode as \(candidate ?? "auto", privacy: .public) failed on \(source, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                diagnostics?("[\(source)]   \(candidate ?? "auto"): DECODE THREW: \(error)")
+                continue
+            }
+            let all = results.flatMap { $0.segments }
+            let kept = all.filter { trustworthy($0) }
             let text = Self.cleaned(kept.map { $0.text }.joined(separator: " "))
             let confidence = Self.decodeScore(kept, isEmpty: text.isEmpty)
             var score = confidence
@@ -179,8 +216,22 @@ actor Transcriber {
             if text.isEmpty, let dominant, candidate == dominant {
                 dominantHeardNothing = true
             }
-            if best == nil || score > best!.score {
+            let peakNoSpeech = all.map(\.noSpeechProb).max() ?? 0
+            diagnostics?("[\(source)]   \(candidate ?? "auto"): conf=\(String(format: "%.2f", confidence)) score=\(String(format: "%.2f", score)) ns=\(String(format: "%.2f", peakNoSpeech)) kept=\(kept.count)/\(all.count) \"\(text.prefix(120))\"")
+            // The evidence bar: a challenger may only displace the protected
+            // language's real text with output solid enough to vote for its
+            // own language. Junk that cannot even vote is not evidence against
+            // the prior — it was how "share my screen", decoded poorly in
+            // English (the detector's pick), still lost to a *fluent-looking*
+            // Ukrainian invention on raw score. A genuine language switch is
+            // establish-grade by definition, so it still passes.
+            let holderIsProtected = best != nil && !best!.text.isEmpty && best!.language == protected
+            let challengerHasStanding = !holderIsProtected || candidate == protected
+                || Self.establishesLanguage(text, confidence: confidence)
+            if challengerHasStanding, best == nil || score > best!.score {
                 best = (text, score, confidence, candidate ?? results.first?.language)
+            } else if !challengerHasStanding, score > (best?.score ?? -Float.infinity) {
+                diagnostics?("[\(source)]   \(candidate ?? "auto") outscored \(protected ?? "-") but lacks standing; keeping the prior")
             }
         }
         guard let best else { return "" }
@@ -200,6 +251,7 @@ actor Transcriber {
            !Self.establishesLanguage(best.text, confidence: best.confidence) {
             filteredSegments += 1
             log.notice("dropped invented \(best.language ?? "?", privacy: .public) on \(source, privacy: .public): dominant \(dominant ?? "-", privacy: .public) heard silence")
+            diagnostics?("[\(source)] DROP trust-the-silence: \"\(best.text.prefix(80))\"")
             return ""
         }
 
@@ -213,6 +265,21 @@ actor Transcriber {
            Self.isShortFiller(best.text) {
             filteredSegments += 1
             log.notice("dropped cross-language filler on \(source, privacy: .public): \(lang, privacy: .public) vs dominant \(dominant, privacy: .public)")
+            diagnostics?("[\(source)] DROP cross-language filler: \"\(best.text.prefix(80))\"")
+            return ""
+        }
+
+        // Before any momentum exists the cross-language rule above has nothing
+        // to compare against — and recording start is exactly where Whisper
+        // meets its first near-silence (the join chime, a breath, the keyboard)
+        // and invents its stock lone words. "Others: Дякую!" as line one of an
+        // all-English call came through here. Real openers ("Hello.", "Hi.")
+        // are not stock fillers and pass untouched; a real "Thank you." later
+        // in the meeting has momentum behind it by then and is never touched.
+        if Self.isBootstrapHallucination(best.text, hasMomentum: dominant != nil) {
+            filteredSegments += 1
+            log.notice("dropped bootstrap stock filler on \(source, privacy: .public)")
+            diagnostics?("[\(source)] DROP bootstrap stock filler: \"\(best.text.prefix(40))\"")
             return ""
         }
 
@@ -230,6 +297,7 @@ actor Transcriber {
             detectedLanguage[source] = lang
             if mode == .final {
                 languageTally[source, default: [:]][lang, default: 0] += 1
+                diagnostics?("[\(source)] VOTE \(lang) (tally \(languageTally[source] ?? [:]))")
             }
         }
         return best.text
@@ -299,6 +367,25 @@ actor Transcriber {
         return words > 0 && words <= 2
     }
 
+    /// Whether a line is one of Whisper's stock lone-word silence inventions,
+    /// caught in the only window where they can't be caught by language
+    /// contradiction: before the source has any momentum. Unlike
+    /// `SegmentQuality.hallucinationPhrases` these are words people genuinely
+    /// say, so momentum reopens the door to them.
+    static func isBootstrapHallucination(_ text: String, hasMomentum: Bool) -> Bool {
+        guard !hasMomentum, isShortFiller(text) else { return false }
+        return stockFillers.contains(AudioMonitor.normalizedForEcho(text))
+    }
+
+    /// Lone words Whisper reliably invents from near-silence — the openings of
+    /// its learned YouTube-outro phrases, in each language this app arbitrates.
+    /// Deliberately excludes real conversation openers ("okay", "yeah", "hi").
+    private static let stockFillers: Set<String> = [
+        "you", "thank you", "thanks", "thank you very much", "bye", "bye bye",
+        "дякую", "дякую вам", "будь ласка", "до побачення",
+        "спасибо", "пока",
+    ]
+
     /// Token ids whose text contains letters Ukrainian never uses (ы э ъ ё).
     /// Built once per loaded model by scanning the vocabulary.
     private func russianMarkerTokens(pipe: WhisperKit) -> [Int] {
@@ -324,10 +411,17 @@ actor Transcriber {
     /// utterances, detection alone mis-picks on short or accented audio, and a
     /// wrong pick makes Whisper transliterate ("Jak? V tebe sprawy?") or
     /// outright translate — a second decode is cheaper than a ruined line.
-    private func languageCandidates(samples: [Float], source: String, mode: TranscribeMode, pipe: WhisperKit) async -> [String?] {
-        if let language { return [language] }
+    ///
+    /// `leadHasEvidence` says whether the first candidate is backed by actual
+    /// evidence (acoustic detection, or the source's/meeting's momentum) — only
+    /// then does it deserve the arbitration head start. A lead that is merely
+    /// first in the allowed list is a guess, and protecting a guess is how an
+    /// out-of-set detection ("Indonesian, p=nan") used to hand Ukrainian a
+    /// head start over English audio.
+    private func languageCandidates(samples: [Float], source: String, mode: TranscribeMode, pipe: WhisperKit) async -> (candidates: [String?], leadHasEvidence: Bool) {
+        if let language { return ([language], true) }
         let cached = detectedLanguage[source]
-        if allowedLanguages.isEmpty { return [cached] }        // unrestricted auto
+        if allowedLanguages.isEmpty { return ([cached], true) }        // unrestricted auto
         // Live previews reuse what the stream has settled on — cached detection,
         // then the dominant language (momentum) — so they don't pay for a
         // detection pass on every pass. Only when nothing is known yet (a fresh
@@ -335,54 +429,84 @@ actor Transcriber {
         // blind Ukrainian-first default that would show an English speaker as
         // Cyrillic until a final corrects it; and we adopt it only when confident.
         guard mode == .final else {
-            if let cached { return [cached] }
-            if let dominant = dominantLanguage(for: source) { return [dominant] }
+            if let cached { return ([cached], true) }
+            if let dominant = dominantLanguage(for: source) { return ([dominant], true) }
             guard allowedLanguages.count > 1,
-                  let detection = try? await pipe.detectLangauge(audioArray: samples) else {
-                return [fallbackLanguage(for: source)]
+                  let detection = try? await pipe.detectLangauge(audioArray: samples),
+                  let top = Self.interpretDetection(detection, allowed: allowedLanguages) else {
+                return ([fallbackLanguage(for: source)], true)
             }
-            let ranked = allowedLanguages
-                .map { (code: $0, prob: detection.langProbs[$0] ?? 0) }
-                .sorted { $0.prob > $1.prob }
-            let top = ranked[0]
-            let certain = top.prob >= 0.85 || ranked[1].prob == 0 || top.prob >= 6 * ranked[1].prob
             // Not confident enough to cache — but an uncertain reading of this
             // audio still beats a blind default, and the meeting's own settled
             // language beats both.
-            guard certain else {
-                return [sessionDominantLanguage() ?? top.code]
+            guard top.prob >= Self.detectionCertainty else {
+                return ([sessionDominantLanguage() ?? top.code], true)
             }
             detectedLanguage[source] = top.code   // confident enough to reuse
-            return [top.code]
+            diagnostics?("[\(source)] live-detect cached \(top.code) (p=\(String(format: "%.2f", top.prob)))")
+            return ([top.code], true)
         }
-        guard allowedLanguages.count > 1 else { return [allowedLanguages.first] }
+        guard allowedLanguages.count > 1 else { return ([allowedLanguages.first], true) }
 
-        if let detection = try? await pipe.detectLangauge(audioArray: samples) {
-            let ranked = allowedLanguages
-                .map { (code: $0, prob: detection.langProbs[$0] ?? 0) }
-                .sorted { $0.prob > $1.prob }
-            let top = ranked[0], next = ranked[1]
-            let dominant = dominantLanguage(for: source)
-            let certain = top.prob >= 0.85 || next.prob == 0 || top.prob >= 6 * next.prob
-            // Single-decode only to MAINTAIN an established language when a
-            // near-certain detection agrees with it. While bootstrapping (no
-            // dominant yet) NEVER trust one short-utterance detection: it
-            // mislabels Ukrainian-accented English as Ukrainian and, in a short
-            // meeting, locks every committed line into Cyrillic before momentum
-            // can form. Decode both instead and let decode-score arbitration
-            // pick — `transcribe` gives the detection's choice (returned first)
-            // a +0.2 head start, so genuinely Ukrainian audio, whose English
-            // translation also decodes fluently, still needs a decisively
-            // better English decode to flip. Fixes short English meetings
-            // without weakening the guard that keeps Ukrainian out of English.
-            if let dominant, top.code == dominant, certain {
-                return [dominant]
-            }
-            return [top.code, next.code]
+        let detection = try? await pipe.detectLangauge(audioArray: samples)
+        let dominant = dominantLanguage(for: source)
+        let top = detection.flatMap { Self.interpretDetection($0, allowed: allowedLanguages) }
+        if let detection {
+            diagnostics?("[\(source)] detect: \(detection.language) p=\(String(format: "%.2f", top?.prob ?? -1)) inAllowed=\(top != nil)")
         }
-        // Detection unavailable — try both plausible languages.
-        return [allowedLanguages[0], allowedLanguages[1]]
+        // Single-decode only to MAINTAIN an established language when a
+        // near-certain detection agrees with it. While bootstrapping (no
+        // dominant yet) NEVER trust one short-utterance detection: it
+        // mislabels Ukrainian-accented English as Ukrainian and, in a short
+        // meeting, locks every committed line into Cyrillic before momentum
+        // can form. Decode both instead and let decode-score arbitration
+        // pick — `transcribe` gives the detection's choice (returned first)
+        // a +0.2 head start, so genuinely Ukrainian audio, whose English
+        // translation also decodes fluently, still needs a decisively
+        // better English decode to flip. Fixes short English meetings
+        // without weakening the guard that keeps Ukrainian out of English.
+        if let top, let dominant, top.code == dominant, top.prob >= Self.detectionCertainty {
+            return ([dominant], true)
+        }
+        // The detection's pick leads and carries the bootstrap head start.
+        // When the detector picked outside the allowed set (or failed), the
+        // meeting's own settled language leads instead; with no momentum
+        // either, the allowed list's order breaks the tie — but a mere tie
+        // break has earned no head start.
+        let momentum = dominant ?? sessionDominantLanguage()
+        let lead = top?.code ?? momentum ?? allowedLanguages[0]
+        let second = allowedLanguages.first { $0 != lead }
+        let candidates = second.map { [lead, $0] } ?? [lead]
+        return (candidates, top != nil || momentum != nil)
     }
+
+    /// Decodes WhisperKit's language-detection result. Its `langProbs` carries
+    /// exactly ONE entry — the winning language, valued with the LOG of its
+    /// probability — and nothing for any other language. The old code read
+    /// absent languages as "probability 0", which sorts ABOVE every real
+    /// (negative) log value: detection came back inverted, ranking first the
+    /// language it had NOT picked, and the 6×-ratio certainty test was always
+    /// true against a negative number. That inversion handed the arbitration
+    /// head start to the wrong language on every utterance of the 2026-07-29
+    /// call — the "app missed almost everything" report.
+    ///
+    /// Returns the detector's pick as a true probability, or nil when it picked
+    /// a language outside the allowed set (no usable signal).
+    static func interpretDetection(
+        _ detection: (language: String, langProbs: [String: Float]),
+        allowed: [String]
+    ) -> (code: String, prob: Float)? {
+        guard allowed.contains(detection.language) else { return nil }
+        guard let logProb = detection.langProbs[detection.language] else {
+            return (detection.language, 0)   // pick usable, confidence unknown
+        }
+        return (detection.language, exp(min(0, logProb)))
+    }
+
+    /// Detection probability above which a single reading may be acted on
+    /// alone: cached for live passes, or trusted to skip the second decode
+    /// when it agrees with the established dominant.
+    static let detectionCertainty: Float = 0.85
 
     /// Mean decoder confidence of the kept segments; empty output ranks last.
     private static func decodeScore(_ segments: [TranscriptionSegment], isEmpty: Bool) -> Float {
@@ -455,6 +579,7 @@ actor Transcriber {
         let words = segment.text.split(whereSeparator: { $0.isWhitespace }).count
         filteredSegments += 1
         log.notice("filtered segment #\(self.filteredSegments) (\(reason, privacy: .public)): words=\(words) noSpeech=\(segment.noSpeechProb, format: .fixed(precision: 2)) logprob=\(segment.avgLogprob, format: .fixed(precision: 2))")
+        diagnostics?("    seg-drop \(reason) noSpeech=\(String(format: "%.2f", segment.noSpeechProb)) logprob=\(String(format: "%.2f", segment.avgLogprob)) cr=\(String(format: "%.2f", segment.compressionRatio)) \"\(segment.text.prefix(80))\"")
         return false
     }
 
