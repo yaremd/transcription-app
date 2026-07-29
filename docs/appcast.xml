@@ -8,6 +8,31 @@
          paste it here and add a <description>. Never edit an older item's
          edSignature: each one belongs to the DMG that shipped with it. -->
     <item>
+      <title>Version 0.7</title>
+      <sparkle:version>7</sparkle:version>
+      <sparkle:shortVersionString>0.7</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 29 Jul 2026 14:20:00 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Your headphones keep full audio quality while recording</h3>
+        <ul>
+          <li><b>Recording with AirPods (or any Bluetooth headset) no longer
+          ruins playback.</b> Starting a recording used to switch the headset
+          into its low-quality call mode — sound became muffled, choppy, or cut
+          out until the recording stopped. Seal now records from a wired
+          microphone instead (the Mac's built-in mic, or a display microphone),
+          so the headset stays in full-quality music mode. A caption shows
+          which mic is in use.</li>
+          <li>On a Mac with no wired microphone, Seal keeps the headset mic and
+          says playback quality may drop — no more mystery.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.7/Seal.dmg"
+        sparkle:edSignature="VQv/pklg6nnjwJCqNWe6jgzDbGz2YXWTqa+yT5AzWVUrIgmjLNUswpE6bAyAojbM0H9G9AvF7DN4/WbSbowgCQ==" length="18652314"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.6</title>
       <sparkle:version>6</sparkle:version>
       <sparkle:shortVersionString>0.6</sparkle:shortVersionString>
