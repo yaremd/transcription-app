@@ -95,6 +95,90 @@ final class TranscriptQualityTests: XCTestCase {
                      "a real one-word answer carries speech and must survive")
     }
 
+    // MARK: - Language detection interpretation
+
+    /// The 2026-07-29 "missed almost everything" call. WhisperKit's language
+    /// detection returns ONLY the winning language, valued with the LOG of its
+    /// probability; every other language is absent. Reading absent languages
+    /// as "probability 0" ranked them ABOVE the real (negative) log value —
+    /// detection came back inverted, "certainly" the language it had NOT
+    /// picked, and the wrong language carried the arbitration head start on
+    /// every utterance of the meeting.
+    func testDetectionIsNotInvertedByAbsentLanguages() {
+        let top = Transcriber.interpretDetection(
+            (language: "en", langProbs: ["en": -0.27]),   // real result from that call
+            allowed: ["uk", "en"])
+        XCTAssertEqual(top?.code, "en", "the detector picked English; the code must not prefer Ukrainian")
+        XCTAssertEqual(top?.prob ?? 0, exp(-0.27), accuracy: 0.001)
+    }
+
+    /// A pick outside the allowed set (Whisper mis-hearing accented speech as
+    /// Malay, say) carries no usable signal about the allowed languages.
+    func testDetectionOutsideAllowedSetIsUnusable() {
+        XCTAssertNil(Transcriber.interpretDetection(
+            (language: "ms", langProbs: ["ms": -0.1]), allowed: ["uk", "en"]))
+    }
+
+    /// Malformed result (no probability for its own pick): the pick is still
+    /// usable for ordering, but must never clear the act-on-it-alone bar.
+    func testDetectionWithoutAProbabilityIsNeverCertain() {
+        let top = Transcriber.interpretDetection(
+            (language: "uk", langProbs: [:]), allowed: ["uk", "en"])
+        XCTAssertEqual(top?.code, "uk")
+        XCTAssertLessThan(top?.prob ?? 1, Transcriber.detectionCertainty)
+    }
+
+    /// And a genuinely confident reading still clears it — the fast paths
+    /// (live caching, single-decode with the dominant) must stay reachable.
+    func testConfidentDetectionClearsTheCertaintyBar() {
+        let top = Transcriber.interpretDetection(
+            (language: "uk", langProbs: ["uk": -0.05]), allowed: ["uk", "en"])
+        XCTAssertGreaterThanOrEqual(top?.prob ?? 0, Transcriber.detectionCertainty)
+    }
+
+    /// The polisher had the same inverted read (`langProbs[$0] ?? 0` inside a
+    /// max-by): an English meeting would "Improve transcript" itself into
+    /// forced-Ukrainian. When detection is unusable it now falls back to the
+    /// script the live transcript is actually written in.
+    func testPolisherFallsBackToTheTranscriptsOwnScript() {
+        let english = [StoredLine(speaker: "You", text: "we ship the login flow tomorrow")]
+        XCTAssertEqual(TranscriptPolisher.scriptMajorityLanguage(of: english, allowed: ["uk", "en"]), "en")
+        let ukrainian = [StoredLine(speaker: "You", text: "завтра відвантажуємо логін-флоу")]
+        XCTAssertEqual(TranscriptPolisher.scriptMajorityLanguage(of: ukrainian, allowed: ["uk", "en"]), "uk")
+        XCTAssertNil(TranscriptPolisher.scriptMajorityLanguage(of: [], allowed: ["uk", "en"]),
+                     "an empty transcript is evidence of nothing")
+    }
+
+    // MARK: - Bootstrap stock fillers
+
+    /// Line one of the 2026-07-29 call: nobody had spoken, and the meeting-join
+    /// chime came through as "Others: Дякую!". Before a source has language
+    /// momentum, Whisper's stock lone-word silence inventions must not commit.
+    func testStockFillersAreDroppedBeforeMomentumExists() {
+        for text in ["Дякую!", "you", "Thank you.", "Спасибо.", "Bye-bye."] {
+            XCTAssertTrue(
+                Transcriber.isBootstrapHallucination(text, hasMomentum: false),
+                "\"\(text)\" is a stock silence filler and must not open a transcript")
+        }
+    }
+
+    /// A real opener is not a stock filler — the gate must not eat the first
+    /// word of a genuine meeting.
+    func testRealOpenersSurviveTheBootstrapGate() {
+        for text in ["Hello.", "Hi.", "Okay.", "Привіт!", "Доброго дня."] {
+            XCTAssertFalse(
+                Transcriber.isBootstrapHallucination(text, hasMomentum: false),
+                "\"\(text)\" is a real opener and must survive")
+        }
+    }
+
+    /// Once momentum exists the words become sayable again: the "Thank you.
+    /// Bye." that ends a real meeting must never be dropped.
+    func testStockWordsAreSayableOnceMomentumExists() {
+        XCTAssertFalse(Transcriber.isBootstrapHallucination("Thank you.", hasMomentum: true))
+        XCTAssertFalse(Transcriber.isBootstrapHallucination("Дякую!", hasMomentum: true))
+    }
+
     // MARK: - Placement: order and turns
 
     private let t0 = Date(timeIntervalSince1970: 1_800_000_000)
