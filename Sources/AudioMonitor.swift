@@ -673,9 +673,6 @@ final class AudioMonitor: ObservableObject {
                                       mergeGap: turnMergeGap, characterCap: turnMergeCharacterCap)
         recentCommits.append(RecentCommit(speaker: speaker, normalized: normalized,
                                           fragment: text, at: now, lineID: lineID))
-        // Committed text becomes decoder context for this source's next
-        // utterances (consistent names/spelling, better continuations).
-        Task { [transcriber] in await transcriber.noteCommitted(text, source: speaker) }
     }
 
     /// Pulls one echoed utterance back out of the transcript. Its turn may have

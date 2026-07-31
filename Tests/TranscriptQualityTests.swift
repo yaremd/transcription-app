@@ -150,12 +150,57 @@ final class TranscriptQualityTests: XCTestCase {
             "degenerate-loop")
     }
 
+    /// The shape of the 2026-07-31 system-audio dropout: WhisperKit aborted the
+    /// decode before sampling a single word and handed back one segment holding
+    /// nothing but special tokens. Every other rule here is phrased in terms of
+    /// the words a segment has, so a segment with none satisfied all of them and
+    /// was *kept* — the decoder "succeeded", the filter approved it, the joined
+    /// text was "", and 39 minutes of a lesson vanished without one log line.
+    func testWordlessSegmentsAreRejectedRatherThanKept() {
+        XCTAssertEqual(SegmentQuality.rejection(segment("")), "empty-segment")
+        XCTAssertEqual(SegmentQuality.rejection(segment("   ")), "empty-segment")
+        XCTAssertNil(SegmentQuality.rejection(segment("Yes, it is.")),
+                     "a real short answer still carries words and must survive")
+    }
+
     func testSilenceAndShortJunkAreStillDropped() {
         XCTAssertEqual(SegmentQuality.rejection(segment("Дякую", logprob: -0.9, noSpeech: 0.9)),
                        "probable-silence")
         XCTAssertEqual(SegmentQuality.rejection(segment("you", logprob: -1.4)), "short-junk")
         XCTAssertNil(SegmentQuality.rejection(segment("Okay.", logprob: -0.3)),
                      "a real one-word answer carries speech and must survive")
+    }
+
+    // MARK: - Decode input length
+
+    /// WhisperKit's decode loop is `while seek < audioArray.count -
+    /// windowClipTime`, and `windowClipTime` is one second by default — so an
+    /// array of a second or less never enters it and comes back with no
+    /// segments, no tokens and no error. The stream cuts short utterances all
+    /// the time ("Yes, it is.", "Okay, any questions?"), and every one of them
+    /// under a second was handed over and silently discarded: 9% of the system
+    /// stream's utterances on the 2026-07-31 lesson, 15% of the mic's.
+    func testShortUtterancesAreLongEnoughToDecode() {
+        for seconds in [0.31, 0.5, 0.9, 1.0] {
+            let padded = Transcriber.decodable([Float](repeating: 0.05, count: Int(seconds * 16_000)))
+            XCTAssertGreaterThan(
+                padded.count, 16_000,
+                "\(seconds)s of audio must be padded past WhisperKit's one-second window gate")
+        }
+    }
+
+    /// Padding is only ever added, never substituted for audio: the speech
+    /// itself must reach the model untouched, and anything already long enough
+    /// must not be copied at all.
+    func testPaddingPreservesTheAudioAndLeavesLongUtterancesAlone() {
+        let short = (0..<8_000).map { Float($0) / 8_000 }
+        let padded = Transcriber.decodable(short)
+        XCTAssertEqual(Array(padded.prefix(short.count)), short, "the speech must survive verbatim")
+        XCTAssertTrue(padded.dropFirst(short.count).allSatisfy { $0 == 0 },
+                      "the padding must be silence, not repeated audio")
+
+        let long = [Float](repeating: 0.05, count: 16_000 * 5)
+        XCTAssertEqual(Transcriber.decodable(long).count, long.count)
     }
 
     // MARK: - Language detection interpretation
