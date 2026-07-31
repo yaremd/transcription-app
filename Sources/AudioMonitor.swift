@@ -268,6 +268,10 @@ final class AudioMonitor: ObservableObject {
     private var systemStream: TranscriptionStream?
     private var micRecorder: SessionAudioRecorder?
     private var systemRecorder: SessionAudioRecorder?
+    /// This session's transcription decision trail, written next to the
+    /// meeting. Always on: it is small, local, and the only thing that explains
+    /// a session that went wrong in a way its audio doesn't reproduce.
+    private var diagnosticsLog: DiagnosticsLog?
     private var micMeterLast = Date.distantPast
     private var systemMeterLast = Date.distantPast
 
@@ -337,6 +341,13 @@ final class AudioMonitor: ObservableObject {
     }
 
     private func beginCapture() {
+        let diag = DiagnosticsLog(url: store.diagnosticsURL(for: currentMeetingID))
+        diagnosticsLog = diag
+        diag.write("session start — speed=\(speed.rawValue) language=\(language.rawValue) keepAudio=\(settings.keepAudio)")
+        Task { [transcriber] in
+            await transcriber.setDiagnostics { diag.write($0) }
+        }
+
         micStream = makeStream(for: speakerYou)
         systemStream = makeStream(for: speakerOthers)
 
@@ -491,6 +502,15 @@ final class AudioMonitor: ObservableObject {
         levels.system = 0
         recordingStart = nil
         noticeMessage = nil
+        // Detach the tap before closing, so a straggling final pass can't write
+        // into a closed file. Closing is idempotent either way.
+        let finished = diagnosticsLog
+        diagnosticsLog = nil
+        Task { [transcriber] in
+            await transcriber.setDiagnostics(nil)
+            finished?.write("session end")
+            finished?.close()
+        }
     }
 
     /// Sends the finished transcript to the local LLM and produces notes.
@@ -575,6 +595,7 @@ final class AudioMonitor: ObservableObject {
         let stream = TranscriptionStream(label: speaker) { [transcriber] samples, mode in
             await transcriber.transcribe(samples, source: speaker, mode: mode)
         }
+        if let diagnosticsLog { stream.diagnostics = { diagnosticsLog.write($0) } }
         stream.onLive = { [weak self] id, text in
             DispatchQueue.main.async {
                 guard let self, self.isRunning, !self.discarding,

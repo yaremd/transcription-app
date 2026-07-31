@@ -38,6 +38,16 @@ final class TranscriptionStream {
     /// (utteranceID, text, timing) — utterance finished. nil text = discarded
     /// as silence. `timing` says when the speech happened, not when it decoded.
     var onCommit: ((Int, String?, UtteranceTiming) -> Void)?
+    /// One line per segmentation and commit decision. The `Transcriber` trail
+    /// explains what a decode *chose*; this one explains what it was ever given
+    /// — the half that was missing when a stream produced nothing for minutes
+    /// at a time and the audio turned out to be fine (2026-07-31).
+    var diagnostics: (@Sendable (String) -> Void)?
+
+    /// Commits enqueued but not yet decoded. A stream that goes quiet because
+    /// its chain is backed up looks identical, from the transcript alone, to
+    /// one that is hearing silence — this is what tells them apart.
+    private var pendingCommits = 0
 
     private let label: String
     private let transcribe: ([Float], TranscribeMode) async -> String
@@ -187,9 +197,16 @@ final class TranscriptionStream {
         lock.lock()
         guard !buffer.isEmpty else { lock.unlock(); return }
         let id = utterance
+        let voiced = voicedSeconds
+        let buffered = Double(buffer.count) / sampleRate
         let audio = voicedSeconds >= minVoicedSeconds ? trimmedUtteranceLocked() : []
         let timing = timingLocked(for: frames, offset: bufferStartOffset)
         resetUtteranceLocked()
+        diagnostics?(String(
+            format: "[%@] commit #%d buffered=%.1fs voiced=%.1fs -> %@",
+            label, id, buffered, voiced,
+            audio.isEmpty ? "SKIPPED (too little speech)"
+                          : String(format: "%.1fs to decode", Double(audio.count) / sampleRate)))
         enqueueCommitLocked(id: id, audio: audio, timing: timing)
         lock.unlock()
     }
@@ -198,17 +215,37 @@ final class TranscriptionStream {
     /// even when a short utterance transcribes faster than the long one before it.
     private func enqueueCommitLocked(id: Int, audio: [Float], timing: UtteranceTiming) {
         let previous = commitChain
+        pendingCommits += 1
+        let queued = Date()
+        let depth = pendingCommits
         commitChain = Task(priority: .userInitiated) {
             await previous?.value
             var text: String?
             if !audio.isEmpty {
+                // How long this utterance sat behind the ones before it. A
+                // stream starving on a shared model shows up here as a wait
+                // that keeps climbing, long before the transcript looks wrong.
+                let waited = Date().timeIntervalSince(queued)
                 self.setCommitBusy(true)
+                let decodeStart = Date()
                 let out = await self.transcribe(audio, .final)
+                let decoded = Date().timeIntervalSince(decodeStart)
                 self.setCommitBusy(false)
                 text = out.isEmpty ? nil : out
+                self.diagnostics?(String(
+                    format: "[%@] commit #%d queued=%.1fs decode=%.1fs depth=%d -> %@",
+                    self.label, id, waited, decoded, depth,
+                    text.map { "\"\($0.prefix(80))\"" } ?? "EMPTY (decoded to nothing)"))
             }
+            self.noteCommitFinished()
             self.onCommit?(id, text, timing)
         }
+    }
+
+    private func noteCommitFinished() {
+        lock.lock()
+        pendingCommits -= 1
+        lock.unlock()
     }
 
     /// Dates the voiced span of `frames`, which begin `offset` seconds into the
@@ -300,6 +337,14 @@ final class TranscriptionStream {
         inSpeech = tailFrames.last.map { $0.energy >= off } ?? false
         silenceRun = Self.trailingSilence(tailFrames, threshold: off, sampleRate: sampleRate)
         utterance += 1
+        // A stream that force-cuts over and over never found a quiet gap: its
+        // audio sits above the speech threshold continuously, so utterances are
+        // being split mid-sentence at the 18 s cap rather than at pauses.
+        diagnostics?(String(
+            format: "[%@] force-cut #%d at %.1fs voiced=%.1fs -> %@",
+            label, id, Double(cutSample) / sampleRate, headVoiced,
+            headAudio.isEmpty ? "SKIPPED (too little speech)"
+                              : String(format: "%.1fs to decode", Double(headAudio.count) / sampleRate)))
         enqueueCommitLocked(id: id, audio: headAudio, timing: timing)
         lock.unlock()
     }

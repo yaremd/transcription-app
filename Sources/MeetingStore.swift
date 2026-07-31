@@ -79,6 +79,7 @@ final class MeetingStore: ObservableObject {
 
     func delete(_ meeting: Meeting) {
         try? FileManager.default.removeItem(at: fileURL(for: meeting.id))
+        try? FileManager.default.removeItem(at: diagnosticsURL(for: meeting.id))
         deleteAudio(for: meeting.id)
         meetings.removeAll { $0.id == meeting.id }
     }
@@ -88,6 +89,12 @@ final class MeetingStore: ObservableObject {
 
     func audioURL(for id: UUID, stream: String) -> URL {
         directory.appendingPathComponent("\(id.uuidString).\(stream).m4a")
+    }
+
+    /// Where this meeting's transcription decision trail is written. Sits next
+    /// to the audio so a bug report is the files beside one meeting.
+    func diagnosticsURL(for id: UUID) -> URL {
+        directory.appendingPathComponent("\(id.uuidString).diag.log")
     }
 
     /// The meeting's saved audio files that actually exist on disk.

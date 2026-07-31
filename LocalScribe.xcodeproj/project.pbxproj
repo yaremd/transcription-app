@@ -12,6 +12,7 @@
 		0BE8A4D8080561A75824DE8A /* MeetingExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C59AA528A9CC916241530D5 /* MeetingExporter.swift */; };
 		0C071F7AA8E9BCC20C14BE3D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ECAA65E938B3B93FA8054BD9 /* Assets.xcassets */; };
 		0CE2979CFED5BE6892616FA5 /* MeetingNotesWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23D25BE197E2BF83D498BFF1 /* MeetingNotesWorkspace.swift */; };
+		0FE1928A527C1ABED852B4F0 /* DiagnosticsLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED6C6DB41AD28CE4D94A3C2C /* DiagnosticsLogTests.swift */; };
 		1211AD03356391BB2B0F3959 /* MeetingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9F1A09DCFA78375CC6521EA /* MeetingDetailView.swift */; };
 		1A560C1E69803547ADE421C2 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66C0A9DC2A94C6D63A11E414 /* Theme.swift */; };
 		1DFC21B9579079CDAEB4F832 /* AudioMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E16FA4DA148CA831E4FF2A4 /* AudioMonitor.swift */; };
@@ -28,6 +29,7 @@
 		4DDFD7DD354632B6101CAF2A /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5118AE8452BF65E8A0B7A44E /* Keychain.swift */; };
 		4DEFC2B3A6B3C8706EBDC3F5 /* Hub in Frameworks */ = {isa = PBXBuildFile; productRef = 19AC89536ED05638602CFF69 /* Hub */; };
 		5312808189AD78FC91C4EFCE /* TasksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34706D85848961AC3FB55D9F /* TasksView.swift */; };
+		6171EA9E7D1E7A542F437346 /* DiagnosticsLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC98B722D6192FCB84610A35 /* DiagnosticsLog.swift */; };
 		65A0D8B438A30FA5B6CA2265 /* NotesTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27045D08ADD93EA94112834F /* NotesTemplate.swift */; };
 		6C73F3A1AF8A0A4B18A98F59 /* TranscriptionStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 931078E75B584BFA3397DFB1 /* TranscriptionStream.swift */; };
 		78E4E20C27F9A10013E81FF9 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = C913E189926AE6B1BBE7C16E /* MLXLLM */; };
@@ -95,10 +97,12 @@
 		98D3153FBC531FB658B9F1D3 /* NotesGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesGenerator.swift; sourceTree = "<group>"; };
 		BE8F90071AC0251E2F3B6EFC /* LocalScribeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalScribeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C8D6D6D87D0F1FDA33A2C808 /* LocalScribeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalScribeApp.swift; sourceTree = "<group>"; };
+		CC98B722D6192FCB84610A35 /* DiagnosticsLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsLog.swift; sourceTree = "<group>"; };
 		D9F1A09DCFA78375CC6521EA /* MeetingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetailView.swift; sourceTree = "<group>"; };
 		E6A9B29B7667526D939EE4CC /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		E9758A5C626180372EFE68E9 /* VocabularyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularyStore.swift; sourceTree = "<group>"; };
 		ECAA65E938B3B93FA8054BD9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		ED6C6DB41AD28CE4D94A3C2C /* DiagnosticsLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsLogTests.swift; sourceTree = "<group>"; };
 		F42710A08519DC801195EEAC /* EmbeddedModelStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddedModelStatus.swift; sourceTree = "<group>"; };
 		FEA85D0155AF8DFD6F67A9E3 /* LocalScribe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LocalScribe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -144,6 +148,7 @@
 				5A4DF2E2221BC76630B23DDF /* AppSettings.swift */,
 				4E16FA4DA148CA831E4FF2A4 /* AudioMonitor.swift */,
 				636C4207B5AFE548058FB0BB /* AudioResampler.swift */,
+				CC98B722D6192FCB84610A35 /* DiagnosticsLog.swift */,
 				F42710A08519DC801195EEAC /* EmbeddedModelStatus.swift */,
 				5118AE8452BF65E8A0B7A44E /* Keychain.swift */,
 				C8D6D6D87D0F1FDA33A2C808 /* LocalScribeApp.swift */,
@@ -179,6 +184,7 @@
 		D521740C10A76C7EC2D750DB /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				ED6C6DB41AD28CE4D94A3C2C /* DiagnosticsLogTests.swift */,
 				293CED8E6BF6F039CE78D60D /* MLXEngineSmokeTests.swift */,
 				6E1A798E4FC53A1F3EAFDFF0 /* SessionReplayTests.swift */,
 				26D2EA0D194F90236A10F429 /* SystemAudioTapSmokeTests.swift */,
@@ -305,6 +311,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0FE1928A527C1ABED852B4F0 /* DiagnosticsLogTests.swift in Sources */,
 				84CC0F7251B15C1F9EFC2CAE /* MLXEngineSmokeTests.swift in Sources */,
 				3D4EB337AA7D3586DF877CD6 /* SessionReplayTests.swift in Sources */,
 				7E3F633C5DB807057F92908E /* SystemAudioTapSmokeTests.swift in Sources */,
@@ -319,6 +326,7 @@
 				ABC82EDD10AB03153376515B /* AppSettings.swift in Sources */,
 				1DFC21B9579079CDAEB4F832 /* AudioMonitor.swift in Sources */,
 				3ADF59A8E72A7970B7CF6BD0 /* AudioResampler.swift in Sources */,
+				6171EA9E7D1E7A542F437346 /* DiagnosticsLog.swift in Sources */,
 				40C0A9AFCC76952E79313742 /* EmbeddedModelStatus.swift in Sources */,
 				4DDFD7DD354632B6101CAF2A /* Keychain.swift in Sources */,
 				C5C8C4886694962DA43145D1 /* LocalScribeApp.swift in Sources */,
@@ -396,7 +404,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 8;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = S4M9R72TXR;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -411,7 +419,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.2;
+				MARKETING_VERSION = 0.8;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -457,7 +465,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 8;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = S4M9R72TXR;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -478,7 +486,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.2;
+				MARKETING_VERSION = 0.8;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
