@@ -15,7 +15,6 @@ actor Transcriber {
     private var vocabularyPrompt = ""      // custom terms joined into a Whisper prompt
     private var cachedVocabularyTokens: [Int]?
     private var detectedLanguage: [String: String] = [:]   // per source, in auto mode
-    private var recentContext: [String: String] = [:]      // per source: tail of committed text
     /// Per source: how many final lines each language has produced this
     /// session. The leader is the source's "dominant" language — the momentum
     /// that keeps one noisy detection from flipping a Ukrainian meeting into
@@ -75,19 +74,9 @@ actor Transcriber {
         allowedLanguages = allowed
     }
 
-    /// Feeds a committed line back as context for the next passes on the same
-    /// source: names keep their spelling, topic words are favored, sentences
-    /// continue naturally. Only the tail is kept — Whisper's prompt window is
-    /// small and recency is what matters.
-    func noteCommitted(_ text: String, source: String) {
-        let joined = ((recentContext[source].map { $0 + " " }) ?? "") + text
-        recentContext[source] = String(joined.suffix(240))
-    }
-
     /// Clears per-recording state; call when a new session starts.
     func beginSession() {
         detectedLanguage = [:]
-        recentContext = [:]
         languageTally = [:]
         filteredSegments = 0
         recordingActive = true
@@ -145,6 +134,7 @@ actor Transcriber {
     /// may decode twice when the language is ambiguous.
     func transcribe(_ samples: [Float], source: String, mode: TranscribeMode) async -> String {
         guard let pipe, samples.count >= 1600 else { return "" }   // need ≥ 0.1s of audio
+        let samples = Self.decodable(samples)
         lastTranscribeAt = Date()
         activeDecodes += 1
         // Completion re-stamps the idle clock: idleness is measured from when
@@ -209,39 +199,69 @@ actor Transcriber {
             }
             options.language = candidate
             options.detectLanguage = (candidate == nil)
-            // Context is offered per candidate: a prompt in the wrong script
-            // would drag the decoder toward that language (one mis-detected
-            // line then poisons every one after it).
-            // While contested, neither candidate is prompted with the running
-            // transcript. Context is offered only to a script-compatible
-            // candidate, so a stream that has been emitting Cyrillic hands the
-            // `uk` decode 120 tokens of context and the `en` decode none —
-            // which is exactly how a wrong language keeps on winning "on
-            // merit". Deciding on merit means deciding on equal footing.
-            options.promptTokens = promptTokens(for: source, pipe: pipe,
-                                                decodingAs: candidate,
-                                                includeContext: !contested)
+            // Only the custom vocabulary is prompted — never the running
+            // transcript. See `promptTokens`.
+            options.promptTokens = promptTokens(for: source, pipe: pipe)
+            if options.promptTokens != nil {
+                // A prompted decode must not be judged on its first predicted
+                // token. WhisperKit skips its prefill KV cache whenever a
+                // prompt is present ("currently breaks if it starts at a
+                // non-zero index"), which leaves the decode loop's
+                // `prefilledIndex` at 0 — so the loop tests
+                // `firstTokenLogProbThreshold` against whatever the model
+                // predicts at index 0, the `<|startofprev|>` step. That
+                // prediction is the first token of OUR prompt, not the first
+                // word of the transcript, and a prompt the model cannot guess
+                // scores below the −1.5 bar. The loop then breaks before
+                // sampling a single real token and the window comes back
+                // holding nothing but special tokens.
+                options.firstTokenLogProbThreshold = nil
+            }
             // Decoding as Ukrainian: ban every token containing a letter
             // Ukrainian never uses (ы э ъ ё) — Russian output becomes
             // impossible without touching legitimate Ukrainian text.
             if (candidate ?? language) == "uk" {
                 options.supressTokens = russianMarkerTokens(pipe: pipe)
             }
-            let results: [TranscriptionResult]
-            do {
-                results = try await serializedModelCall(timeout: 120) {
-                    try await pipe.transcribe(audioArray: samples, decodeOptions: options)
+            func decode(_ options: DecodingOptions) async -> [TranscriptionResult]? {
+                do {
+                    return try await serializedModelCall(timeout: 120) {
+                        try await pipe.transcribe(audioArray: samples, decodeOptions: options)
+                    }
+                } catch {
+                    // A decode failure used to vanish into a `try?` — a stream
+                    // that errors on every pass looked exactly like one hearing
+                    // silence.
+                    log.error("decode as \(candidate ?? "auto", privacy: .public) failed on \(source, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    diagnostics?("[\(source)]   \(candidate ?? "auto"): DECODE THREW: \(error)")
+                    return nil
                 }
-            } catch {
-                // A decode failure used to vanish into a `try?` — a stream that
-                // errors on every pass looked exactly like one hearing silence.
-                log.error("decode as \(candidate ?? "auto", privacy: .public) failed on \(source, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                diagnostics?("[\(source)]   \(candidate ?? "auto"): DECODE THREW: \(error)")
-                continue
             }
-            let all = results.flatMap { $0.segments }
-            let kept = all.filter { trustworthy($0) }
-            let text = Self.cleaned(kept.map { $0.text }.joined(separator: " "))
+            guard var results = await decode(options) else { continue }
+            var all = results.flatMap { $0.segments }
+            var kept = all.filter { trustworthy($0) }
+            var text = Self.cleaned(kept.map { $0.text }.joined(separator: " "))
+            // A prompted decode that produced nothing gets one unprompted retry.
+            // Passing *any* prompt puts WhisperKit on a path where the decode
+            // loop can end before it reaches the audio, and the whole window
+            // then comes back empty rather than wrong — see `promptTokens`,
+            // where this cost a meeting 86% of its far-side transcript. The
+            // running transcript no longer goes into the prompt at all; this is
+            // what keeps the custom vocabulary, which still does, from ever
+            // costing a line. It runs only on the failure path.
+            if text.isEmpty, options.promptTokens != nil {
+                var unprompted = options
+                unprompted.promptTokens = nil
+                unprompted.firstTokenLogProbThreshold = DecodingOptions().firstTokenLogProbThreshold
+                if let retried = await decode(unprompted) {
+                    results = retried
+                    all = results.flatMap { $0.segments }
+                    kept = all.filter { trustworthy($0) }
+                    text = Self.cleaned(kept.map { $0.text }.joined(separator: " "))
+                    log.notice("retried \(candidate ?? "auto", privacy: .public) on \(source, privacy: .public) without the vocabulary prompt: \(text.isEmpty ? "still nothing" : "recovered", privacy: .public)")
+                    diagnostics?("[\(source)]   \(candidate ?? "auto"): empty with a prompt, retried without -> \(text.isEmpty ? "still empty" : "\"\(text.prefix(60))\"")")
+                }
+            }
             let confidence = Self.decodeScore(kept, isEmpty: text.isEmpty)
             var score = confidence
             // Head start (see `protected` above): momentum for the established
@@ -387,6 +407,18 @@ actor Transcriber {
                 diagnostics?("[\(source)] VOTE \(lang) (tally \(languageTally[source] ?? [:]))")
             }
         }
+        // Every candidate decoded to nothing. Not a failure and not a drop —
+        // just an answer of "" — and it was the one outcome in the whole chain
+        // that said nothing at all: the guards log, the throws log, this
+        // returned through the same door as a good decode. A stream losing
+        // utterances here is indistinguishable, from the logs, from a stream
+        // hearing silence, which is exactly why the 2026-07-31 system-audio
+        // dropout could not be read off a 64-minute session.
+        if best.text.isEmpty {
+            let seconds = Double(samples.count) / 16_000
+            log.notice("empty decode on \(source, privacy: .public): no candidate produced text for \(seconds, format: .fixed(precision: 1))s of audio")
+            diagnostics?(String(format: "[%@] EMPTY: %.1fs of audio, no candidate produced text", source, seconds))
+        }
         return best.text
     }
 
@@ -506,6 +538,30 @@ actor Transcriber {
     /// exists to judge by. Genuine speech in the rival language decodes above
     /// this; Whisper's fluent inventions from hard audio sit below it.
     static let clearlyHeard: Float = -0.35
+
+    // MARK: - Decode input length
+
+    /// Shortest array WhisperKit will actually decode, plus margin.
+    ///
+    /// Its decode loop is `while seek < audioArray.count - windowClipTime`,
+    /// and `windowClipTime` defaults to one second (it exists to stop the
+    /// model hallucinating off the end of a window). An array of a second or
+    /// less therefore never enters the loop at all: no segments, no tokens, no
+    /// error — `transcribe` returns "" and nothing anywhere says why. Our own
+    /// gate was 0.1 s, ten times too permissive, so every "yes", "exactly" and
+    /// "mhm" the stream cut cleanly was handed over and silently thrown away
+    /// (9% of the system stream's utterances on the 2026-07-31 lesson, 15% of
+    /// the mic's).
+    static let minDecodeSamples = 17_600      // 1.1 s
+
+    /// Pads a short utterance out to `minDecodeSamples` rather than refusing
+    /// it. Whisper zero-pads every window to 30 s internally regardless, so
+    /// trailing zeros leave the model's input byte-identical — they only get
+    /// the audio past the loop's entry test.
+    static func decodable(_ samples: [Float]) -> [Float] {
+        guard samples.count < minDecodeSamples else { return samples }
+        return samples + [Float](repeating: 0, count: minDecodeSamples - samples.count)
+    }
 
     // MARK: - Model-call discipline
 
@@ -746,32 +802,49 @@ actor Transcriber {
 
     // MARK: - Decoder prompt
 
-    /// Custom vocabulary + this source's recent transcript, as prompt tokens.
-    /// Vocabulary first, context last — recency weighs most with the decoder.
-    /// Capped well under Whisper's 224-token prompt budget so the audio keeps
-    /// most of the context window. The context is offered only to a candidate
-    /// whose script it matches: an English-text prompt on a Ukrainian decode
-    /// (or vice versa) drags the decoder toward the wrong language, which is
-    /// how one bad line used to poison the rest of the meeting.
-    private func promptTokens(for source: String, pipe: WhisperKit, decodingAs candidate: String?,
-                              includeContext: Bool = true) -> [Int]? {
-        guard let tokenizer = pipe.tokenizer else { return nil }
-        var tokens: [Int] = []
-        if !vocabularyPrompt.isEmpty {
-            if cachedVocabularyTokens == nil {
-                cachedVocabularyTokens = Array(
-                    tokenizer.encode(text: " " + vocabularyPrompt)
-                        .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
-                        .prefix(80))
-            }
-            tokens += cachedVocabularyTokens ?? []
+    /// The custom vocabulary, as prompt tokens. Capped well under Whisper's
+    /// 224-token prompt budget so the audio keeps most of the context window.
+    ///
+    /// This used to carry the source's recent transcript too, so names kept
+    /// their spelling and sentences continued naturally. It cost far more than
+    /// it bought. Replaying the 2026-07-31 lesson through this exact code, the
+    /// only difference being whether committed lines came back as prompt
+    /// tokens, over the same twenty minutes:
+    ///
+    ///           with the transcript prompt   without
+    ///   Others         11 utterances              97
+    ///                   1 491 characters       11 018
+    ///   empty decodes           150                 1
+    ///   mic language     locked to uk        clean en
+    ///
+    /// Both of that meeting's symptoms were this: the far side losing 39
+    /// minutes of clean speech, and the mic locking into Ukrainian (87 of its
+    /// 126 lines came back Cyrillic). The mechanism is that WhisperKit checks
+    /// `sampleResult.completed` on every pass of its decode loop, including the
+    /// passes that only replay a prompt into the decoder — and those passes
+    /// discard the model's prediction anyway, since the prompt token is forced.
+    /// A prompt that reads like a finished sentence, which is exactly what a
+    /// committed line is, makes the model answer `<|endoftext|>`; the loop ends
+    /// before it reaches the audio and the window comes back empty. The
+    /// suppression that should prevent this (`DecodingOptions.suppressBlank`)
+    /// never fires: `SuppressBlankFilter` acts only when `tokens.count ==
+    /// sampleBegin`, and `sampleBegin` is the prefill *cache* length, a number
+    /// that is never equal to the count it is compared against. Restoring that
+    /// suppression from outside was tried and did not bring the lines back.
+    ///
+    /// The vocabulary is a term list rather than a sentence, so it does not
+    /// invite an `<|endoftext|>` the same way — and an empty prompted decode is
+    /// retried without the prompt (see `transcribe`), so it cannot cost a line
+    /// even if it ever does.
+    private func promptTokens(for source: String, pipe: WhisperKit) -> [Int]? {
+        guard let tokenizer = pipe.tokenizer, !vocabularyPrompt.isEmpty else { return nil }
+        if cachedVocabularyTokens == nil {
+            cachedVocabularyTokens = Array(
+                tokenizer.encode(text: " " + vocabularyPrompt)
+                    .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
+                    .prefix(80))
         }
-        if includeContext, let context = recentContext[source], !context.isEmpty,
-           Self.scriptCompatible(context, with: candidate) {
-            tokens += tokenizer.encode(text: " " + context)
-                .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
-                .suffix(120)
-        }
+        let tokens = cachedVocabularyTokens ?? []
         return tokens.isEmpty ? nil : tokens
     }
 
@@ -837,6 +910,13 @@ enum SegmentQuality {
     /// itself, so moderate repetition goes only when confidence is also poor;
     /// past 3.6 the output is degenerate whatever the confidence claims.
     static func rejection(_ segment: TranscriptionSegment) -> String? {
+        // A segment carrying no words at all. Every rule below is written in
+        // terms of the words there are, so a wordless segment used to satisfy
+        // all of them and be *kept* — the decoder returned one segment, the
+        // filter approved it, and the joined text was "". That is what a
+        // decode aborted before it sampled anything looks like, and naming it
+        // here is what makes it countable instead of silent.
+        if segment.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "empty-segment" }
         if segment.noSpeechProb > 0.8 && segment.avgLogprob < -0.7 { return "probable-silence" }
         if segment.noSpeechProb > 0.6 && segment.avgLogprob < -1.0 { return "weak-silence" }
         if segment.compressionRatio > 3.6 { return "degenerate-loop" }
