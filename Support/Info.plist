@@ -25,6 +25,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Seal captures your Mac's audio output to transcribe the other side of a call, entirely on your Mac.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Seal listens to your microphone to transcribe your side of the conversation, entirely on your Mac.</string>
 	<key>SUEnableAutomaticChecks</key>

@@ -152,7 +152,12 @@ actor Transcriber {
         defer { activeDecodes -= 1; lastTranscribeAt = Date() }
 
         let (candidates, leadHasEvidence) = await languageCandidates(samples: samples, source: source, mode: mode, pipe: pipe)
-        let dominant = dominantLanguage(for: source)
+        // Momentum the other side of the call contradicts is not momentum we
+        // act on — see `momentumIsContested`. `dominant` stays visible for
+        // logging and voting; it just stops steering the outcome.
+        let established = dominantLanguage(for: source)
+        let contested = momentumIsContested(for: source)
+        let dominant = contested ? nil : established
         // The language arbitration gives a head start to the one it shouldn't
         // lightly abandon: the established dominant once momentum exists, or —
         // while still bootstrapping — the acoustic detection's pick, which
@@ -160,9 +165,20 @@ actor Transcriber {
         // not a list-order tie break). Without this, a short meeting has no
         // momentum yet and Whisper's fluent English translations of Ukrainian
         // would win on raw confidence alone.
-        var protected = dominant ?? (leadHasEvidence && candidates.count > 1 ? (candidates.first ?? nil) : nil)
+        // Contested: nothing is protected. The bootstrap head start would
+        // otherwise go to the acoustic detection's pick — and that detector is
+        // the same signal that mislabelled this stream in the first place (it
+        // hears Ukrainian-accented English as Ukrainian). The independent
+        // evidence is the other stream, and it disagrees, so neither candidate
+        // gets a thumb on the scale.
+        var protected = contested
+            ? nil
+            : dominant ?? (leadHasEvidence && candidates.count > 1 ? (candidates.first ?? nil) : nil)
         if let p = protected, !candidates.contains(p) { protected = nil }
-        diagnostics?("[\(source)] \(mode == .live ? "live" : "FINAL") audio=\(String(format: "%.1f", Double(samples.count) / 16_000))s candidates=[\(candidates.map { $0 ?? "auto" }.joined(separator: ","))] protected=\(protected ?? "-") dominant=\(dominant ?? "-")")
+        diagnostics?("[\(source)] \(mode == .live ? "live" : "FINAL") audio=\(String(format: "%.1f", Double(samples.count) / 16_000))s candidates=[\(candidates.map { $0 ?? "auto" }.joined(separator: ","))] protected=\(protected ?? "-") dominant=\(dominant ?? "-")\(contested ? " CONTESTED (own \(established ?? "-") vs other \(otherSourceDominant(excluding: source)?.lang ?? "-"))" : "")")
+        if contested {
+            log.notice("momentum on \(source, privacy: .public) is contested: own \(established ?? "-", privacy: .public) vs better-established \(self.otherSourceDominant(excluding: source)?.lang ?? "-", privacy: .public) elsewhere — deciding on merit")
+        }
         // The protected language decodes first, so every later candidate is
         // judged as a challenger against its result (see the evidence bar in
         // the loop). Matters when the dominant differs from the detection's
@@ -196,7 +212,15 @@ actor Transcriber {
             // Context is offered per candidate: a prompt in the wrong script
             // would drag the decoder toward that language (one mis-detected
             // line then poisons every one after it).
-            options.promptTokens = promptTokens(for: source, pipe: pipe, decodingAs: candidate)
+            // While contested, neither candidate is prompted with the running
+            // transcript. Context is offered only to a script-compatible
+            // candidate, so a stream that has been emitting Cyrillic hands the
+            // `uk` decode 120 tokens of context and the `en` decode none —
+            // which is exactly how a wrong language keeps on winning "on
+            // merit". Deciding on merit means deciding on equal footing.
+            options.promptTokens = promptTokens(for: source, pipe: pipe,
+                                                decodingAs: candidate,
+                                                includeContext: !contested)
             // Decoding as Ukrainian: ban every token containing a letter
             // Ukrainian never uses (ы э ъ ё) — Russian output becomes
             // impossible without touching legitimate Ukrainian text.
@@ -295,7 +319,10 @@ actor Transcriber {
         // на скринь." at -0.41 for English speech whose en decode was empty),
         // and one of those as an early line is how a meeting opens Cyrillic.
         // Real first utterances in the other language decode clearly and pass.
-        if dominant == nil, protectedHeardNothing, !best.text.isEmpty,
+        // `established`, not `dominant`: this is a bootstrap rule, and a
+        // contested stream is not bootstrapping — it has been producing lines
+        // all along, we simply stopped trusting which language they were in.
+        if established == nil, protectedHeardNothing, !best.text.isEmpty,
            best.language != protected, best.confidence < Self.clearlyHeard {
             filteredSegments += 1
             log.notice("dropped bootstrap invention on \(source, privacy: .public): detection's \(protected ?? "?", privacy: .public) heard silence")
@@ -307,7 +334,7 @@ actor Transcriber {
         // vouches for a lone one/two-word output — the filler shape Whisper
         // invents from noise ("Я біжу?"). A real one-word opener rides on the
         // next utterance's evidence; losing it costs almost nothing.
-        if dominant == nil, !leadHasEvidence, Self.isShortFiller(best.text) {
+        if established == nil, !leadHasEvidence, Self.isShortFiller(best.text) {
             filteredSegments += 1
             log.notice("dropped unvouched bootstrap filler on \(source, privacy: .public)")
             diagnostics?("[\(source)] DROP unvouched bootstrap filler: \"\(best.text.prefix(40))\"")
@@ -336,7 +363,7 @@ actor Transcriber {
         // all-English call came through here. Real openers ("Hello.", "Hi.")
         // are not stock fillers and pass untouched; a real "Thank you." later
         // in the meeting has momentum behind it by then and is never touched.
-        if Self.isBootstrapHallucination(best.text, hasMomentum: dominant != nil) {
+        if Self.isBootstrapHallucination(best.text, hasMomentum: established != nil) {
             filteredSegments += 1
             log.notice("dropped bootstrap stock filler on \(source, privacy: .public)")
             diagnostics?("[\(source)] DROP bootstrap stock filler: \"\(best.text.prefix(40))\"")
@@ -395,6 +422,60 @@ actor Transcriber {
     private func fallbackLanguage(for source: String) -> String? {
         dominantLanguage(for: source) ?? sessionDominantLanguage() ?? allowedLanguages.first
     }
+
+    /// The strongest language another source has established, and how many
+    /// votes back it. The other side of a call is independent evidence about
+    /// what language the *conversation* is in: hallucination is per-channel
+    /// (it follows one speaker's accent and mic), the conversation is shared.
+    static func otherSourceDominant(excluding source: String,
+                                    in tallies: [String: [String: Int]]) -> (lang: String, votes: Int)? {
+        var best: (lang: String, votes: Int)?
+        for (other, tally) in tallies where other != source {
+            guard let leader = tally.max(by: { $0.value < $1.value }), leader.value >= 2 else { continue }
+            if best == nil || leader.value > best!.votes { best = (leader.key, leader.value) }
+        }
+        return best
+    }
+
+    private func otherSourceDominant(excluding source: String) -> (lang: String, votes: Int)? {
+        Self.otherSourceDominant(excluding: source, in: languageTally)
+    }
+
+    /// Whether this source's momentum is contradicted by a *better-established*
+    /// dominant on the other side of the call.
+    ///
+    /// Momentum is a thumb on the scale — a head start plus the drop guards
+    /// that delete anything in another language. That is right when the
+    /// momentum is right, and catastrophic when it is not: on 2026-07-31 two
+    /// early Ukrainian hallucinations locked an English speaker's mic stream
+    /// into "uk", after which the guards deleted 98 real English lines and no
+    /// English line could ever vote to correct it. Sixty minutes of English
+    /// could not dislodge two bad votes, while the other stream sat at a clean,
+    /// unanimous "en" the whole time.
+    ///
+    /// When contested we take the thumb off the scale — no head start, no
+    /// momentum-keyed drops — and let the decode scores decide on merit. We do
+    /// not force the other side's language: a genuinely bilingual call (one
+    /// speaker Ukrainian, one English) still resolves correctly, because real
+    /// Ukrainian speech decodes far better as `uk` than as `en` on its own.
+    /// And the more a source has genuinely established its own language, the
+    /// harder it is to contest — `>` means a well-evidenced stream is never
+    /// second-guessed by a weaker one.
+    static func momentumIsContested(for source: String, in tallies: [String: [String: Int]]) -> Bool {
+        guard let tally = tallies[source],
+              let leader = tally.max(by: { $0.value < $1.value }), leader.value >= 2,
+              let other = otherSourceDominant(excluding: source, in: tallies) else { return false }
+        return other.lang != leader.key && other.votes > leader.value && other.votes >= contestingVotes
+    }
+
+    private func momentumIsContested(for source: String) -> Bool {
+        Self.momentumIsContested(for: source, in: languageTally)
+    }
+
+    /// How well-established the other side must be before it may contest this
+    /// source's momentum. Two votes make a dominant; a dominant that overrides
+    /// *another* dominant is held to more.
+    static let contestingVotes = 3
 
     /// Whether a line is solid enough evidence to set or reinforce a source's
     /// language. Word count alone was not enough: Whisper invents *fluent*
@@ -560,7 +641,15 @@ actor Transcriber {
     /// head start over English audio.
     private func languageCandidates(samples: [Float], source: String, mode: TranscribeMode, pipe: WhisperKit) async -> (candidates: [String?], leadHasEvidence: Bool) {
         if let language { return ([language], true) }
-        let cached = detectedLanguage[source]
+        // Contested momentum must not shortcut the decision anywhere: both the
+        // cached detection and the dominant below can each return a *single*
+        // candidate, and a single candidate means no arbitration runs at all.
+        // That is the path that would have kept the 2026-07-31 lock-in alive —
+        // the detector agrees with the wrong dominant (it mislabels accented
+        // English exactly the way the stream already did), so `en` would never
+        // be decoded to compare against.
+        let contested = momentumIsContested(for: source)
+        let cached = contested ? nil : detectedLanguage[source]
         if allowedLanguages.isEmpty { return ([cached], true) }        // unrestricted auto
         // Live previews reuse what the stream has settled on — cached detection,
         // then the dominant language (momentum) — so they don't pay for a
@@ -570,7 +659,7 @@ actor Transcriber {
         // Cyrillic until a final corrects it; and we adopt it only when confident.
         guard mode == .final else {
             if let cached { return ([cached], true) }
-            if let dominant = dominantLanguage(for: source) { return ([dominant], true) }
+            if !contested, let dominant = dominantLanguage(for: source) { return ([dominant], true) }
             guard allowedLanguages.count > 1,
                   let detection = try? await serializedModelCall(timeout: 30, { try await pipe.detectLangauge(audioArray: samples) }),
                   let top = Self.interpretDetection(detection, allowed: allowedLanguages) else {
@@ -589,7 +678,7 @@ actor Transcriber {
         guard allowedLanguages.count > 1 else { return ([allowedLanguages.first], true) }
 
         let detection = try? await serializedModelCall(timeout: 30, { try await pipe.detectLangauge(audioArray: samples) })
-        let dominant = dominantLanguage(for: source)
+        let dominant = contested ? nil : dominantLanguage(for: source)
         let top = detection.flatMap { Self.interpretDetection($0, allowed: allowedLanguages) }
         if let detection {
             diagnostics?("[\(source)] detect: \(detection.language) p=\(String(format: "%.2f", top?.prob ?? -1)) inAllowed=\(top != nil)")
@@ -664,7 +753,8 @@ actor Transcriber {
     /// whose script it matches: an English-text prompt on a Ukrainian decode
     /// (or vice versa) drags the decoder toward the wrong language, which is
     /// how one bad line used to poison the rest of the meeting.
-    private func promptTokens(for source: String, pipe: WhisperKit, decodingAs candidate: String?) -> [Int]? {
+    private func promptTokens(for source: String, pipe: WhisperKit, decodingAs candidate: String?,
+                              includeContext: Bool = true) -> [Int]? {
         guard let tokenizer = pipe.tokenizer else { return nil }
         var tokens: [Int] = []
         if !vocabularyPrompt.isEmpty {
@@ -676,7 +766,7 @@ actor Transcriber {
             }
             tokens += cachedVocabularyTokens ?? []
         }
-        if let context = recentContext[source], !context.isEmpty,
+        if includeContext, let context = recentContext[source], !context.isEmpty,
            Self.scriptCompatible(context, with: candidate) {
             tokens += tokenizer.encode(text: " " + context)
                 .filter { $0 < tokenizer.specialTokens.specialTokenBegin }

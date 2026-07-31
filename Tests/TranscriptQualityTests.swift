@@ -47,6 +47,69 @@ final class TranscriptQualityTests: XCTestCase {
         }
     }
 
+    // MARK: - Contested momentum (2026-07-31 English lesson)
+
+    /// The failure this rule exists for. An English lesson, 64 minutes: the
+    /// system stream sat at a clean unanimous "en" from a native speaker, while
+    /// two early Ukrainian hallucinations locked the mic stream into "uk". The
+    /// momentum guards then deleted 98 real English lines, so English could
+    /// never vote to correct it. The better-established other side must be able
+    /// to reopen the question.
+    func testAWeaklyHeldDominantIsContestedByTheOtherStream() {
+        let tallies = ["You": ["uk": 2, "en": 1], "Others": ["en": 34]]
+        XCTAssertTrue(Transcriber.momentumIsContested(for: "You", in: tallies),
+                      "the mic stream's 2 uk votes must not outrank 34 clean en votes on the other stream")
+        XCTAssertFalse(Transcriber.momentumIsContested(for: "Others", in: tallies),
+                       "the well-established stream is the one doing the contesting, never the contested one")
+    }
+
+    /// The limit that keeps genuine bilingual calls working: a stream that has
+    /// really established its own language outweighs the other side. This user
+    /// does hold Ukrainian-and-English calls, and a Ukrainian speaker talking
+    /// to an English speaker must stay Ukrainian.
+    func testAWellEstablishedDominantIsNotContested() {
+        let bilingual = ["You": ["uk": 40], "Others": ["en": 34]]
+        XCTAssertFalse(Transcriber.momentumIsContested(for: "You", in: bilingual),
+                       "40 Ukrainian votes are this speaker's own language, not a hallucination")
+    }
+
+    /// A dominant may only be contested by one that is *better* evidenced —
+    /// equal footing is not enough to take the thumb off the scale.
+    func testAnEquallyEvidencedDominantDoesNotContest() {
+        let tied = ["You": ["uk": 5], "Others": ["en": 5]]
+        XCTAssertFalse(Transcriber.momentumIsContested(for: "You", in: tied))
+    }
+
+    /// Two votes make a dominant; overriding another dominant is held to more,
+    /// so a barely-established other side cannot reopen a settled stream.
+    func testABarelyEstablishedOtherStreamCannotContest() {
+        let thin = ["You": ["uk": 2], "Others": ["en": 2]]
+        XCTAssertFalse(Transcriber.momentumIsContested(for: "You", in: thin),
+                       "\(Transcriber.contestingVotes) votes are required to contest, and ties never contest")
+    }
+
+    /// Agreement is not a contest. Both streams in the same language must leave
+    /// momentum fully intact — this is the common case and the guards that
+    /// keep Ukrainian meetings Ukrainian all hang off it.
+    func testAgreeingStreamsNeverContestEachOther() {
+        let agreed = ["You": ["uk": 3], "Others": ["uk": 30]]
+        XCTAssertFalse(Transcriber.momentumIsContested(for: "You", in: agreed))
+        XCTAssertFalse(Transcriber.momentumIsContested(for: "Others", in: agreed))
+    }
+
+    /// A lone stream has no witness — nothing to contest it, whatever it says.
+    func testASingleStreamIsNeverContested() {
+        XCTAssertFalse(Transcriber.momentumIsContested(for: "You", in: ["You": ["uk": 9]]))
+        XCTAssertFalse(Transcriber.momentumIsContested(for: "You", in: [:]))
+    }
+
+    /// The witness must itself be established: a single stray vote elsewhere is
+    /// not evidence about the language of the call.
+    func testAnUnestablishedOtherStreamIsNotAWitness() {
+        XCTAssertNil(Transcriber.otherSourceDominant(excluding: "You",
+                                                     in: ["You": ["uk": 2], "Others": ["en": 1]]))
+    }
+
     /// Confidence is an independent bar: even well-formed text that the decoder
     /// itself was unsure of is not evidence of a language.
     func testLowConfidenceNeverVotes() {
