@@ -8,6 +8,35 @@
          paste it here and add a <description>. Never edit an older item's
          edSignature: each one belongs to the DMG that shipped with it. -->
     <item>
+      <title>Version 0.9</title>
+      <sparkle:version>9</sparkle:version>
+      <sparkle:shortVersionString>0.9</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Fri, 31 Jul 2026 09:05:28 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Transcripts no longer get stuck in the wrong language</h3>
+        <ul>
+          <li><b>The big fix.</b> If Seal misheard your first few words as
+          another language, it used to stay stuck there for the rest of the
+          meeting — and quietly discard the lines it had got right. In one
+          64-minute English lesson, most of one speaker's side came out as
+          Cyrillic. Now the two sides of a call check each other: when the
+          person you are talking to is clearly speaking one language, Seal
+          reconsiders instead of digging in.</li>
+          <li><b>Genuinely bilingual calls are unaffected.</b> A speaker who has
+          really established their own language keeps it — only a weakly
+          supported guess can be overruled.</li>
+          <li>Each recording now keeps a small diagnostic log beside it, so a
+          transcript that still comes out wrong can be explained instead of
+          guessed at. Like everything else in Seal, it never leaves your Mac.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.9/Seal.dmg"
+        sparkle:edSignature="xOQ4jx+8DcAmZAcdyQYN5uCpr3rZutPfQBChEsvxh51y/DCi1MejUxXQ+/rIwlgYr9mTYrgcH8WfNtTmG2cTBg==" length="18680721"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.8</title>
       <sparkle:version>8</sparkle:version>
       <sparkle:shortVersionString>0.8</sparkle:shortVersionString>
