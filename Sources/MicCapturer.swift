@@ -57,13 +57,50 @@ final class MicCapturer {
     private let deadPeak: Float = 1e-4
     private let judgeSeconds = 3.5
 
+    /// Whether to substitute a wired mic when the default input is Bluetooth.
+    /// Cleared for the rest of the session once the substitute turns out not to
+    /// be hearing anyone — see `fallBackToDefaultInput`.
+    private var avoidBluetoothInput = true
+    /// True while capture is running on a device the user did not choose.
+    /// Only then is it our business to second-guess what the mic is hearing.
+    private(set) var substitutedForBluetooth = false
+
     func start() throws {
         let status = AVCaptureDevice.authorizationStatus(for: .audio)
         if status == .denied || status == .restricted {
             throw MicError.permissionDenied
         }
         sessionActive = true
+        avoidBluetoothInput = true
         try startEngine()
+    }
+
+    /// Gives up on the substitute microphone and captures from the system
+    /// default — the Bluetooth headset — for the rest of the session.
+    ///
+    /// Choosing the built-in mic over a Bluetooth headset keeps the headset out
+    /// of its telephony profile, so playback stays full quality while
+    /// recording. That is the right trade only while the built-in mic can
+    /// actually hear the user. On 2026-08-03 it could not: the user was on
+    /// AirPods at a desk, the Mac's own mic picked up nothing but room tone
+    /// (−51.9 dBFS, 0.6% of frames above −40 dB), and their entire side of a
+    /// six-minute meeting was lost — while the watchdog reported the mic
+    /// healthy, because audio *was* arriving, just nobody's voice.
+    ///
+    /// Losing a speaker from the transcript is worse than losing playback
+    /// fidelity: one is recoverable by taking the headphones off, the other is
+    /// gone. So when the substitute is demonstrably deaf we hand the microphone
+    /// back, which is no worse than never having substituted at all.
+    func fallBackToDefaultInput() {
+        guard sessionActive, substitutedForBluetooth else { return }
+        avoidBluetoothInput = false
+        log.notice("substitute mic heard nothing while the call was active; falling back to the default input")
+        do {
+            try startEngine()
+            onNotice?("Switched to your headset's mic — the Mac's microphone wasn't picking you up.")
+        } catch {
+            onError?("The microphone stopped while switching devices: \(error.localizedDescription)")
+        }
     }
 
     func stop() {
@@ -97,13 +134,15 @@ final class MicCapturer {
         // wired mic instead; the headset keeps full-quality playback. The
         // route-change observer rebuilds the engine, so this re-evaluates
         // whenever devices come and go.
-        if let current = Self.defaultInputDevice(), Self.isBluetooth(current) {
+        substitutedForBluetooth = false
+        if avoidBluetoothInput, let current = Self.defaultInputDevice(), Self.isBluetooth(current) {
             if let wired = Self.preferredWiredInput(), let unit = input.audioUnit {
                 var device = wired.id
                 let status = AudioUnitSetProperty(
                     unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global,
                     0, &device, UInt32(MemoryLayout<AudioDeviceID>.size))
                 if status == noErr {
+                    substitutedForBluetooth = true
                     log.notice("default input is Bluetooth; capturing from \(wired.name, privacy: .public) so the headset keeps full-quality playback")
                     onNotice?("Using \(wired.name) so your headphones keep full audio quality.")
                 } else {

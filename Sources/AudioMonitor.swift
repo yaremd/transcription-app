@@ -275,6 +275,47 @@ final class AudioMonitor: ObservableObject {
     private var micMeterLast = Date.distantPast
     private var systemMeterLast = Date.distantPast
 
+    /// Seconds of plausible speech each channel has carried this session, and
+    /// whether we have already ruled on the microphone.
+    ///
+    /// Only meaningful when `MicCapturer` substituted the Mac's own mic for a
+    /// Bluetooth default. A substitute that hears nothing while the other side
+    /// talks and talks is not a quiet room — it is the wrong microphone, and on
+    /// 2026-08-03 that cost a whole meeting's worth of one speaker. Neither
+    /// channel can tell on its own: the mic alone cannot distinguish a deaf
+    /// device from a listener who says nothing, and the system channel alone
+    /// says nothing about the mic. Together they can.
+    ///
+    /// Both counters are written from their own capture thread, so both live
+    /// under one lock.
+    private let voicedLock = NSLock()
+    private var micVoicedSeconds = 0.0
+    private var systemVoicedSeconds = 0.0
+    private var micVerdictReached = false
+    /// Level a real voice clears on a mic that is actually picking it up
+    /// (−40 dBFS). The failing built-in mic spent 99.4% of the meeting below it.
+    private static let plausibleSpeechLevel: Float = 0.01
+    /// How much of the other side we listen to before doubting a substitute mic
+    /// that has heard nothing. Long enough that a brief silence never triggers
+    /// it, short enough to rescue most of the meeting.
+    static let farSideSecondsBeforeDoubt = 90.0
+    /// Speech the substitute must have caught in that time to keep the job.
+    static let micSecondsThatProveItHears = 2.0
+
+    /// Whether a substituted microphone has proved it cannot hear the user.
+    ///
+    /// Deliberately asymmetric. A quiet participant and a deaf microphone look
+    /// identical on the mic channel alone, so the far side supplies the second
+    /// opinion: a meeting where the other side has talked for a minute and a
+    /// half is one where a working mic near a participant picks up *something*
+    /// — a word, an "mhm", a chair. Getting this wrong in one direction costs
+    /// playback fidelity until the recording stops; in the other it costs a
+    /// whole speaker, permanently. So a couple of seconds is enough to keep the
+    /// job, and we only ever doubt a device the user did not choose.
+    static func substituteMicIsDeaf(farSideSeconds: Double, micSeconds: Double) -> Bool {
+        farSideSeconds >= farSideSecondsBeforeDoubt && micSeconds < micSecondsThatProveItHears
+    }
+
     /// Loads the transcription model in the background so the first ⌘N of the
     /// app run starts hearing immediately instead of behind a warm-up.
     func prewarmModel() {
@@ -294,6 +335,11 @@ final class AudioMonitor: ObservableObject {
         liveLines = [:]
         liveUtterance = [:]
         recentCommits = []
+        voicedLock.lock()
+        micVoicedSeconds = 0
+        systemVoicedSeconds = 0
+        micVerdictReached = false
+        voicedLock.unlock()
         notes = ""
         notesError = nil
         noteBlocks = []
@@ -712,22 +758,58 @@ final class AudioMonitor: ObservableObject {
     private func handleMic(_ samples: [Float]) {
         if isPaused { return }
         micRecorder?.append(samples)
+        let rms = AudioMonitor.rms(of: samples)
+        if rms >= Self.plausibleSpeechLevel {
+            voicedLock.lock()
+            micVoicedSeconds += Double(samples.count) / 16_000
+            voicedLock.unlock()
+        }
         let now = Date()
         if now.timeIntervalSince(micMeterLast) > 0.033 {
             micMeterLast = now
-            let level = AudioMonitor.displayLevel(AudioMonitor.rms(of: samples))
+            let level = AudioMonitor.displayLevel(rms)
             DispatchQueue.main.async { self.levels.mic = level }
         }
         micStream?.append(samples)
     }
 
+    /// Decides whether a substituted microphone is earning its place. Runs on
+    /// the main queue, where the capturer's device state is settled, and is
+    /// triggered from the system-audio path because that is where the evidence
+    /// accrues: the other side keeps talking and the mic keeps hearing nothing.
+    private func judgeSubstituteMic(farSideSeconds: Double, micSeconds: Double) {
+        guard isRunning, mic.substitutedForBluetooth else { return }
+        let deaf = Self.substituteMicIsDeaf(farSideSeconds: farSideSeconds, micSeconds: micSeconds)
+        diagnosticsLog?.write(String(
+            format: "substitute mic check: %.0fs of far-side speech, %.1fs heard on the mic -> %@",
+            farSideSeconds, micSeconds,
+            deaf ? "FALLING BACK to the default input" : "keeping it"))
+        guard deaf else { return }
+        mic.fallBackToDefaultInput()
+    }
+
     private func handleSystem(_ samples: [Float]) {
         if isPaused { return }
         systemRecorder?.append(samples)
+        let rms = AudioMonitor.rms(of: samples)
+        if rms >= Self.plausibleSpeechLevel {
+            voicedLock.lock()
+            systemVoicedSeconds += Double(samples.count) / 16_000
+            let farSide = systemVoicedSeconds
+            let heard = micVoicedSeconds
+            let due = !micVerdictReached && farSide >= Self.farSideSecondsBeforeDoubt
+            if due { micVerdictReached = true }
+            voicedLock.unlock()
+            if due {
+                DispatchQueue.main.async { [weak self] in
+                    self?.judgeSubstituteMic(farSideSeconds: farSide, micSeconds: heard)
+                }
+            }
+        }
         let now = Date()
         if now.timeIntervalSince(systemMeterLast) > 0.033 {
             systemMeterLast = now
-            let level = AudioMonitor.displayLevel(AudioMonitor.rms(of: samples))
+            let level = AudioMonitor.displayLevel(rms)
             DispatchQueue.main.async { self.levels.system = level }
         }
         systemStream?.append(samples)

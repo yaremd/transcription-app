@@ -270,6 +270,29 @@ final class TranscriptQualityTests: XCTestCase {
         XCTAssertFalse(wired.name.isEmpty)
     }
 
+    /// 2026-08-03: the user was on AirPods at a desk, so capture was moved to
+    /// the Mac's own mic to keep headset playback at full quality — and that mic
+    /// heard nothing but room tone. Their entire side of a six-minute meeting
+    /// was lost, and the liveness watchdog stayed quiet throughout because audio
+    /// *was* arriving, just nobody's voice. These are that meeting's real
+    /// numbers: 140 s of the other side, 1.6 s over −40 dBFS on the mic.
+    func testASubstituteMicThatHearsNobodyIsGivenUp() {
+        XCTAssertTrue(AudioMonitor.substituteMicIsDeaf(farSideSeconds: 140, micSeconds: 1.6))
+    }
+
+    /// The failure mode this must not create: a participant who is simply
+    /// listening. Getting it wrong here drags a Bluetooth headset into its
+    /// telephony profile for nothing, which is the bug the substitution exists
+    /// to avoid — so a few seconds of real speech keeps the substitute.
+    func testAQuietParticipantDoesNotCostTheirHeadsetItsAudioQuality() {
+        XCTAssertFalse(AudioMonitor.substituteMicIsDeaf(farSideSeconds: 140, micSeconds: 8),
+                       "the mic clearly picked this person up; it stays")
+        XCTAssertFalse(AudioMonitor.substituteMicIsDeaf(farSideSeconds: 20, micSeconds: 0),
+                       "20s of the other side is not yet evidence of anything")
+        XCTAssertFalse(AudioMonitor.substituteMicIsDeaf(farSideSeconds: 0, micSeconds: 0),
+                       "a meeting nobody has spoken in says nothing about the mic")
+    }
+
     // MARK: - Model-call timeout
 
     /// A hung model call must free its caller: the 2026-07-29 test session's
