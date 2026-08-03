@@ -23,7 +23,7 @@ final class NotesGenerator {
                   template: NotesTemplate,
                   languageHint: String,
                   backend: NotesBackend) async throws -> String {
-        let language = writeLanguage(hint: languageHint, transcript: transcript)
+        let language = Self.writeLanguage(hint: languageHint, transcript: transcript)
         let prompt = buildPrompt(transcript: transcript, userNotes: userNotes,
                                  template: template, language: language)
         let result = try await dispatch(system: prompt.system, user: prompt.user, backend: backend)
@@ -37,7 +37,7 @@ final class NotesGenerator {
 
     /// Proposes a short, specific title saying what the conversation was about.
     func suggestTitle(transcript: String, languageHint: String, backend: NotesBackend) async throws -> String {
-        let language = writeLanguage(hint: languageHint, transcript: transcript)
+        let language = Self.writeLanguage(hint: languageHint, transcript: transcript)
         let system = """
         You name conversations. Given a meeting transcript, reply with ONLY a short title \
         (3–6 words) saying concretely what was discussed — specific topics, names, decisions. \
@@ -106,7 +106,7 @@ final class NotesGenerator {
 
     /// Answers a question about the meeting using only the transcript.
     func answer(question: String, transcript: String, languageHint: String, backend: NotesBackend) async throws -> String {
-        let language = writeLanguage(hint: languageHint, transcript: transcript)
+        let language = Self.writeLanguage(hint: languageHint, transcript: transcript)
         let system = """
         You answer questions about a meeting using ONLY the transcript provided. \
         Lines labeled "You" are the app's user; "Others" are the other participants. \
@@ -120,7 +120,7 @@ final class NotesGenerator {
     /// Rewrites existing notes per an instruction, staying faithful to the transcript.
     func reshape(currentNotes: String, transcript: String, instruction: String,
                  languageHint: String, backend: NotesBackend) async throws -> String {
-        let language = writeLanguage(hint: languageHint, transcript: transcript)
+        let language = Self.writeLanguage(hint: languageHint, transcript: transcript)
         let system = """
         You rewrite meeting notes according to an instruction, staying faithful to the transcript \
         and inventing nothing. Keep clear Markdown formatting. \(languageRule(language))
@@ -131,7 +131,7 @@ final class NotesGenerator {
 
     /// Drafts a ready-to-send follow-up message from the meeting.
     func draftFollowUp(transcript: String, notes: String, languageHint: String, backend: NotesBackend) async throws -> String {
-        let language = writeLanguage(hint: languageHint, transcript: transcript)
+        let language = Self.writeLanguage(hint: languageHint, transcript: transcript)
         let system = """
         You draft a concise, professional follow-up email after a meeting, based only on the \
         transcript (and notes if given). Include: a short greeting, a one-line recap, the key \
@@ -148,7 +148,7 @@ final class NotesGenerator {
 
     /// Extracts concrete action items from the meeting as a list of strings.
     func extractActionItems(transcript: String, notes: String, languageHint: String, backend: NotesBackend) async throws -> [String] {
-        let language = writeLanguage(hint: languageHint, transcript: transcript)
+        let language = Self.writeLanguage(hint: languageHint, transcript: transcript)
         let system = """
         Extract the concrete action items / tasks agreed in this meeting. \
         Output ONLY the tasks, one per line, with no numbering, bullets, or extra commentary. \
@@ -189,21 +189,38 @@ final class NotesGenerator {
 
     // MARK: - Language
 
+    /// Languages the notes may be written in — the same ones the transcriber is
+    /// allowed to produce (see `TranscriptLanguage.allowedCodes`), plus Russian,
+    /// which its Ukrainian decodes can shade into.
+    ///
+    /// Constraining this is the whole point. Left free, `NLLanguageRecognizer`
+    /// chooses from every language it knows, and on 2026-08-03 it read a
+    /// 46-minute English meeting as **Swedish** — sv 0.32, nb 0.28, da 0.19,
+    /// with English fourth at 0.19. Technical English full of proper nouns
+    /// ("Stellar Edge", "Vasu", "ALVCA") and clipped, fragmentary speech is
+    /// apparently very Scandinavian. The notes, the key points, the decisions
+    /// and the meeting's title all came out in Swedish, a language nobody on
+    /// the call speaks. Restricted to the three languages the app can actually
+    /// hear, the same transcript resolves to English at 1.00.
+    static let notesLanguages: Set<NLLanguage> = [.ukrainian, .english, .russian]
+
     /// The concrete language to write in. An explicit user choice (Ukrainian /
     /// English) is trusted as-is; the vague auto hint ("the same language as the
     /// transcript") is resolved to the transcript's detected language, so the
     /// on-device model gets a firm target instead of drifting to English.
-    private func writeLanguage(hint: String, transcript: String) -> String {
+    static func writeLanguage(hint: String, transcript: String) -> String {
         guard hint.range(of: "same language", options: .caseInsensitive) != nil else { return hint }
         let recognizer = NLLanguageRecognizer()
+        recognizer.languageConstraints = Array(notesLanguages)
         recognizer.processString(transcript)
         switch recognizer.dominantLanguage {
         case .ukrainian: return "Ukrainian"
         case .english: return "English"
         case .russian: return "Russian"
-        case .some(let other):
-            return Locale(identifier: "en_US").localizedString(forLanguageCode: other.rawValue) ?? hint
-        case .none: return hint
+        // Unreachable while the constraint holds, and if it ever stops holding
+        // the right answer is "match the transcript", not a language picked out
+        // of fifty that the meeting was never in.
+        case .some, .none: return hint
         }
     }
 

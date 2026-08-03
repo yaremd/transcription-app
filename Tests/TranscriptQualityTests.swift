@@ -293,6 +293,54 @@ final class TranscriptQualityTests: XCTestCase {
                        "a meeting nobody has spoken in says nothing about the mic")
     }
 
+    // MARK: - Notes language
+
+    /// Verbatim from the 2026-08-03 meeting whose notes, key points, decisions
+    /// and title all came out in Swedish. Apple's language recogniser reads
+    /// technical English full of proper nouns and clipped speech as
+    /// Scandinavian — sv 0.32, nb 0.28, da 0.19, English fourth at 0.19 — and
+    /// the notes prompt then instructed the model "use Swedish only".
+    private static let englishMeetingReadAsSwedish = """
+    Others: Hejdå med så. How are you doing?
+    Others: Yep, doing good, doing Good.
+    Others: Let's just wait like two more minutes. I'll see if the adjoining also will continue.
+    Others: Uh... Yeah, I mean, it's going on. We got, I mean, right now, it's like more of... \
+    not new features that user interacts with, but more of we, you know, developing the model \
+    reasoning better in the backend. So that is where the focus is on that and data collection \
+    and stuff. But... Yeah, because though we are doing a lot of work in the background, we also \
+    want to showcase that to the users. So that's why we have a lot of dashboards which we are \
+    just... dumping on the product and now it's like a lot of menu items. I don't know if you \
+    have seen it recently but Um... Sorry, Lucy, I'm a screen.
+    """
+
+    func testNotesAreNeverWrittenInALanguageTheAppCannotHear() {
+        XCTAssertEqual(
+            NotesGenerator.writeLanguage(hint: "the same language as the transcript",
+                                         transcript: Self.englishMeetingReadAsSwedish),
+            "English",
+            "an English meeting must not have its notes written in a language nobody on the call spoke")
+    }
+
+    /// The constraint must not break the case it exists to serve: a genuinely
+    /// Ukrainian meeting still gets Ukrainian notes.
+    func testAUkrainianMeetingStillGetsUkrainianNotes() {
+        let uk = """
+        Others: Доброго ранку, як ваші справи сьогодні?
+        You: Дякую, все добре. Давайте почнемо з обговорення нового проєкту.
+        Others: Так, звичайно. Ми вже підготували всі необхідні документи для зустрічі.
+        """
+        XCTAssertEqual(
+            NotesGenerator.writeLanguage(hint: "the same language as the transcript", transcript: uk),
+            "Ukrainian")
+    }
+
+    /// An explicit picker choice is the user's call and is never second-guessed.
+    func testAnExplicitLanguageChoiceIsPassedThrough() {
+        XCTAssertEqual(
+            NotesGenerator.writeLanguage(hint: "Ukrainian", transcript: Self.englishMeetingReadAsSwedish),
+            "Ukrainian")
+    }
+
     // MARK: - Model-call timeout
 
     /// A hung model call must free its caller: the 2026-07-29 test session's
