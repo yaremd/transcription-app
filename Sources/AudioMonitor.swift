@@ -412,10 +412,17 @@ final class AudioMonitor: ObservableObject {
             DispatchQueue.main.async {
                 guard let self, self.isRunning else { return }
                 self.noticeMessage = message
+                // A status line the user may not be looking at is not a record.
+                // A mic that dropped out mid-meeting has to be readable off the
+                // meeting afterwards, next to the audio it explains.
+                self.diagnosticsLog?.write("mic: \(message)")
             }
         }
         mic.onError = { [weak self] message in
-            DispatchQueue.main.async { self?.appendError(message) }
+            DispatchQueue.main.async {
+                self?.appendError(message)
+                self?.diagnosticsLog?.write("mic ERROR: \(message)")
+            }
         }
         system.onSamples = { [weak self] samples in self?.handleSystem(samples) }
         system.onError = { [weak self] message in

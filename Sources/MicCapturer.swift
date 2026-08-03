@@ -48,14 +48,35 @@ final class MicCapturer {
     private let meterLock = NSLock()
     private var tapPeak: Float = 0          // loudest sample the tap saw
     private var samplesDelivered = false    // resampled audio actually left the tap
+    private var lastBufferAt = Date()       // when the tap last handed us anything
 
     private var watchdog: Timer?
     private var watchdogStart = Date()
+
+    /// Whether the mic is still being supervised. It must stay true for the
+    /// whole of a live session — see `MicWatchdogSmokeTests`.
+    var isWatching: Bool { watchdog != nil }
 
     /// A live mic always has at least this much noise floor; below it for the
     /// whole window means the device is delivering nothing.
     private let deadPeak: Float = 1e-4
     private let judgeSeconds = 3.5
+
+    /// Whether the opening verdict has been reached. After it, the watchdog
+    /// stops asking "did this device ever work" and starts asking "is it still
+    /// working" — the question that used to go unasked for the rest of the
+    /// session.
+    private var startupJudged = false
+    /// No buffers for this long means the device stopped. A live microphone
+    /// never falls silent — it delivers its own noise floor continuously — so
+    /// this is a dropout, not a quiet room. Generous, because the tap hands us
+    /// roughly twelve buffers a second and a brief hiccup is not a failure.
+    private let stallSeconds: TimeInterval = 8
+    /// Engine rebuilds spent on a stalled mic this session, and whether the
+    /// user has been told we ran out of them.
+    private var stallRecoveries = 0
+    private let maxStallRecoveries = 3
+    private var reportedStall = false
 
     /// Whether to substitute a wired mic when the default input is Bluetooth.
     /// Cleared for the rest of the session once the substitute turns out not to
@@ -72,6 +93,8 @@ final class MicCapturer {
         }
         sessionActive = true
         avoidBluetoothInput = true
+        stallRecoveries = 0
+        reportedStall = false
         try startEngine()
     }
 
@@ -162,9 +185,11 @@ final class MicCapturer {
         }
         log.notice("mic starting raw: format=\(format.sampleRate, format: .fixed(precision: 0))Hz x\(format.channelCount)ch")
 
+        startupJudged = false
         meterLock.lock()
         tapPeak = 0
         samplesDelivered = false
+        lastBufferAt = Date()
         meterLock.unlock()
 
         // The tap captures this resampler instance directly so a restart can
@@ -174,6 +199,9 @@ final class MicCapturer {
         input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
             guard let self else { return }
             self.notePeak(of: buffer)
+            self.meterLock.lock()
+            self.lastBufferAt = Date()      // the heartbeat the stall check reads
+            self.meterLock.unlock()
             guard let samples = resampler.resample(buffer) else { return }
             self.meterLock.lock()
             self.samplesDelivered = true
@@ -339,18 +367,35 @@ final class MicCapturer {
         meterLock.lock()
         let peak = tapPeak
         let delivered = samplesDelivered
+        let silentFor = Date().timeIntervalSince(lastBufferAt)
         meterLock.unlock()
 
+        // Past the opening verdict the question changes. A device that starts
+        // fine and stops later used to be invisible: this check disarmed itself
+        // the moment it saw audio, so on 2026-08-03 a Studio Display mic that
+        // delivered 1.6 seconds and quit went unnoticed for the remaining 46
+        // minutes of a meeting, and the user's whole side of it was lost.
+        if startupJudged {
+            guard silentFor >= stallSeconds else { return }
+            recoverFromStall(silentFor: silentFor)
+            return
+        }
+
         if delivered && peak >= deadPeak {
-            // Audible and flowing; nothing left to watch this session.
-            watchdog?.invalidate()
-            watchdog = nil
+            startupJudged = true       // healthy start — keep watching for a stall
+            // This engine works, so the restart budget is about *consecutive*
+            // failures: a long meeting with the odd device hiccup should not
+            // run out of retries because of stalls it already recovered from.
+            stallRecoveries = 0
             return
         }
         guard Date().timeIntervalSince(watchdogStart) >= judgeSeconds else { return }
 
-        watchdog?.invalidate()
-        watchdog = nil
+        startupJudged = true           // reported once; the timer stays on stall duty
+        // A rebuilt engine that comes up silent is the stall path's business,
+        // and it has its own message. Reporting here too would stack a second
+        // error on the user for one fault — `appendError` concatenates.
+        guard stallRecoveries == 0 else { return }
         if !delivered && peak >= deadPeak {
             // Device is audible but conversion produced nothing — resampler
             // trouble; details are in the Resampler log.
@@ -363,6 +408,35 @@ final class MicCapturer {
             } else {
                 onError?("No sound is reaching the app from the microphone. Check System Settings → Sound → Input: the right microphone should be selected and its input volume up.")
             }
+        }
+    }
+
+    /// The tap has gone quiet mid-session. Rebuild the engine on whatever the
+    /// current default input is — a device that dropped out often comes back,
+    /// and the rebuild is the same move the route-change observer already makes
+    /// — then give up loudly rather than keep recording silence.
+    ///
+    /// Restarting costs a fraction of a second of audio. Not restarting costs
+    /// the rest of the meeting, which is what it cost on 2026-08-03.
+    private func recoverFromStall(silentFor: TimeInterval) {
+        guard stallRecoveries < maxStallRecoveries else {
+            guard !reportedStall else { return }
+            reportedStall = true
+            watchdog?.invalidate()
+            watchdog = nil
+            log.error("microphone stayed dead through \(self.maxStallRecoveries) restarts; giving up for this session")
+            onError?("The microphone stopped sending audio and restarting it didn't help. Check System Settings → Sound → Input, then Stop and Start the recording.")
+            return
+        }
+        stallRecoveries += 1
+        log.error("microphone delivered nothing for \(silentFor, format: .fixed(precision: 1))s; rebuilding the engine (attempt \(self.stallRecoveries) of \(self.maxStallRecoveries))")
+        do {
+            // Rebuilds the tap, resets the heartbeat, and re-arms this watchdog
+            // for a fresh opening verdict on the new engine.
+            try startEngine()
+            onNotice?("The microphone stopped responding — restarting it.")
+        } catch {
+            onError?("The microphone stopped and couldn't be restarted: \(error.localizedDescription)")
         }
     }
 }
