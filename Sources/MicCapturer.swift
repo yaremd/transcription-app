@@ -41,6 +41,22 @@ final class MicCapturer {
     private var engine: AVAudioEngine?
     private var resampler = AudioResampler()
     private var configObserver: NSObjectProtocol?
+    /// The system default input at the moment this engine was built.
+    ///
+    /// The configuration-change observer fires for *any* change to the engine,
+    /// including the one our own Bluetooth substitution provokes: setting
+    /// `kAudioOutputUnitProperty_CurrentDevice` is itself a configuration
+    /// change, so rebuilding in response set the device again, which posted
+    /// again. On 2026-08-04 that loop rebuilt the engine 15 times in the first
+    /// 2.85 seconds of a session and cost the opening 2.4 seconds of audio —
+    /// the meeting's first words, every time.
+    ///
+    /// What the observer exists for is the device *the system* hands us
+    /// changing (AirPods connect, an interface unplugs). That is what this
+    /// records, and only a change to it warrants a rebuild.
+    private var defaultInputAtStart: AudioDeviceID?
+    /// Engines built this session — an invariant the smoke test can hold onto.
+    private(set) var engineStarts = 0
     private let log = Logger(subsystem: "com.yarem.Seal", category: "Mic")
     private var sessionActive = false
 
@@ -95,6 +111,7 @@ final class MicCapturer {
         avoidBluetoothInput = true
         stallRecoveries = 0
         reportedStall = false
+        engineStarts = 0
         try startEngine()
     }
 
@@ -140,6 +157,10 @@ final class MicCapturer {
 
         let engine = AVAudioEngine()
         self.engine = engine
+        engineStarts += 1
+        // Read before the substitution below, which changes the engine's device
+        // but never the system's.
+        defaultInputAtStart = Self.defaultInputDevice()
         let input = engine.inputNode
 
         // Defensive: voice-processing state can linger process-wide. Make sure
@@ -217,14 +238,32 @@ final class MicCapturer {
         configObserver = NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
         ) { [weak self] _ in
-            guard let self, self.sessionActive else { return }
-            self.log.notice("audio route changed; restarting capture")
-            do { try self.startEngine() } catch {
-                self.onError?("The microphone stopped after an audio device change: \(error.localizedDescription)")
-            }
+            self?.handleConfigurationChange()
         }
 
         armWatchdog()
+    }
+
+    /// The engine's configuration changed. Rebuild only if the device the
+    /// *system* gives us is no longer the one this engine was built on.
+    ///
+    /// Internal rather than inline in the observer so the smoke test can drive
+    /// it without unplugging anything.
+    func handleConfigurationChange() {
+        guard sessionActive else { return }
+        guard Self.defaultInputDevice() != defaultInputAtStart else {
+            // Same device we started on, so this is our own substitution
+            // talking (or a rate change on the one device). Rebuilding here is
+            // precisely what caused the startup loop. If the engine genuinely
+            // did stop delivering, the stall check picks it up within
+            // `stallSeconds` — that backstop is why ignoring this is safe.
+            log.debug("engine configuration changed on the same input device; not rebuilding")
+            return
+        }
+        log.notice("audio route changed; restarting capture")
+        do { try startEngine() } catch {
+            onError?("The microphone stopped after an audio device change: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Input-device choice (CoreAudio)

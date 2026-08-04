@@ -38,6 +38,49 @@ final class MicWatchdogSmokeTests: XCTestCase {
                       "the watchdog stopped supervising a working mic — a later dropout would go unnoticed")
     }
 
+    /// A session builds one engine. Anything more is churn, and each rebuild
+    /// drops the tap: on 2026-08-04 a self-triggering configuration-change loop
+    /// rebuilt the engine 15 times in 2.85 seconds and swallowed the opening
+    /// 2.4 seconds of the meeting — the first words, every session.
+    ///
+    /// Sharpest on a Mac whose default input is Bluetooth, since that is where
+    /// the device substitution provokes the notification; elsewhere it still
+    /// holds the line against any other rebuild loop.
+    func testASessionBuildsExactlyOneEngine() async throws {
+        guard ProcessInfo.processInfo.environment["SEAL_MIC_SMOKE"] == "1" else {
+            throw XCTSkip("Set TEST_RUNNER_SEAL_MIC_SMOKE=1 to run")
+        }
+        guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
+            throw XCTSkip("microphone access not granted to the test host")
+        }
+        let mic = MicCapturer()
+        try mic.start()
+        defer { mic.stop() }
+        try await Task.sleep(nanoseconds: 4_000_000_000)
+        XCTAssertEqual(mic.engineStarts, 1,
+                       "the capture engine rebuilt itself \(mic.engineStarts) times with no route change")
+    }
+
+    /// The loop itself: configuration changes that our own device substitution
+    /// provokes must not rebuild the engine. Driving `handleConfigurationChange`
+    /// directly reproduces what the observer did fifteen times in 2.85 seconds,
+    /// without needing a Bluetooth default input to provoke it.
+    func testConfigurationChangesOnTheSameDeviceDoNotRebuild() throws {
+        guard ProcessInfo.processInfo.environment["SEAL_MIC_SMOKE"] == "1" else {
+            throw XCTSkip("Set TEST_RUNNER_SEAL_MIC_SMOKE=1 to run")
+        }
+        guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
+            throw XCTSkip("microphone access not granted to the test host")
+        }
+        let mic = MicCapturer()
+        try mic.start()
+        defer { mic.stop() }
+        XCTAssertEqual(mic.engineStarts, 1)
+        for _ in 0..<15 { mic.handleConfigurationChange() }
+        XCTAssertEqual(mic.engineStarts, 1,
+                       "the engine rebuilt on a configuration change that did not change the input device")
+    }
+
     /// Stopping must release the timer, or it outlives the session.
     func testStoppingEndsSupervision() throws {
         guard ProcessInfo.processInfo.environment["SEAL_MIC_SMOKE"] == "1" else {
