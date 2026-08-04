@@ -8,6 +8,26 @@
          paste it here and add a <description>. Never edit an older item's
          edSignature: each one belongs to the DMG that shipped with it. -->
     <item>
+      <title>Version 0.11</title>
+      <sparkle:version>11</sparkle:version>
+      <sparkle:shortVersionString>0.11</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Tue, 04 Aug 2026 07:37:46 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Tidier meeting titles</h3>
+        <ul>
+          <li>A title that ran past the space available was cut wherever the
+          limit happened to fall, mid-word — one meeting was filed as
+          "…and Legal Services Compari". Long titles now end on a whole
+          word.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.11/Seal.dmg"
+        sparkle:edSignature="i/+xBLQ0wxyvwWhe/je7f+ISg2ISMO2jWRhljI1p8l3rYU+OqgmYly8wYpZfPregInb2lUmd5i7tdRwxAi8LBw==" length="18699804"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.10</title>
       <sparkle:version>10</sparkle:version>
       <sparkle:shortVersionString>0.10</sparkle:shortVersionString>
