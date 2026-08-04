@@ -8,6 +8,40 @@
          paste it here and add a <description>. Never edit an older item's
          edSignature: each one belongs to the DMG that shipped with it. -->
     <item>
+      <title>Version 0.10</title>
+      <sparkle:version>10</sparkle:version>
+      <sparkle:shortVersionString>0.10</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Tue, 04 Aug 2026 06:26:41 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Meetings no longer lose whole stretches of the conversation</h3>
+        <ul>
+          <li><b>The far side of your calls is back.</b> Seal could quietly drop
+          long runs of the other person's speech — in one 64-minute call, 39
+          minutes of it. Each decode was being cut short before it ever reached
+          your audio, and because it came back empty rather than wrong, nothing
+          anywhere said so. This also turns out to be what pushed some meetings
+          into the wrong language, so 0.9's language fix now holds in cases it
+          could not reach before.</li>
+          <li><b>And so is your own side.</b> Three separate microphone faults
+          could each lose your half of a meeting: recording from the Mac's
+          built-in mic while you wore AirPods it could not hear you through, the
+          microphone stopping partway through with nothing noticing, and the
+          opening seconds lost while capture restarted itself. Seal now checks
+          that the microphone it picked can actually hear you, keeps watching it
+          for the whole meeting, and restarts it if it drops out.</li>
+          <li><b>Short answers stop vanishing.</b> "Yes, it is." and other brief
+          replies were being discarded before they were ever transcribed.</li>
+          <li><b>Notes are written in the language you spoke.</b> An all-English
+          meeting came back summarised and titled in Swedish.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.10/Seal.dmg"
+        sparkle:edSignature="b8plI4QuUINCANkmf/2LjHGwndAp61akSrrDu2H+WK+Db5R8/R2dj/uCH2w1HJZ1T+QEWmniqh92cQxVlJ45Cg==" length="18702517"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.9</title>
       <sparkle:version>9</sparkle:version>
       <sparkle:shortVersionString>0.9</sparkle:shortVersionString>
