@@ -60,8 +60,12 @@ final class NotesGenerator {
         return transcript.prefix(maxHead) + "\n…\n" + transcript.suffix(maxTail)
     }
 
+    /// Longest title we keep. The model is asked for 3–6 words and usually
+    /// obliges; this is the backstop for when it does not.
+    static let titleLimit = 60
+
     /// First non-empty line of the reply, stripped of quotes/markdown/period.
-    private static func cleanedTitle(_ raw: String) -> String {
+    static func cleanedTitle(_ raw: String) -> String {
         var line = raw
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -70,11 +74,38 @@ final class NotesGenerator {
         line = line.trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”«»#–- "))
         while line.hasSuffix(".") { line.removeLast() }
         line = line.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-        if line.count > 60 {
-            line = String(line.prefix(60)).trimmingCharacters(in: .whitespaces)
-        }
-        return line
+        return Self.clipped(line, to: titleLimit)
     }
+
+    /// Cuts an over-long title back to its last whole word, so it reads as a
+    /// short title rather than a sentence that ran out of room. A 62-character
+    /// title used to arrive as "Discussion on Fainemisto Festival and Legal
+    /// Services Compari".
+    ///
+    /// Trailing conjunctions and prepositions go too: "… Festival and" dangles
+    /// exactly as badly as "… Compari", it just does it in real words. If the
+    /// first word alone is somehow longer than the limit there is no word
+    /// boundary to cut on, so the hard cut stands — a very long title beats an
+    /// empty one.
+    static func clipped(_ title: String, to limit: Int) -> String {
+        guard title.count > limit else { return title }
+        var words = String(title.prefix(limit)).split(separator: " ").map(String.init)
+        if words.count > 1 { words.removeLast() }          // the word the cut landed inside
+        while let last = words.last, words.count > 1,
+              danglingTitleWords.contains(last.lowercased()) {
+            words.removeLast()
+        }
+        let clipped = words.joined(separator: " ")
+            .trimmingCharacters(in: CharacterSet(charactersIn: ",;:–- "))
+        return clipped.isEmpty ? String(title.prefix(limit)).trimmingCharacters(in: .whitespaces) : clipped
+    }
+
+    /// Words a title must not end on once it has been cut short.
+    private static let danglingTitleWords: Set<String> = [
+        "and", "or", "but", "the", "a", "an", "of", "for", "to", "in", "on",
+        "at", "with", "from", "by", "about", "as", "into", "over", "vs",
+        "і", "та", "й", "з", "до", "для", "про", "на", "у", "в", "the",
+    ]
 
     /// Reads the transcript for the participants' real names (self-intros,
     /// how people address each other) and returns what it found, keyed by the

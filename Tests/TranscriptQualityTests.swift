@@ -341,6 +341,50 @@ final class TranscriptQualityTests: XCTestCase {
             "Ukrainian")
     }
 
+    // MARK: - Title length
+
+    /// The real title from the 4 August lesson, cut mid-word at 60 characters:
+    /// "Discussion on Fainemisto Festival and Legal Services Compari".
+    func testAnOverlongTitleIsCutAtAWordBoundary() {
+        let long = "Discussion on Fainemisto Festival and Legal Services Comparison in Two Countries"
+        let clipped = NotesGenerator.clipped(long, to: NotesGenerator.titleLimit)
+        XCTAssertLessThanOrEqual(clipped.count, NotesGenerator.titleLimit)
+        XCTAssertTrue(long.hasPrefix(clipped), "clipping must not invent or reorder words")
+        XCTAssertFalse(clipped.hasSuffix("Compari"), "the title still ends mid-word")
+        XCTAssertEqual(clipped, "Discussion on Fainemisto Festival and Legal Services")
+    }
+
+    /// A title cut back to "… Festival and" dangles just as badly as "… Compari".
+    func testAClippedTitleNeverEndsOnADanglingWord() {
+        for (long, expected) in [
+            ("Backend Development and User Interface Redesign and Navigation Planning",
+             "Backend Development and User Interface Redesign"),
+            ("Sprint Retrospective Planning and Release Notes for the Next Version",
+             "Sprint Retrospective Planning and Release Notes"),
+        ] {
+            XCTAssertEqual(NotesGenerator.clipped(long, to: NotesGenerator.titleLimit), expected)
+        }
+    }
+
+    /// Titles that already fit are returned untouched, and a single word longer
+    /// than the limit still yields something rather than nothing.
+    func testShortTitlesAreUntouchedAndPathologicalOnesStillProduceATitle() {
+        let fine = "MVP 2 Discussion and Testing Plan"
+        XCTAssertEqual(NotesGenerator.clipped(fine, to: NotesGenerator.titleLimit), fine)
+
+        let oneHugeWord = String(repeating: "x", count: 90)
+        let clipped = NotesGenerator.clipped(oneHugeWord, to: NotesGenerator.titleLimit)
+        XCTAssertEqual(clipped.count, NotesGenerator.titleLimit)
+        XCTAssertFalse(clipped.isEmpty)
+    }
+
+    /// The whole pipeline, on what the model actually returns.
+    func testTitleCleanupHandlesModelPunctuationAndLength() {
+        XCTAssertEqual(NotesGenerator.cleanedTitle("**\"Discussion on Fainemisto Festival and Legal Services Comparison\"**"),
+                       "Discussion on Fainemisto Festival and Legal Services")
+        XCTAssertEqual(NotesGenerator.cleanedTitle("English: Daniel."), "English: Daniel")
+    }
+
     // MARK: - Model-call timeout
 
     /// A hung model call must free its caller: the 2026-07-29 test session's
