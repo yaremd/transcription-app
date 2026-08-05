@@ -8,6 +8,32 @@
          paste it here and add a <description>. Never edit an older item's
          edSignature: each one belongs to the DMG that shipped with it. -->
     <item>
+      <title>Version 0.12</title>
+      <sparkle:version>12</sparkle:version>
+      <sparkle:shortVersionString>0.12</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 05 Aug 2026 06:05:58 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Speech that was heard no longer goes missing</h3>
+        <ul>
+          <li>Whole stretches of the other side of a call could vanish from the
+          transcript — a sentence would stop mid-word and pick up half a minute
+          later. The speech recogniser was abandoning a passage whenever it was
+          unsure of the very first word in it, and throwing the rest away with
+          it. On one nine-minute standup that was 45 seconds of talk, an eighth
+          of everything said.</li>
+          <li>A meeting that opens in a language Seal doesn't transcribe — a
+          minute of small talk before the call gets going — no longer starts the
+          transcript off in the wrong alphabet, and can no longer convince Seal
+          that the rest of the meeting is in that language too.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.12/Seal.dmg"
+        sparkle:edSignature="1or8JAtVqgRhMiivFHoszB9aZ7ErXz7e+rnA3ftS7PBX9ft6oWEhMxIOpCcNcUFsHQwz31dMoNxP5AuIGUAnCw==" length="18700903"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.11</title>
       <sparkle:version>11</sparkle:version>
       <sparkle:shortVersionString>0.11</sparkle:shortVersionString>
