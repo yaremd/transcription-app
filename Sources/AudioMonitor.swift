@@ -657,9 +657,13 @@ final class AudioMonitor: ObservableObject {
                 self.liveUtterance[speaker] = id
             }
         }
-        stream.onCommit = { [weak self] id, text, timing in
+        stream.onCommit = { [weak self] id, rawText, timing in
             DispatchQueue.main.async {
                 guard let self else { return }
+                // Names are repaired here, at the one point every finished line
+                // passes through, so the live transcript, the notes, the title
+                // and the saved meeting all see the same corrected text.
+                let text = rawText.map { self.correctingNames($0) }
                 guard self.currentMeetingID == sessionMeetingID else {
                     // Straggler from a session no longer on screen.
                     if let text, !text.isEmpty {
@@ -685,6 +689,24 @@ final class AudioMonitor: ObservableObject {
             }
         }
         return stream
+    }
+
+    /// Repairs the spelling of the user's known names in one finished line.
+    ///
+    /// The custom vocabulary used to be handed to Whisper as a decoder prompt.
+    /// That reached the model on roughly one pass in ten, cost a second decode
+    /// on the rest, and still spelled the names wrong; see `NameCorrector`.
+    /// Fixing the text afterwards is a string scan that cannot lose a line —
+    /// and every substitution is written to the meeting's diagnostics, so a
+    /// transcript never changes in a way no one can check.
+    private func correctingNames(_ text: String) -> String {
+        let terms = vocabulary.terms
+        guard !terms.isEmpty else { return text }
+        let (corrected, found) = NameCorrector.correcting(text, names: terms)
+        for correction in found {
+            diagnosticsLog?.write("name: \"\(correction.heard)\" -> \"\(correction.name)\"")
+        }
+        return corrected
     }
 
     /// Appends a straggler line to an already-saved meeting (no echo dedupe —

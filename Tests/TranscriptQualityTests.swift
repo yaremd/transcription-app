@@ -258,6 +258,94 @@ final class TranscriptQualityTests: XCTestCase {
         XCTAssertFalse((top?.prob ?? 1).isNaN, "and must not carry the NaN onward")
     }
 
+    // MARK: - Name correction
+
+    /// The names this team's two 2026-08-05 calls actually produced. Left
+    /// column is verbatim from those transcripts.
+    private let roster = ["Dmytro", "Kriti", "Jatin", "Surya", "Nehil", "Vishak", "Abhishek"]
+
+    func testMisheardNamesAreRepaired() {
+        let heard = [
+            "Demitra": "Dmytro", "Dimitri": "Dmytro", "Demetra": "Dmytro",
+            "Krithi": "Kriti", "Jathan": "Jatin", "Soria": "Surya",
+            "Neil": "Nehil", "Visek": "Vishak",
+        ]
+        for (wrong, right) in heard {
+            XCTAssertEqual(NameCorrector.corrected(wrong, names: roster), right,
+                           "\"\(wrong)\" is how Whisper heard \(right)")
+        }
+    }
+
+    /// Correcting a word must not disturb anything around it.
+    func testOnlyTheNameChangesInASentence() {
+        XCTAssertEqual(
+            NameCorrector.corrected("So, Demitra, I think what we can do is have low fidelity wireframes.",
+                                    names: roster),
+            "So, Dmytro, I think what we can do is have low fidelity wireframes.")
+        XCTAssertEqual(
+            NameCorrector.corrected("Yeah, Jathan's deploy is done. Ping Krithi.", names: roster),
+            "Yeah, Jatin's deploy is done. Ping Kriti.",
+            "possessives keep their ending")
+    }
+
+    /// A different name that merely starts the same must survive. "Adi" and
+    /// "Adityu" are two different people in the same meeting.
+    func testALongerDifferentNameIsNotAbsorbed() {
+        XCTAssertEqual(NameCorrector.corrected("Adityu, a quick question.", names: ["Adi"]),
+                       "Adityu, a quick question.")
+    }
+
+    /// The failure mode this has to be safe against: a vocabulary entry
+    /// quietly rewriting ordinary prose that happens to sound like it.
+    func testOrdinaryWordsAreNeverRenamed() {
+        XCTAssertEqual(
+            NameCorrector.corrected("Then we can start. Sorry, can you repeat? Sure.",
+                                    names: ["Tanya", "Surya", "Sara"]),
+            "Then we can start. Sorry, can you repeat? Sure.")
+        XCTAssertEqual(
+            NameCorrector.corrected("we need the timelines from them", names: roster),
+            "we need the timelines from them",
+            "lower-case prose is never a name")
+    }
+
+    /// A name already spelled right is left alone, and so is a word that only
+    /// half-matches.
+    func testCorrectSpellingsAndNonMatchesAreUntouched() {
+        XCTAssertEqual(NameCorrector.corrected("Abhishek and Kriti", names: roster), "Abhishek and Kriti")
+        XCTAssertEqual(NameCorrector.corrected("Aramco", names: roster), "Aramco")
+    }
+
+    /// Two vocabulary entries that sound alike are ambiguous — decline rather
+    /// than pick one.
+    func testAmbiguousVocabularyDeclinesToGuess() {
+        XCTAssertEqual(NameCorrector.corrected("Jathan", names: ["Jatin", "Jaitan"]), "Jathan")
+    }
+
+    /// The phonetic key itself: vowels and `h` are what Whisper loses.
+    func testSkeletonIgnoresWhatWhisperLoses() {
+        XCTAssertEqual(NameCorrector.skeleton("Dmytro"), NameCorrector.skeleton("Demitra"))
+        XCTAssertEqual(NameCorrector.skeleton("Nehil"), NameCorrector.skeleton("Neil"))
+        XCTAssertEqual(NameCorrector.skeleton("Jathan"), NameCorrector.skeleton("Jatin"))
+        XCTAssertNotEqual(NameCorrector.skeleton("Adi"), NameCorrector.skeleton("Adityu"))
+        XCTAssertNotEqual(NameCorrector.skeleton("Kriti"), NameCorrector.skeleton("Greg"))
+    }
+
+    /// Non-Latin vocabulary is left to exact matching rather than guessed at.
+    func testCyrillicNamesAreNotPhoneticallyMatched() {
+        XCTAssertEqual(NameCorrector.corrected("Дмитро сказав", names: ["Дмитра"]), "Дмитро сказав")
+    }
+
+    /// And the whole-transcript form reports what it did, for the log.
+    func testTranscriptCorrectionReportsItsChanges() {
+        let lines = [
+            StoredLine(speaker: "Others", text: "Demitra, can you share?"),
+            StoredLine(speaker: "Others", text: "Yeah, Demitra will."),
+        ]
+        let (fixed, corrections) = NameCorrector.correcting(lines, names: roster)
+        XCTAssertEqual(fixed.map(\.text), ["Dmytro, can you share?", "Yeah, Dmytro will."])
+        XCTAssertEqual(corrections, [NameCorrector.Correction(heard: "Demitra", name: "Dmytro", count: 2)])
+    }
+
     // MARK: - Near-silent stock fillers (2026-08-05 planning call)
 
     /// Four "You: Thank you." lines went into a transcript where the user had

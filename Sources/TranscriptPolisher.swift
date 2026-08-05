@@ -95,7 +95,10 @@ actor TranscriptPolisher {
                                     text: utterance.text,
                                     at: meeting.date.addingTimeInterval(utterance.start)))
         }
-        return lines
+        // This pass replaces the transcript wholesale, so it has to repair the
+        // names itself — the live path's correction went out with the lines it
+        // is replacing. See `NameCorrector`.
+        return NameCorrector.correcting(lines, names: vocabulary).lines
     }
 
     /// One stream, full length. Whisper's sentence-ish segments are merged

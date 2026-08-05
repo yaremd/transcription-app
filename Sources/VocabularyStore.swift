@@ -1,10 +1,14 @@
 import Foundation
 import Combine
 
-/// Stores the user's custom vocabulary — names, acronyms, and jargon that the
-/// transcriber should recognize. Persisted in UserDefaults (a small string
-/// list). Applied as a Whisper decoder prompt, so it works in any language and
-/// never leaves the machine.
+/// Stores the user's custom vocabulary — the names Seal should spell right.
+/// Persisted in UserDefaults (a small string list) and never leaves the machine.
+///
+/// These are applied to the transcript *after* it is decoded, by
+/// `NameCorrector`. They are still offered to Whisper as a decoder prompt, but
+/// that path is unreliable enough that it gives up on itself mid-session (see
+/// `Transcriber.promptIsWorthTrying`) — the correction is what actually fixes
+/// the spelling.
 final class VocabularyStore: ObservableObject {
     @Published var terms: [String] {
         didSet { UserDefaults.standard.set(terms, forKey: Self.key) }

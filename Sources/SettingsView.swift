@@ -58,7 +58,7 @@ private struct VocabularySettings: View {
                     Button("Add", action: add)
                         .disabled(trimmedNew.isEmpty)
                 }
-                Text("Terms the transcriber should recognize — applied on your next recording, in any language. Nothing leaves your Mac.")
+                Text("Names Seal should spell correctly. When it hears one nearly right — \"Demitra\" for \"Dmytro\" — it fixes the spelling as the transcript is written. Nothing leaves your Mac.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
