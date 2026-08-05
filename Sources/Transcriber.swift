@@ -24,6 +24,12 @@ actor Transcriber {
     /// per loaded model; suppressed whenever decoding as Ukrainian.
     private var cachedRussianMarkerTokens: [Int]?
     private var filteredSegments = 0       // junk dropped this session, for tuning
+    /// Consecutive decodes this session that came back empty *with* the
+    /// vocabulary prompt attached and had to be re-run without it, and whether
+    /// we have given up on prompting for the rest of the session. See
+    /// `promptIsWorthTrying`.
+    private var promptedEmptyRun = 0
+    private var promptAbandoned = false
     /// Memory coordination (tight-RAM Macs): whether a recording is currently
     /// using the speech model, and when it last ran — so the model is released
     /// for the notes model only when it's genuinely idle. See `releaseIfIdle`.
@@ -60,6 +66,10 @@ actor Transcriber {
             .filter { !$0.isEmpty }
         vocabularyPrompt = cleaned.joined(separator: ", ")
         cachedVocabularyTokens = nil
+        // A different term list is a different prompt, and may well survive
+        // where the last one did not — see `promptIsWorthTrying`.
+        promptedEmptyRun = 0
+        promptAbandoned = false
     }
 
     var isLoaded: Bool { pipe != nil }
@@ -79,6 +89,8 @@ actor Transcriber {
         detectedLanguage = [:]
         languageTally = [:]
         filteredSegments = 0
+        promptedEmptyRun = 0
+        promptAbandoned = false   // a new model or a new vocabulary may behave differently
         recordingActive = true
     }
 
@@ -134,6 +146,9 @@ actor Transcriber {
     /// may decode twice when the language is ambiguous.
     func transcribe(_ samples: [Float], source: String, mode: TranscribeMode) async -> String {
         guard let pipe, samples.count >= 1600 else { return "" }   // need ≥ 0.1s of audio
+        // Measured before padding: `decodable` pads everything short up to
+        // 1.1 s, which would erase exactly the distinction this is for.
+        let audioSeconds = Double(samples.count) / 16_000
         let samples = Self.decodable(samples)
         lastTranscribeAt = Date()
         activeDecodes += 1
@@ -185,6 +200,9 @@ actor Transcriber {
         /// Same signal for the protected candidate while bootstrapping: the
         /// language the *detector* picked heard nothing here.
         var protectedHeardNothing = false
+        /// How many candidate languages answered this audio with nothing but
+        /// their own stock silence-word. See the corroborated-silence drop.
+        var stockFillerCandidates = 0
         for candidate in ordered {
             var options = DecodingOptions()
             options.task = .transcribe
@@ -265,6 +283,7 @@ actor Transcriber {
             // what keeps the custom vocabulary, which still does, from ever
             // costing a line. It runs only on the failure path.
             if text.isEmpty, options.promptTokens != nil {
+                notePromptedDecodeWasEmpty()
                 var unprompted = options
                 unprompted.promptTokens = nil
                 // `firstTokenLogProbThreshold` stays off here too. It used to
@@ -280,6 +299,8 @@ actor Transcriber {
                     log.notice("retried \(candidate ?? "auto", privacy: .public) on \(source, privacy: .public) without the vocabulary prompt: \(text.isEmpty ? "still nothing" : "recovered", privacy: .public)")
                     diagnostics?("[\(source)]   \(candidate ?? "auto"): empty with a prompt, retried without -> \(text.isEmpty ? "still empty" : "\"\(text.prefix(60))\"")")
                 }
+            } else if !text.isEmpty, options.promptTokens != nil {
+                promptedEmptyRun = 0   // the prompt is surviving on this audio
             }
             let confidence = Self.decodeScore(kept, isEmpty: text.isEmpty)
             var score = confidence
@@ -297,6 +318,7 @@ actor Transcriber {
             if text.isEmpty, let protected, candidate == protected {
                 protectedHeardNothing = true
             }
+            if Self.isStockFiller(text) { stockFillerCandidates += 1 }
             let peakNoSpeech = all.map(\.noSpeechProb).max() ?? 0
             diagnostics?("[\(source)]   \(candidate ?? "auto"): conf=\(String(format: "%.2f", confidence)) score=\(String(format: "%.2f", score)) ns=\(String(format: "%.2f", peakNoSpeech)) kept=\(kept.count)/\(all.count) \"\(text.prefix(120))\"")
             // The evidence bar: a challenger may only displace the protected
@@ -406,6 +428,38 @@ actor Transcriber {
             filteredSegments += 1
             log.notice("dropped bootstrap stock filler on \(source, privacy: .public)")
             diagnostics?("[\(source)] DROP bootstrap stock filler: \"\(best.text.prefix(40))\"")
+            return ""
+        }
+
+        // The same stock words, once momentum has reopened the door to them,
+        // but out of an utterance that barely contained any speech.
+        //
+        // Momentum reopens that door because people really do say "thank you",
+        // and by then a plain word list cannot tell a real one from an invented
+        // one. Duration can. The 2026-08-05 planning call put four "You: Thank
+        // you." lines into a transcript where the user had said nothing at all,
+        // and all four look identical in the log: an utterance the stream
+        // committed on 0.3 s of voiced audio — the least that clears
+        // `minVoicedSeconds` — decoded confidently (−0.14, no-speech 0.00) so
+        // every quality gate waved it through, with the Ukrainian candidate
+        // independently producing its own "Дякую." from the same silence.
+        //
+        // A spoken "Thank you." is most of a second of voice on its own, so the
+        // duration test only ever fires on utterances too short to have held
+        // one. The second test is the stronger of the two and needs no clock:
+        // *both* languages answered with their own stock word — "Thank you."
+        // out of the English decode and "Дякую." out of the Ukrainian one, from
+        // the same audio. Two models independently reaching for their canonical
+        // response to nothing is what nothing sounds like; real speech makes
+        // them disagree. Every one of that call's four false thank-yous has
+        // this signature, including the two the clock alone let through.
+        if Self.isStockFiller(best.text),
+           audioSeconds <= Self.silentUtteranceSeconds || stockFillerCandidates > 1 {
+            filteredSegments += 1
+            let why = stockFillerCandidates > 1 ? "every candidate answered with one" : "too short to hold one"
+            log.notice("dropped stock filler on \(source, privacy: .public): \(why, privacy: .public)")
+            diagnostics?(String(format: "[%@] DROP stock filler (%@, %.1fs of audio): \"%@\"",
+                                source, why, audioSeconds, String(best.text.prefix(40))))
             return ""
         }
 
@@ -548,6 +602,42 @@ actor Transcriber {
     /// source's momentum. Two votes make a dominant; a dominant that overrides
     /// *another* dominant is held to more.
     static let contestingVotes = 3
+
+    // MARK: - Giving up on the vocabulary prompt
+
+    /// Whether the vocabulary is still worth attaching to a decode.
+    ///
+    /// A prompt costs nothing when it works and *doubles the decode* when it
+    /// does not — every empty prompted pass is re-run unprompted. On the
+    /// 2026-08-05 planning call, with two names in the vocabulary ("Dmytro",
+    /// "Adi"), 1083 of 1197 decodes went down that path: nine passes in ten
+    /// were done twice, and 75 times the retry came back empty as well and the
+    /// utterance was lost. The names were not spelled right either.
+    ///
+    /// The mechanism is WhisperKit's. With `promptTokens` set it skips the
+    /// prefill KV cache ("currently breaks if it starts at a non-zero index"),
+    /// so the decode loop starts at index 0 and replays the prompt — and
+    /// `isSegmentCompleted` tests `sampleResult.completed` on those replay
+    /// passes too. A prompt the model reads as already finished, which a short
+    /// term list very much is, ends the loop before it reaches the audio.
+    ///
+    /// So we try, and we stop trying. A run of failures this long is not bad
+    /// luck on one window; it means the prompt does not survive this model.
+    private var promptIsWorthTrying: Bool { !promptAbandoned }
+
+    private func notePromptedDecodeWasEmpty() {
+        guard !promptAbandoned else { return }
+        promptedEmptyRun += 1
+        guard promptedEmptyRun >= Self.promptFailureLimit else { return }
+        promptAbandoned = true
+        log.notice("the vocabulary prompt emptied \(Self.promptFailureLimit) decodes in a row — dropping it for the rest of this session so nothing decodes twice")
+        diagnostics?("PROMPT ABANDONED after \(Self.promptFailureLimit) consecutive empty prompted decodes")
+    }
+
+    /// Consecutive empty prompted decodes before the prompt is abandoned. Low
+    /// on purpose: the retry means each failure costs a whole extra decode, and
+    /// a prompt that works does not fail three times running.
+    static let promptFailureLimit = 3
 
     /// Whether a decoded line may teach a source what language it speaks: it
     /// must be solid enough to carry a language (`establishesLanguage`), be
@@ -696,9 +786,21 @@ actor Transcriber {
     /// `SegmentQuality.hallucinationPhrases` these are words people genuinely
     /// say, so momentum reopens the door to them.
     static func isBootstrapHallucination(_ text: String, hasMomentum: Bool) -> Bool {
-        guard !hasMomentum, isShortFiller(text) else { return false }
-        return stockFillers.contains(AudioMonitor.normalizedForEcho(text))
+        guard !hasMomentum else { return false }
+        return isStockFiller(text)
     }
+
+    /// A lone stock word, in any momentum state — the shape without the
+    /// bootstrap condition, so the duration rule can use it too.
+    static func isStockFiller(_ text: String) -> Bool {
+        isShortFiller(text) && stockFillers.contains(AudioMonitor.normalizedForEcho(text))
+    }
+
+    /// Longest utterance that can be called silence when all it produced was a
+    /// stock word. The stream trims a commit to its voiced span plus 0.3 s of
+    /// padding at each end, so this is roughly "under half a second of voice" —
+    /// beneath the length of the words themselves.
+    static let silentUtteranceSeconds = 1.0
 
     /// Lone words Whisper reliably invents from near-silence — the openings of
     /// its learned YouTube-outro phrases, in each language this app arbitrates.
@@ -908,7 +1010,7 @@ actor Transcriber {
     /// retried without the prompt (see `transcribe`), so it cannot cost a line
     /// even if it ever does.
     private func promptTokens(for source: String, pipe: WhisperKit) -> [Int]? {
-        guard let tokenizer = pipe.tokenizer, !vocabularyPrompt.isEmpty else { return nil }
+        guard promptIsWorthTrying, let tokenizer = pipe.tokenizer, !vocabularyPrompt.isEmpty else { return nil }
         if cachedVocabularyTokens == nil {
             cachedVocabularyTokens = Array(
                 tokenizer.encode(text: " " + vocabularyPrompt)

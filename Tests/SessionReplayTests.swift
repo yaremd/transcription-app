@@ -86,7 +86,15 @@ final class SessionReplayTests: XCTestCase {
         await transcriber.beginSession()
         // The failing session ran with the language picker on Auto.
         await transcriber.setLanguagePolicy(forced: nil, allowed: TranscriptLanguage.auto.allowedCodes)
-        await transcriber.setVocabulary([])
+        // Production state, not a clean room. The custom vocabulary is attached
+        // to every decode, and on 2026-08-05 that was the difference between a
+        // session that decodes once and one that decodes nine passes in ten
+        // twice — invisible to a replay that always passes [].
+        let vocab = (env["SEAL_REPLAY_VOCAB"] ?? "")
+            .split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        print("replay: vocabulary=\(vocab.isEmpty ? "(none)" : vocab.joined(separator: ", "))")
+        await transcriber.setVocabulary(vocab)
 
         let feedStart = Date()
         func makeStream(_ label: String) -> TranscriptionStream {
