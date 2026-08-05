@@ -8,6 +8,28 @@
          paste it here and add a <description>. Never edit an older item's
          edSignature: each one belongs to the DMG that shipped with it. -->
     <item>
+      <title>Version 0.13</title>
+      <sparkle:version>13</sparkle:version>
+      <sparkle:shortVersionString>0.13</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 05 Aug 2026 07:51:25 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Faster, and quieter when nobody is talking</h3>
+        <ul>
+          <li>If you had added any words to your custom vocabulary, Seal was
+          quietly transcribing almost every passage twice — and occasionally
+          losing one altogether. It now notices when the vocabulary isn't
+          reaching the speech model and stops paying for it.</li>
+          <li>Seal no longer writes "Thank you." into the transcript when a
+          microphone picks up nothing but a pause.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.13/Seal.dmg"
+        sparkle:edSignature="aY5u9Ewr+zqhQRGZjxm4lKASFmmCnVs3tcWt9kJYZBGDndQVws6FCzD7Z9uWhhfliBfB+gPLKdGlIDAcbtKzAQ==" length="18717534"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.12</title>
       <sparkle:version>12</sparkle:version>
       <sparkle:shortVersionString>0.12</sparkle:shortVersionString>
