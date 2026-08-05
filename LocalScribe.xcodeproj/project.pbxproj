@@ -47,6 +47,7 @@
 		B8DBF5070182B786CC5AE11E /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = E2B13DCBC9DCF8E96808527D /* MLXHuggingFace */; };
 		C1B9F1FC04D4195E15B49AE2 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 08D4666DC7B4E71E16C024E5 /* Sparkle */; };
 		C5C8C4886694962DA43145D1 /* LocalScribeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8D6D6D87D0F1FDA33A2C808 /* LocalScribeApp.swift */; };
+		C764BCAA8462C45E153B6723 /* NameCorrector.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA737A017D2818335FB6DD82 /* NameCorrector.swift */; };
 		C98C3A0E5DD309CBE13A5E82 /* MicCapturer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8262FA732BF1CA1460F2B96E /* MicCapturer.swift */; };
 		E5ABF27450A934F1FE1D56CA /* SessionAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 582FA5EFBDD7B446610B1023 /* SessionAudioRecorder.swift */; };
 		E61943B96E9BAFE4EDDFF91C /* Meeting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 879645123DA0B1ED8A7F547C /* Meeting.swift */; };
@@ -99,6 +100,7 @@
 		B4C0E212FE60127FFBA349FE /* MicWatchdogSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicWatchdogSmokeTests.swift; sourceTree = "<group>"; };
 		BE8F90071AC0251E2F3B6EFC /* LocalScribeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalScribeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C8D6D6D87D0F1FDA33A2C808 /* LocalScribeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalScribeApp.swift; sourceTree = "<group>"; };
+		CA737A017D2818335FB6DD82 /* NameCorrector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameCorrector.swift; sourceTree = "<group>"; };
 		CC98B722D6192FCB84610A35 /* DiagnosticsLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsLog.swift; sourceTree = "<group>"; };
 		D9F1A09DCFA78375CC6521EA /* MeetingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetailView.swift; sourceTree = "<group>"; };
 		E6A9B29B7667526D939EE4CC /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
@@ -163,6 +165,7 @@
 				80C293EA6E9349FDA5D864F0 /* MenuBarView.swift */,
 				8262FA732BF1CA1460F2B96E /* MicCapturer.swift */,
 				13C896480EC392B9E3FB0B74 /* MLXEngine.swift */,
+				CA737A017D2818335FB6DD82 /* NameCorrector.swift */,
 				98D3153FBC531FB658B9F1D3 /* NotesGenerator.swift */,
 				27045D08ADD93EA94112834F /* NotesTemplate.swift */,
 				11B412BF0268188B8148BCDB /* OnboardingView.swift */,
@@ -343,6 +346,7 @@
 				4687FD18B8E80C684899A3E2 /* MeetingStore.swift in Sources */,
 				FE68256A1C751B356D6B68E7 /* MenuBarView.swift in Sources */,
 				C98C3A0E5DD309CBE13A5E82 /* MicCapturer.swift in Sources */,
+				C764BCAA8462C45E153B6723 /* NameCorrector.swift in Sources */,
 				95F79B8EF49D12591364E75D /* NotesGenerator.swift in Sources */,
 				65A0D8B438A30FA5B6CA2265 /* NotesTemplate.swift in Sources */,
 				FA66A1AAFA5E7B0B07793801 /* OnboardingView.swift in Sources */,
