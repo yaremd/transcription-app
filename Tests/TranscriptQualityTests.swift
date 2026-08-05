@@ -258,6 +258,48 @@ final class TranscriptQualityTests: XCTestCase {
         XCTAssertFalse((top?.prob ?? 1).isNaN, "and must not carry the NaN onward")
     }
 
+    // MARK: - Near-silent stock fillers (2026-08-05 planning call)
+
+    /// Four "You: Thank you." lines went into a transcript where the user had
+    /// said nothing. Each came from an utterance the stream committed on 0.3 s
+    /// of voiced audio and the decoder was *confident* about, so no quality
+    /// gate touched it — and momentum had long since reopened the door to the
+    /// stock words. Duration is what separates these from a real thank-you.
+    func testStockFillersAreRecognisedInAnyMomentumState() {
+        for text in ["Thank you.", "Дякую.", "you", "Bye bye"] {
+            XCTAssertTrue(Transcriber.isStockFiller(text),
+                          "\"\(text)\" is one of Whisper's stock silence words")
+        }
+    }
+
+    /// Real speech is never a stock filler, however short.
+    func testRealShortAnswersAreNotStockFillers() {
+        for text in ["Okay.", "Yeah", "Hi", "Mm-hmm", "Thank you for that detail"] {
+            XCTAssertFalse(Transcriber.isStockFiller(text),
+                           "\"\(text)\" must survive — it is not a stock silence word")
+        }
+    }
+
+    /// The duration bar has to sit below a spoken "Thank you." but above the
+    /// 0.9 s windows those four hallucinations came out of.
+    func testTheSilenceBarIsShorterThanASpokenThankYou() {
+        XCTAssertGreaterThanOrEqual(Transcriber.silentUtteranceSeconds, 0.9,
+                                    "must still catch the 0.9s windows this was found in")
+        XCTAssertLessThan(Transcriber.silentUtteranceSeconds, 1.4,
+                          "a genuinely spoken 'Thank you.' must stay above the bar")
+    }
+
+    /// The corroboration signal, which is what catches the ones the clock
+    /// misses: English answered "Thank you." and Ukrainian answered "Дякую."
+    /// from the same 1.3 s of audio. Both are stock words, so both count.
+    func testBothLanguagesAnsweringWithAStockWordIsSilence() {
+        XCTAssertTrue(Transcriber.isStockFiller("Thank you."))
+        XCTAssertTrue(Transcriber.isStockFiller("Дякую."))
+        // …while a real answer alongside a stock one is only one vote for
+        // silence, and must not trip the rule.
+        XCTAssertFalse(Transcriber.isStockFiller("Yeah, that works for me"))
+    }
+
     // MARK: - Third languages (2026-08-05 standup)
 
     /// The meeting opened on a minute of Hindi small talk before anyone spoke
