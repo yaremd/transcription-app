@@ -244,6 +244,64 @@ final class TranscriptQualityTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(top?.prob ?? 0, Transcriber.detectionCertainty)
     }
 
+    /// A NaN log-probability is the *worst* reading there is, and it used to
+    /// come out the most certain of all: `min(0, .nan)` is 0 in Swift, so
+    /// `exp(min(0, logProb))` returned 1.0 — enough to cache the pick for every
+    /// live pass and to skip the second decode entirely, on a number that means
+    /// nothing.
+    func testANaNProbabilityIsNeverCertain() {
+        let top = Transcriber.interpretDetection(
+            (language: "en", langProbs: ["en": .nan]), allowed: ["uk", "en"])
+        XCTAssertEqual(top?.code, "en", "the pick itself is still usable for ordering")
+        XCTAssertLessThan(top?.prob ?? 1, Transcriber.detectionCertainty,
+                          "a NaN reading must never clear the act-on-it-alone bar")
+        XCTAssertFalse((top?.prob ?? 1).isNaN, "and must not carry the NaN onward")
+    }
+
+    // MARK: - Third languages (2026-08-05 standup)
+
+    /// The meeting opened on a minute of Hindi small talk before anyone spoke
+    /// English. The detector said so plainly — "hi", then "ur", then "pt", none
+    /// of them in the allowed set — the English decode of one window aborted on
+    /// its first token, and the Ukrainian decode won by walkover with ten
+    /// fluent-looking Cyrillic words. That cleared `establishesLanguage` and
+    /// cast the only Ukrainian vote of an entirely English meeting.
+    func testAThirdLanguageCannotVoteForOneOfOurs() {
+        XCTAssertFalse(
+            Transcriber.castsLanguageVote(
+                text: "Та таані, граєм, я додавців. Та, хтось. Ти, га, галка.",
+                confidence: -0.55,                  // the real score from that decode
+                decodedAs: "uk", allowed: ["uk", "en"],
+                detectedOutsideAllowedSet: true),
+            "audio the detector heard as a third language must not teach a source its language")
+    }
+
+    /// The same line, same score, with the detector agreeing it was one of ours
+    /// — genuine Ukrainian speech must still establish Ukrainian, or the guard
+    /// has simply moved the bug to bilingual users.
+    func testAnInSetDetectionStillVotes() {
+        XCTAssertTrue(
+            Transcriber.castsLanguageVote(
+                text: "Дякую, що показали цей звіт, дуже корисно",
+                confidence: -0.35, decodedAs: "uk", allowed: ["uk", "en"],
+                detectedOutsideAllowedSet: false))
+    }
+
+    /// The older bars still apply on top of the new one.
+    func testTheVoteStillNeedsRealSpeechInAnAllowedLanguage() {
+        XCTAssertFalse(
+            Transcriber.castsLanguageVote(text: "М-м. Я, я си.", confidence: -0.9,
+                                          decodedAs: "uk", allowed: ["uk", "en"],
+                                          detectedOutsideAllowedSet: false),
+            "a hallucinated backchannel votes no matter what the detector said")
+        XCTAssertFalse(
+            Transcriber.castsLanguageVote(text: "we ship the login flow tomorrow",
+                                          confidence: -0.2, decodedAs: "de",
+                                          allowed: ["uk", "en"],
+                                          detectedOutsideAllowedSet: false),
+            "a language outside the allowed set cannot become a source's dominant")
+    }
+
     /// The polisher had the same inverted read (`langProbs[$0] ?? 0` inside a
     /// max-by): an English meeting would "Improve transcript" itself into
     /// forced-Ukrainian. When detection is unusable it now falls back to the
