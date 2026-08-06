@@ -6,7 +6,12 @@
     <language>en</language>
     <!-- Newest release first. scripts/release.sh prints a complete <item> —
          paste it here and add a <description>. Never edit an older item's
-         edSignature: each one belongs to the DMG that shipped with it. -->
+         edSignature: each one belongs to the DMG that shipped with it.
+
+         If a release is published but this file still serves the previous
+         version, the GitHub Pages deploy is stuck rather than wrong: check
+         `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
+         touching this directory queues a fresh one. -->
     <item>
       <title>Version 0.14</title>
       <sparkle:version>14</sparkle:version>
