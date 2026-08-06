@@ -59,6 +59,7 @@ struct MeetingDetailView: View {
     // box was too cramped to scroll); `workspaceJump` carries the moment to
     // scroll to when it's opened by clicking a note.
     @State private var showWorkspace = false
+    @State private var showReportProblem = false
     @State private var workspaceJump: Date?
 
     // Ephemeral chat — a floating widget, closed until opened.
@@ -116,6 +117,8 @@ struct MeetingDetailView: View {
                     Divider()
                     Button("Export as Markdown…") { MeetingExporter.exportMarkdown(meeting) }
                     Button("Export as PDF…") { MeetingExporter.exportPDF(meeting) }
+                    Divider()
+                    Button("Report a problem…") { showReportProblem = true }
                 } label: {
                     Label("Export", systemImage: "square.and.arrow.up")
                 }
@@ -150,6 +153,9 @@ struct MeetingDetailView: View {
             maybeGenerateNotes()
         }
         .sheet(isPresented: $showWorkspace) { workspaceSheet }
+        .sheet(isPresented: $showReportProblem) {
+            ReportProblemView(meeting: meeting).environmentObject(store)
+        }
     }
 
     /// Asks the local model who was actually talking (from self-intros and
