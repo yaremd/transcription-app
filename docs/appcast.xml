@@ -8,6 +8,33 @@
          paste it here and add a <description>. Never edit an older item's
          edSignature: each one belongs to the DMG that shipped with it. -->
     <item>
+      <title>Version 0.14</title>
+      <sparkle:version>14</sparkle:version>
+      <sparkle:shortVersionString>0.14</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Thu, 06 Aug 2026 12:59:34 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Names spelled right, and a way to tell us when something breaks</h3>
+        <ul>
+          <li>Add the people you meet with to your vocabulary in Settings and
+          Seal now fixes their spelling in the transcript. When it hears
+          "Demitra" for "Dmytro" or "Krithi" for "Kriti", it corrects it — the
+          consonants are what survive a mishearing, so that is what it matches
+          on. It stays quiet when it isn't sure.</li>
+          <li>Every meeting now has <b>Report a problem</b> in its export menu.
+          It writes up what actually happened during transcription — how much
+          speech was decoded, how much came back empty, what was filtered and
+          why — and shows you the whole thing before anything is sent. It
+          contains no transcript text. The detailed log, which does quote what
+          was said, is attached only if you tick the box.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.14/Seal.dmg"
+        sparkle:edSignature="U3zF4/Zzs/e0kXbcBvwDpV6UXclvbzKtpNs9F9pmJPqX1N0sw0w6ut9lwYGvDxI+ikOmmLM5zRPnirm8oiw4CQ==" length="18713057"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.13</title>
       <sparkle:version>13</sparkle:version>
       <sparkle:shortVersionString>0.13</sparkle:shortVersionString>
