@@ -635,6 +635,88 @@ final class TranscriptQualityTests: XCTestCase {
         XCTAssertFalse(Transcriber.isScriptContradiction("Дякую.", language: nil))
     }
 
+    /// A script *neither* candidate language uses used to read as compatible
+    /// with both: the Latin and Cyrillic counters both stayed at zero, and
+    /// `latin >= cyrillic` was trivially true. That is how "うん" — Whisper's
+    /// Japanese backchannel, decoded under an English token from a Ukrainian
+    /// speaker's "mm-hmm" — reached the 2026-08-07 transcript.
+    func testScriptsNoCandidateLanguageUsesAreIncompatible() {
+        XCTAssertFalse(Transcriber.scriptCompatible("うん", with: "en"))
+        XCTAssertFalse(Transcriber.scriptCompatible("MBC 뉴스 김성현입니다.", with: "en"))
+        XCTAssertFalse(Transcriber.scriptCompatible("字幕by瑞恩", with: "uk"))
+        XCTAssertTrue(Transcriber.isScriptContradiction("うん", language: "en"),
+                      "a lone CJK backchannel under an English token is a hallucination")
+    }
+
+    /// Accented Latin is still Latin — an English decode carrying "café" or a
+    /// German "Schön" must not be read as some third script.
+    func testAccentedLatinCountsAsLatin() {
+        XCTAssertTrue(Transcriber.scriptCompatible("Schön, ça va, café", with: "en"))
+        XCTAssertTrue(Transcriber.scriptCompatible("Okay.", with: "en"))
+        XCTAssertTrue(Transcriber.scriptCompatible("Дякую.", with: "uk"))
+        XCTAssertFalse(Transcriber.scriptCompatible("Дякую.", with: "en"))
+        XCTAssertTrue(Transcriber.scriptCompatible("...", with: "en"),
+                      "punctuation carries no script and contradicts nothing")
+    }
+
+    // MARK: - Script honesty outranks score
+
+    /// The 2026-08-07 lesson, where the user closed on several minutes of
+    /// Ukrainian and got Russian back ("російською я не говорив").
+    ///
+    /// Whisper treats `options.language` as a hint. On that audio the `en` pass
+    /// free-ran into Cyrillic — its Russian prior, not Ukrainian — and then
+    /// competed as if it were an English reading: it took English's protected
+    /// head start, and its score (fluency in the language it drifted into) was
+    /// compared against the `uk` pass's score (fit to the language we asked
+    /// for). Whisper's Russian is much stronger than its Ukrainian, so the
+    /// wrong answer won all twelve Cyrillic lines of that session.
+    ///
+    /// Each row below is one of those decodes, with the real logged numbers.
+    func testDishonestScriptLosesToTheCandidateThatAnsweredInItsOwnLanguage() {
+        // (raw en confidence, raw uk confidence) — every pair as logged, and in
+        // half of them `uk` was already the better score before any head start.
+        let lesson: [(en: Float, uk: Float)] = [
+            (-0.16, -0.17), (-0.91, -0.75), (-0.76, -0.35), (-0.43, -0.53),
+            (-0.46, -0.47), (-0.59, -0.56), (-0.41, -0.40), (-0.57, -0.52),
+            (-0.30, -0.41), (-0.33, -0.37), (-0.28, -0.32), (-0.58, -0.44),
+        ]
+        for (i, row) in lesson.enumerated() {
+            // `en` is protected, so it decodes first and holds — with the head
+            // start it no longer earns, its output being Cyrillic.
+            XCTAssertTrue(
+                Transcriber.outranks(challengerScore: row.uk, challengerHonest: true,
+                                     holderScore: row.en, holderHonest: false),
+                "line \(i): the Ukrainian decode must take a line the English decode answered in Cyrillic")
+        }
+    }
+
+    /// The rule is one-directional and narrow: it only ever demotes a decode
+    /// that ignored its own language token. Where both candidates answered in
+    /// their own script — every ordinary utterance — arbitration is score and
+    /// head start exactly as before, including the case the head start exists
+    /// for: Whisper's fluent *English translation* of Ukrainian speech, which
+    /// comes back in Latin and is perfectly honest about its script.
+    func testHonestCandidatesAreStillJudgedOnScore() {
+        // Two honest decodes: score decides, in both directions.
+        XCTAssertTrue(Transcriber.outranks(challengerScore: -0.2, challengerHonest: true,
+                                           holderScore: -0.4, holderHonest: true))
+        XCTAssertFalse(Transcriber.outranks(challengerScore: -0.4, challengerHonest: true,
+                                            holderScore: -0.2, holderHonest: true))
+        // A fluent English translation (Latin, honest) holding against a
+        // Ukrainian decode that scores no better keeps the line — the head
+        // start it carries is untouched by this rule.
+        XCTAssertFalse(Transcriber.outranks(challengerScore: -0.35, challengerHonest: true,
+                                            holderScore: -0.15, holderHonest: true))
+        // Two dishonest decodes fall back to score rather than to nothing.
+        XCTAssertTrue(Transcriber.outranks(challengerScore: -0.2, challengerHonest: false,
+                                           holderScore: -0.4, holderHonest: false))
+        // An honest holder is never displaced by a dishonest challenger, however
+        // confident that challenger sounds.
+        XCTAssertFalse(Transcriber.outranks(challengerScore: -0.01, challengerHonest: false,
+                                            holderScore: -0.95, holderHonest: true))
+    }
+
     // MARK: - Bootstrap stock fillers
 
     /// Line one of the 2026-07-29 call: nobody had spoken, and the meeting-join

@@ -193,7 +193,7 @@ actor Transcriber {
             ordered.remove(at: at)
             ordered.insert(protected, at: 0)
         }
-        var best: (text: String, score: Float, confidence: Float, language: String?)?
+        var best: (text: String, score: Float, confidence: Float, language: String?, scriptHonest: Bool)?
         /// Whether the language this source has been speaking all session heard
         /// nothing in this audio — see the silence check below.
         var dominantHeardNothing = false
@@ -304,12 +304,35 @@ actor Transcriber {
             }
             let confidence = Self.decodeScore(kept, isEmpty: text.isEmpty)
             var score = confidence
+            // Whether this decode answered in a script the language we asked
+            // for actually uses.
+            //
+            // `options.language` is a hint to Whisper, not a constraint. On
+            // strongly non-English audio the `en` pass simply free-runs into
+            // the language it hears — and its Cyrillic prior is Russian, the
+            // best-resourced Slavic language it knows, not Ukrainian. Such a
+            // decode is not an English reading of the audio at all; it is a
+            // second opinion wearing English's label, and it collected
+            // English's every privilege below.
+            //
+            // The 2026-08-07 lesson is the whole case in one number: twelve
+            // Cyrillic lines, *all twelve* won by the `en` candidate, six of
+            // them over a better-scoring `uk` candidate that the head start
+            // alone reversed — "Придемо, придемо." (−0.35, correct) losing to
+            // "- Придем, придем." (−0.76, Russian). The user's report was one
+            // sentence: "російською я не говорив" — I did not speak Russian.
+            let scriptHonest = !text.isEmpty && Self.scriptCompatible(text, with: candidate)
             // Head start (see `protected` above): momentum for the established
             // language, or the acoustic detection's pick while bootstrapping.
             // Whisper's English *translations* of Ukrainian speech decode
             // fluently (high confidence), so raw confidence alone would happily
-            // flip the meeting into English.
-            if mode == .final, let candidate, candidate == protected, !text.isEmpty {
+            // flip the meeting into English. Withheld from a decode that
+            // ignored its own language token: momentum is evidence about what
+            // this source speaks, and a Cyrillic answer is not evidence for
+            // English. (A real English translation of Ukrainian speech comes
+            // back in Latin and still gets the head start — the hazard the
+            // bonus exists for is untouched.)
+            if mode == .final, let candidate, candidate == protected, scriptHonest {
                 score += 0.2
             }
             if text.isEmpty, let dominant, candidate == dominant {
@@ -320,7 +343,7 @@ actor Transcriber {
             }
             if Self.isStockFiller(text) { stockFillerCandidates += 1 }
             let peakNoSpeech = all.map(\.noSpeechProb).max() ?? 0
-            diagnostics?("[\(source)]   \(candidate ?? "auto"): conf=\(String(format: "%.2f", confidence)) score=\(String(format: "%.2f", score)) ns=\(String(format: "%.2f", peakNoSpeech)) kept=\(kept.count)/\(all.count) \"\(text.prefix(120))\"")
+            diagnostics?("[\(source)]   \(candidate ?? "auto"): conf=\(String(format: "%.2f", confidence)) score=\(String(format: "%.2f", score)) ns=\(String(format: "%.2f", peakNoSpeech)) kept=\(kept.count)/\(all.count)\(text.isEmpty || scriptHonest ? "" : " WRONG-SCRIPT") \"\(text.prefix(120))\"")
             // The evidence bar: a challenger may only displace the protected
             // language's real text with output solid enough to vote for its
             // own language. Junk that cannot even vote is not evidence against
@@ -328,11 +351,32 @@ actor Transcriber {
             // English (the detector's pick), still lost to a *fluent-looking*
             // Ukrainian invention on raw score. A genuine language switch is
             // establish-grade by definition, so it still passes.
-            let holderIsProtected = best != nil && !best!.text.isEmpty && best!.language == protected
+            // A holder that ignored its own language token is not the protected
+            // language's text, so it does not get to raise the protected
+            // language's bar against the candidate that answered honestly. This
+            // is the half of the fix the score alone cannot do: "Придемо,
+            // придемо." is two words, so it can never clear
+            // `establishesLanguage`, and it lost every one of these on standing
+            // rather than on merit.
+            let holderIsProtected = best != nil && !best!.text.isEmpty
+                && best!.language == protected && best!.scriptHonest
             let challengerHasStanding = !holderIsProtected || candidate == protected
                 || Self.establishesLanguage(text, confidence: confidence)
-            if challengerHasStanding, best == nil || score > best!.score {
-                best = (text, score, confidence, candidate ?? results.first?.language)
+            // Script honesty ranks above score, because between an honest and a
+            // dishonest decode the two scores are not measuring the same thing:
+            // one is the model's fit to the language we asked for, the other its
+            // fluency in whatever language it drifted into. Whisper's Ukrainian
+            // is weak and its Russian is strong, so on Ukrainian speech the
+            // dishonest reading wins that comparison on merit — the twelve lines
+            // above sat within 0.01–0.41 of each other. Where both candidates
+            // are honest (all ordinary audio) nothing changes: it is score, then
+            // the head start, exactly as before.
+            let outranksBest = best.map {
+                Self.outranks(challengerScore: score, challengerHonest: scriptHonest,
+                              holderScore: $0.score, holderHonest: $0.scriptHonest)
+            } ?? true
+            if challengerHasStanding, outranksBest {
+                best = (text, score, confidence, candidate ?? results.first?.language, scriptHonest)
             } else if !challengerHasStanding, score > (best?.score ?? -Float.infinity) {
                 diagnostics?("[\(source)]   \(candidate ?? "auto") outscored \(protected ?? "-") but lacks standing; keeping the prior")
             }
@@ -490,7 +534,16 @@ actor Transcriber {
         // wrong language, after which every real line decodes as that
         // language's garbage and gets filtered away. Final passes are informed
         // (arbitrated) choices; in unrestricted auto any detection beats none.
+        //
+        // The winner's own script has to back the label too. Where no honest
+        // candidate existed to outrank it — a monolingual stream, where `en` is
+        // the only thing on offer — a decode that free-ran into Cyrillic still
+        // reaches this line, and its label is the one thing about it we know to
+        // be wrong. On the 2026-08-07 lesson eight such lines voted `en` on
+        // Ukrainian sentences, reinforcing the very momentum that was reading
+        // them wrong.
         if mode == .final || (language == nil && allowedLanguages.isEmpty),
+           best.scriptHonest,
            let lang = best.language,
            Self.castsLanguageVote(text: best.text, confidence: best.confidence, decodedAs: lang,
                                   allowed: allowedLanguages,
@@ -638,6 +691,22 @@ actor Transcriber {
     /// on purpose: the retry means each failure costs a whole extra decode, and
     /// a prompt that works does not fail three times running.
     static let promptFailureLimit = 3
+
+    /// Whether a challenging decode should take the arbitration from the
+    /// current holder. Script honesty first, score second.
+    ///
+    /// The ordering is not a tiebreak dressed up — the two scores are
+    /// incommensurable. A decode that answered in the language we asked for is
+    /// scored on its fit to that language; one that ignored the token is scored
+    /// on its fluency in whatever it drifted into, and Whisper is far more
+    /// fluent in Russian than in Ukrainian. Comparing them is why the correct
+    /// "Придемо, придемо." (−0.35) read as the worse answer than the Russian
+    /// "- Придем, придем." (−0.76). Between two honest decodes — every ordinary
+    /// utterance — this is plain score, unchanged.
+    static func outranks(challengerScore: Float, challengerHonest: Bool,
+                         holderScore: Float, holderHonest: Bool) -> Bool {
+        challengerHonest == holderHonest ? challengerScore > holderScore : challengerHonest
+    }
 
     /// Whether a decoded line may teach a source what language it speaks: it
     /// must be solid enough to carry a language (`establishesLanguage`), be
@@ -1022,19 +1091,29 @@ actor Transcriber {
     }
 
     /// Whether text's script plausibly belongs to the language being decoded.
-    private static func scriptCompatible(_ text: String, with candidate: String?) -> Bool {
+    ///
+    /// Every *letter* is counted, and a third bucket holds the ones that are
+    /// neither Latin nor Cyrillic. Without it a script no candidate language
+    /// uses read as compatible with all of them — both counters stayed at zero,
+    /// and `latin >= cyrillic` waved through the "うん" a Ukrainian speaker's
+    /// backchannel produced under an English token (2026-08-07 lesson), along
+    /// with every Hangul and CJK outro phrase Whisper reaches for near silence.
+    static func scriptCompatible(_ text: String, with candidate: String?) -> Bool {
         guard let candidate else { return true }
-        var cyrillic = 0, latin = 0
-        for scalar in text.unicodeScalars {
+        var cyrillic = 0, latin = 0, other = 0
+        for scalar in text.unicodeScalars where Character(scalar).isLetter {
             switch scalar.value {
-            case 0x0400...0x04FF: cyrillic += 1
-            case 0x0041...0x005A, 0x0061...0x007A: latin += 1
-            default: break
+            // Cyrillic, plus the Cyrillic Supplement block.
+            case 0x0400...0x052F: cyrillic += 1
+            // ASCII letters, plus accented Latin (Latin-1 Supplement through
+            // Latin Extended-B) so "ça" and "Schön" stay Latin.
+            case 0x0041...0x005A, 0x0061...0x007A, 0x00C0...0x024F: latin += 1
+            default: other += 1
             }
         }
         switch candidate {
-        case "uk", "ru": return cyrillic >= latin
-        case "en": return latin >= cyrillic
+        case "uk", "ru": return cyrillic >= latin && cyrillic >= other
+        case "en": return latin >= cyrillic && latin >= other
         default: return true
         }
     }
