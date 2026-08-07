@@ -13,6 +13,32 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 0.15</title>
+      <sparkle:version>15</sparkle:version>
+      <sparkle:shortVersionString>0.15</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Fri, 07 Aug 2026 13:14:09 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Your other language, transcribed as itself</h3>
+        <ul>
+          <li>Switch languages mid-meeting and Seal no longer answers in the
+          wrong one. Whisper treats a language setting as a suggestion rather
+          than an instruction, so on Ukrainian speech the English pass would
+          quietly drift into Russian — and then win the transcript anyway,
+          because it still carried English's label. A reading now has to be
+          written in the language that produced it before it counts as that
+          language's reading. On a 64-minute lesson this corrected every
+          Cyrillic line, and left the English untouched.</li>
+          <li>A stray Japanese or Korean word can no longer stand in for a
+          backchannel like "mm-hmm".</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.15/Seal.dmg"
+        sparkle:edSignature="C3kyrjZoZfl8poJMXWoJDxAwrhdrsZSg0AfTPkMPJbMiRsTO5iOrIs2L0mU4Tq0mvzh+ilNGERJul4oSEe2ABw==" length="18719853"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.14</title>
       <sparkle:version>14</sparkle:version>
       <sparkle:shortVersionString>0.14</sparkle:shortVersionString>
