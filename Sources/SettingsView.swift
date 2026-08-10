@@ -33,9 +33,21 @@ private struct GeneralSettings: View {
                 .pickerStyle(.segmented)
             }
 
-            Section {
+            Section("Meetings") {
                 Toggle("Offer to record when a meeting starts", isOn: $settings.suggestRecording)
-                Text("When Zoom, Teams, or Webex comes to the front and you're not already recording, Seal shows a small prompt. Nothing records without your click.")
+                Text("When a call app — Zoom, Teams, or a Meet tab in your browser — starts using the microphone, Seal shows a small prompt. Watching for this needs no extra permission, and nothing records without your click.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Toggle("Start recording automatically", isOn: $settings.autoStartOnMeeting)
+                Text("Skip the prompt and start on your behalf when a meeting begins.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Toggle("Stop when the meeting ends", isOn: $settings.autoStopAfterMeeting)
+                Text("When every call app has let go of the microphone, Seal stops the recording and offers your notes. Recordings made outside a call are never touched.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
