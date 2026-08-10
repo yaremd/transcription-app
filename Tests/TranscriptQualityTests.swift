@@ -346,6 +346,100 @@ final class TranscriptQualityTests: XCTestCase {
         XCTAssertEqual(corrections, [NameCorrector.Correction(heard: "Demitra", name: "Dmytro", count: 2)])
     }
 
+    // MARK: - Organizations (2026-08-10 vendor-evaluation call)
+
+    /// Three of the organizations that call was about. Not one of them was
+    /// spelled right anywhere in the transcript.
+    private let orgs = ["Aramco", "CloudSufi", "HeyGen"]
+
+    /// Whisper does not only misspell an organization, it re-cuts it. An
+    /// unstressed leading vowel gets glued onto the article in front of it, so
+    /// "Aramco" arrives as two words.
+    func testAnOrganizationHeardAsSeveralWordsIsRejoined() {
+        XCTAssertEqual(
+            NameCorrector.corrected("In our case, a Ramco has been whitelisting the apps.", names: orgs),
+            "In our case, Aramco has been whitelisting the apps.")
+        XCTAssertEqual(
+            NameCorrector.corrected("it's me who's a vendor and I'll have an at Cloud Sophie", names: orgs),
+            "it's me who's a vendor and I'll have an at CloudSufi")
+    }
+
+    /// And the opposite cut: two words written down, heard as one.
+    func testAnOrganizationHeardAsOneWordIsSplitBack() {
+        XCTAssertEqual(
+            NameCorrector.corrected("Probably an organization like CloudSophie.", names: ["Cloud Sufi"]),
+            "Probably an organization like Cloud Sufi.")
+    }
+
+    /// A rejoined phrase keeps its possessive and everything around it.
+    func testARejoinedPhraseKeepsItsEnding() {
+        XCTAssertEqual(
+            NameCorrector.corrected("deployed inside a Ramco's network, without any problem.", names: orgs),
+            "deployed inside Aramco's network, without any problem.")
+    }
+
+    /// A soft g is heard as a j. "HeyGen" — the platform that whole call was
+    /// about — came out three different ways and never once right.
+    func testASoftGIsHeardAsAJ() {
+        for heard in ["Heijen", "Hagen", "Heijin"] {
+            XCTAssertEqual(NameCorrector.corrected(heard, names: orgs), "HeyGen",
+                           "\"\(heard)\" is how Whisper heard HeyGen")
+        }
+    }
+
+    /// "HeyGen" reduces to two consonants, and so do plenty of ordinary names.
+    /// Where the phonetic key is too short to separate them, the opening letter
+    /// has to agree — otherwise rostering it would rewrite every "John".
+    func testAShortSkeletonNeedsItsOpeningLetterToAgree() {
+        XCTAssertEqual(NameCorrector.corrected("John will confirm.", names: orgs), "John will confirm.")
+        XCTAssertEqual(NameCorrector.corrected("Jane and Gene", names: orgs), "Jane and Gene")
+    }
+
+    /// But the opening is compared as a sound, not a letter — "Caddy" is how
+    /// that call heard "Kadi", and c and k are one sound everywhere else here.
+    func testAShortSkeletonComparesTheOpeningAsASound() {
+        XCTAssertEqual(NameCorrector.corrected("if it's Caddy who's evaluating them", names: ["Kadi"]),
+                       "if it's Kadi who's evaluating them")
+    }
+
+    /// Which reopens an old risk: two consonants is a key ordinary nouns share.
+    /// The stoplist is what stops a rostered name eating them.
+    func testAShortNameDoesNotEatOrdinaryNouns() {
+        XCTAssertEqual(NameCorrector.corrected("Scan the QR Code and pick a Theme.", names: ["Kadi"]),
+                       "Scan the QR Code and pick a Theme.")
+    }
+
+    /// A phrase is read across single spaces only. Joining over a sentence end
+    /// or a line break would invent a phrase nobody said.
+    func testAPhraseIsNeverReadAcrossPunctuation() {
+        XCTAssertEqual(NameCorrector.corrected("Not a. Ramco problem.", names: orgs),
+                       "Not a. Ramco problem.")
+        XCTAssertEqual(NameCorrector.corrected("for a\nRamco employee", names: orgs),
+                       "for a\nRamco employee")
+    }
+
+    /// And a phrase still needs a proper noun somewhere in it — lower-case
+    /// prose is not eligible however well it sounds.
+    func testLowerCaseProseIsNeverReadAsAnOrganization() {
+        XCTAssertEqual(NameCorrector.corrected("a ramco spokesman said", names: orgs),
+                       "a ramco spokesman said")
+    }
+
+    /// The limits, recorded honestly: these four misses in the same transcript
+    /// are not phonetically close enough to reach, or are ordinary words. They
+    /// need a different mechanism, not a wider bar here — widening it is what
+    /// would start rewriting real speech.
+    func testOrganizationMissesThisCannotReachAreLeftAlone() {
+        XCTAssertEqual(NameCorrector.corrected("welcome to the residence", names: ["Resonance"]),
+                       "welcome to the residence", "an extra consonant is not a near miss")
+        XCTAssertEqual(NameCorrector.corrected("the sale team gave us the domain", names: ["SAIL"]),
+                       "the sale team gave us the domain", "an ordinary word is never renamed")
+        XCTAssertEqual(NameCorrector.corrected("the AI Center of Accent", names: ["AI Center of Excellence"]),
+                       "the AI Center of Accent", "a dropped syllable is not a near miss")
+        XCTAssertEqual(NameCorrector.corrected("before leave ends", names: ["LEAP"]),
+                       "before leave ends", "an ordinary word is never renamed")
+    }
+
     // MARK: - Near-silent stock fillers (2026-08-05 planning call)
 
     /// Four "You: Thank you." lines went into a transcript where the user had

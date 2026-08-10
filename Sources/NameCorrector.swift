@@ -15,10 +15,18 @@ import Foundation
 /// the text afterwards costs a string scan, cannot cost a line, and can be read
 /// and reversed by a person.
 ///
-/// Deliberately conservative: it only ever rewrites a capitalized word that is
-/// not already a name, not a common word, and phonetically identical to one the
-/// user actually wrote down. Everything it changes is reported so the diagnostic
-/// log can carry a record of it.
+/// Organizations and products are the same problem with a different shape:
+/// Whisper does not only misspell them, it re-cuts them into different words.
+/// "Aramco" arrives as "a Ramco", "CloudSufi" as "Cloud Sophie". So a match is
+/// made against a *window* of consecutive words rather than a single one, on
+/// their letters joined together — which also catches the reverse, a
+/// two-word entry heard as one. See `matches(window:name:)` for how the safety
+/// bar moves with the window.
+///
+/// Deliberately conservative throughout: it only ever rewrites text that is not
+/// already correct, is not ordinary prose, and is phonetically identical to
+/// something the user actually wrote down. Everything it changes is reported so
+/// the diagnostic log can carry a record of it.
 enum NameCorrector {
 
     /// One name repaired, and how often.
@@ -41,34 +49,39 @@ enum NameCorrector {
         let table = lookup(for: names)
         guard !table.isEmpty else { return (text, []) }
 
+        let (words, gaps, trailing) = split(text)
+        guard !words.isEmpty else { return (text, []) }
+
         var out = ""
         out.reserveCapacity(text.count)
-        var token = ""
         var found: [String: Correction] = [:]
+        var index = 0
 
-        func flushToken() {
-            guard !token.isEmpty else { return }
-            if let name = replacement(for: token, in: table) {
-                found[token, default: Correction(heard: token, name: name, count: 0)].count += 1
-                out += name
-            } else {
-                out += token
+        while index < words.count {
+            var span = min(maximumPhraseWords, words.count - index)
+            var matched = false
+
+            // Longest first: "a Ramco" has to be considered as a phrase before
+            // "Ramco" is considered on its own.
+            while span >= 1 {
+                if joinable(words: words, gaps: gaps, from: index, span: span),
+                   let hit = replacement(for: Array(words[index ..< index + span]), in: table) {
+                    out += gaps[index] + hit.text
+                    found[hit.heard, default: Correction(heard: hit.heard, name: hit.name, count: 0)].count += 1
+                    index += span
+                    matched = true
+                    break
+                }
+                span -= 1
             }
-            token = ""
+
+            if !matched {
+                out += gaps[index] + words[index]
+                index += 1
+            }
         }
 
-        for ch in text {
-            // Apostrophes stay inside a word ("Jatin's"), so the possessive
-            // does not split the name off from its ending and go uncorrected.
-            if ch.isLetter || ch == "'" || ch == "\u{2019}" {
-                token.append(ch)
-            } else {
-                flushToken()
-                out.append(ch)
-            }
-        }
-        flushToken()
-        return (out, found.values.sorted { $0.count > $1.count })
+        return (out + trailing, found.values.sorted { $0.count > $1.count })
     }
 
     /// Corrects a stored transcript, reporting the total repairs across it.
@@ -89,25 +102,66 @@ enum NameCorrector {
 
     // MARK: - Matching
 
-    /// Whether a transcript word should be rewritten as this name. The whole
-    /// safety argument lives here; `skeleton` only says they sound alike.
+    /// Whether a transcript word should be rewritten as this name.
     static func matches(heard: String, name: String) -> Bool {
-        let word = heard.filter { $0.isLetter }
+        matches(window: [heard], name: name)
+    }
+
+    /// Whether this run of consecutive transcript words should be rewritten as
+    /// this name. The whole safety argument lives here; `skeleton` only says
+    /// they sound alike.
+    ///
+    /// The bar moves with the window because the evidence does. One word
+    /// reduced to two or three consonants finds company everywhere, so it has
+    /// to be capitalized and off the stoplist to be eligible at all. A phrase
+    /// carries a far longer key that chance does not reproduce, so it is enough
+    /// that *some* word in it is capitalized and that the phrase is not built
+    /// entirely from ordinary words — which is what lets "a Ramco" reach
+    /// "Aramco" without lower-case prose becoming eligible along with it.
+    static func matches(window: [String], name: String) -> Bool {
+        let words = window.map { $0.filter { $0.isLetter } }
+        guard !words.isEmpty, words.allSatisfy({ !$0.isEmpty }) else { return false }
+        let word = words.joined()
         let target = name.filter { $0.isLetter }
-        // Already right, or the user wrote something we cannot reason about
-        // phonetically (a Cyrillic name, an acronym with digits).
-        guard word.lowercased() != target.lowercased(),
-              isLatinAlphabetic(word), isLatinAlphabetic(target) else { return false }
-        // Whisper capitalizes the names it invents. Requiring that is what
-        // keeps this away from ordinary prose, where a two-consonant skeleton
+
+        // Already right — compared as it reads, so re-cut spacing ("a Ramco")
+        // still counts as wrong even though the letters alone agree.
+        guard window.joined(separator: " ").caseInsensitiveCompare(name) != .orderedSame else { return false }
+        // Or the user wrote something we cannot reason about phonetically (a
+        // Cyrillic name, an acronym with digits).
+        guard isLatinAlphabetic(word), isLatinAlphabetic(target) else { return false }
+
+        // Whisper capitalizes the proper nouns it invents. Requiring that is
+        // what keeps this away from ordinary prose, where a short skeleton
         // would otherwise have plenty of company.
-        guard word.first?.isUppercase == true else { return false }
-        // Short words carry too little signal, and a word people actually use
-        // is never silently renamed however well it matches.
-        guard word.count >= minimumWordLength, target.count >= minimumWordLength,
-              !commonWords.contains(word.lowercased()) else { return false }
+        guard words.contains(where: { $0.first?.isUppercase == true }) else { return false }
+
+        // A word people actually use is never silently renamed however well it
+        // matches. Across a phrase the test is that they are not *all* ordinary
+        // — "a Ramco" is reachable, "and the" is not.
+        if words.count == 1 {
+            guard !commonWords.contains(word.lowercased()) else { return false }
+        } else {
+            guard !words.allSatisfy({ commonWords.contains($0.lowercased()) }) else { return false }
+        }
+
+        // Short text carries too little signal to match on.
+        guard word.count >= minimumWordLength, target.count >= minimumWordLength else { return false }
+
         let a = skeleton(word)
         guard a.count >= 2, a == skeleton(target) else { return false }
+
+        // Two consonants is the shortest key this allows, and it is short
+        // enough to collide with ordinary proper nouns: "John" and "HeyGen"
+        // both reduce to "jn", because the `h` this drops is the very letter
+        // they differ on. Where the key cannot separate them, make the opening
+        // do it — Whisper keeps a word's first sound even when it loses
+        // everything after it. Compared as a sound, not a letter, so "Caddy"
+        // can still reach "Kadi".
+        if a.count == 2 {
+            guard openingSound(word) == openingSound(target) else { return false }
+        }
+
         // A name is misheard, not replaced wholesale: "Adi" must never absorb
         // "Adityu", which is a different (longer) name entirely.
         return abs(word.count - target.count) <= max(2, target.count / 2)
@@ -147,7 +201,58 @@ enum NameCorrector {
         return key
     }
 
+    /// The sound a word opens on — the same folding `skeleton` applies, but to
+    /// the first letter alone. A vowel start answers "0", as it does there.
+    private static func openingSound(_ word: String) -> String {
+        let letters = word.lowercased().filter { $0.isLetter }
+        guard let first = letters.first else { return "" }
+        if vowels.contains(first) { return "0" }
+        if letters.count >= 2, let sound = digraphs[String(letters.prefix(2))] { return sound }
+        return singles[first] ?? String(first)
+    }
+
     // MARK: - Internals
+
+    /// Text broken into its words and everything between them, so the parts
+    /// that do not match can be put back exactly as they were.
+    ///
+    /// `gaps[i]` is the text immediately before `words[i]`; `trailing` is what
+    /// follows the last word. Apostrophes stay inside a word ("Jatin's"), so
+    /// the possessive does not split the name off from its ending and go
+    /// uncorrected.
+    private static func split(_ text: String) -> (words: [String], gaps: [String], trailing: String) {
+        var words: [String] = []
+        var gaps: [String] = []
+        var word = ""
+        var gap = ""
+
+        for ch in text {
+            if ch.isLetter || ch == "'" || ch == "\u{2019}" {
+                if word.isEmpty {
+                    gaps.append(gap)
+                    gap = ""
+                }
+                word.append(ch)
+            } else {
+                if !word.isEmpty {
+                    words.append(word)
+                    word = ""
+                }
+                gap.append(ch)
+            }
+        }
+        if !word.isEmpty { words.append(word) }
+        return (words, gaps, gap)
+    }
+
+    /// Whether these words sit close enough together to be read as one phrase.
+    /// A single space only: a name is never spelled across a comma, a line
+    /// break or a sentence end, and joining over one would invent a phrase
+    /// nobody said.
+    private static func joinable(words: [String], gaps: [String], from index: Int, span: Int) -> Bool {
+        guard span > 1 else { return true }
+        return (1 ..< span).allSatisfy { gaps[index + $0] == " " }
+    }
 
     private static func lookup(for names: [String]) -> [String: [String]] {
         var table: [String: [String]] = [:]
@@ -162,20 +267,29 @@ enum NameCorrector {
         return table
     }
 
-    /// The name to use in place of this word, if any. When two vocabulary
-    /// entries sound the same we decline rather than guess.
-    private static func replacement(for token: String, in table: [String: [String]]) -> String? {
-        // The name is the leading run of letters; anything after it is a
-        // possessive or contraction and comes along unchanged. Matching has to
-        // happen on the stem alone — folding "Jathan's" down to "Jathans"
-        // gives it a trailing consonant the real name does not have, and it
-        // stops sounding like "Jatin" at all.
-        let stem = String(token.prefix { $0.isLetter })
-        let tail = token.drop { $0.isLetter }
-        guard let candidates = table[skeleton(stem)] else { return nil }
-        let usable = candidates.filter { matches(heard: stem, name: $0) }
+    /// The name to use in place of this run of words, if any. When two
+    /// vocabulary entries sound the same we decline rather than guess.
+    private static func replacement(
+        for window: [String], in table: [String: [String]]
+    ) -> (text: String, heard: String, name: String)? {
+        guard let last = window.last else { return nil }
+        // Only the final word may carry a possessive or contraction; an
+        // apostrophe anywhere earlier means this is not one phrase.
+        guard window.dropLast().allSatisfy({ $0.allSatisfy(\.isLetter) }) else { return nil }
+
+        // The name is the leading run of letters; anything after it comes along
+        // unchanged. Matching has to happen on the stem alone — folding
+        // "Jathan's" down to "Jathans" gives it a trailing consonant the real
+        // name does not have, and it stops sounding like "Jatin" at all.
+        let stem = String(last.prefix { $0.isLetter })
+        let tail = last.drop { $0.isLetter }
+        guard !stem.isEmpty else { return nil }
+
+        let phrase = Array(window.dropLast()) + [stem]
+        guard let candidates = table[skeleton(phrase.joined())] else { return nil }
+        let usable = candidates.filter { matches(window: phrase, name: $0) }
         guard usable.count == 1, let name = usable.first else { return nil }
-        return name + tail
+        return (name + tail, window.joined(separator: " "), name)
     }
 
     private static func isLatinAlphabetic(_ s: String) -> Bool {
@@ -187,6 +301,11 @@ enum NameCorrector {
     /// Below this a word is more likely to collide than to match.
     static let minimumWordLength = 3
 
+    /// How many consecutive words may be read as one name. Four covers the
+    /// organizations people actually write down ("AI Center of Excellence")
+    /// and the articles Whisper glues onto them.
+    static let maximumPhraseWords = 4
+
     private static let vowels: Set<Character> = ["a", "e", "i", "o", "u", "y"]
 
     /// Two letters, one sound.
@@ -196,10 +315,14 @@ enum NameCorrector {
     ]
 
     /// Letters that sound like other letters. Kept short on purpose — every
-    /// entry merges two sounds into one and widens what can collide. `g` is
-    /// deliberately not folded into `k` for that reason.
+    /// entry merges two sounds into one and widens what can collide.
+    ///
+    /// `g` folds into `j`, not `k`: a soft g is what Whisper actually
+    /// substitutes ("HeyGen" -> "Heijen", "Hagen"), while hearing it as a hard
+    /// k is not a mistake it makes. Merging the two would put "Greg" and
+    /// "Craig" in one bucket for no gain.
     private static let singles: [Character: String] = [
-        "c": "k", "q": "k", "x": "ks", "z": "s", "w": "v",
+        "c": "k", "q": "k", "x": "ks", "z": "s", "w": "v", "g": "j",
     ]
 
     /// Words this never renames, however well they match — the capitalized
@@ -221,6 +344,11 @@ enum NameCorrector {
         "actually", "basically", "maybe", "because", "since", "while", "until",
         "sir", "please", "again", "about", "above", "below", "between", "through",
         "team", "call", "meeting", "week", "day", "time", "part", "thing", "things",
+        // Short nouns that turn up capitalized in meeting prose and reduce to
+        // the same two consonants as a real name — "QR Code" must not become
+        // "QR Kadi". A name that collides with one of these stays uncorrected,
+        // which is the trade this file makes everywhere.
+        "code", "data", "date", "site", "page", "user", "note", "list", "mode",
         "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
         "january", "february", "march", "april", "june", "july", "august",
         "september", "october", "november", "december",
