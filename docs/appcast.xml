@@ -13,6 +13,36 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 0.16</title>
+      <sparkle:version>16</sparkle:version>
+      <sparkle:shortVersionString>0.16</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Mon, 10 Aug 2026 09:19:02 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Company names that survive being misheard</h3>
+        <ul>
+          <li>Whisper does not only misspell a company it has never heard of —
+          it cuts it into different words. "Aramco" arrives as "a Ramco",
+          "CloudSufi" as "Cloud Sophie", and a correction that reads one word at
+          a time can reach neither. Names in your vocabulary are now matched
+          across several words at once, so they come back whole however they
+          were cut — and the same works in reverse, when two words you wrote
+          down are heard as one.</li>
+          <li>A soft g is heard as a j, which is how one platform came out as
+          "Heijen", "Hagen" and "Heijin" across a single call and never once as
+          "HeyGen". That corrects now too.</li>
+          <li>As before, this only fixes names you have added in
+          <b>Settings → Vocabulary</b>. It stays quiet when it isn't sure, and
+          it will not rename an ordinary word — "QR Code" stays "QR Code" even
+          alongside a name that sounds like it.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.16/Seal.dmg"
+        sparkle:edSignature="Mfk2O1uiqqH0ixnk3h0DYbVHxadTT59QseSY9OLtjn1yfnC5dNL2GwAZLynX1Y8pmz07VT5SRCVWRd0RXmTOBg==" length="18812682"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.15</title>
       <sparkle:version>15</sparkle:version>
       <sparkle:shortVersionString>0.15</sparkle:shortVersionString>
