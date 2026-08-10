@@ -38,8 +38,15 @@ final class AppSettings: ObservableObject {
     @Published var keepAudio: Bool { didSet { d.set(keepAudio, forKey: "keepAudio") } }
 
     @Published var appearance: AppAppearance { didSet { d.set(appearance.rawValue, forKey: "appearance"); appearance.apply() } }
-    /// Offer to record when a call app comes to the front. On by default.
+    /// Offer to record when a call app starts using the microphone. On by default.
     @Published var suggestRecording: Bool { didSet { d.set(suggestRecording, forKey: "suggestRecording") } }
+    /// Start recording on that signal without asking. Off by default, and
+    /// deliberately so: "Seal never records without you saying so" should stay
+    /// true unless the user explicitly trades it away here.
+    @Published var autoStartOnMeeting: Bool { didSet { d.set(autoStartOnMeeting, forKey: "autoStartOnMeeting") } }
+    /// When a recording overlapped a call and every call app has let go of the
+    /// microphone, stop on their behalf. On by default.
+    @Published var autoStopAfterMeeting: Bool { didSet { d.set(autoStopAfterMeeting, forKey: "autoStopAfterMeeting") } }
 
     private let d = UserDefaults.standard
     private static let apiKeyAccount = "cloudAPIKey"
@@ -52,6 +59,8 @@ final class AppSettings: ObservableObject {
         keepAudio = d.object(forKey: "keepAudio") == nil ? true : d.bool(forKey: "keepAudio")
         appearance = AppAppearance(rawValue: d.string(forKey: "appearance") ?? "") ?? .system
         suggestRecording = d.object(forKey: "suggestRecording") == nil ? true : d.bool(forKey: "suggestRecording")
+        autoStartOnMeeting = d.bool(forKey: "autoStartOnMeeting")
+        autoStopAfterMeeting = d.object(forKey: "autoStopAfterMeeting") == nil ? true : d.bool(forKey: "autoStopAfterMeeting")
 
         // The API key lives in the macOS Keychain, not UserDefaults. Migrate any
         // legacy plaintext key an earlier build may have stored in UserDefaults.
