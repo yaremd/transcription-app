@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// The one network seam in licensing. Exactly two user-initiated moments may
 /// touch it: activating a key, and re-validating after buying a renewal.
@@ -16,6 +17,8 @@ enum LicenseError: LocalizedError, Equatable {
     case activationLimitReached
     case offline
     case storefrontNotLive
+    /// The store rejected the request and said why — surface its words.
+    case rejected(String)
 
     var errorDescription: String? {
         switch self {
@@ -27,63 +30,62 @@ enum LicenseError: LocalizedError, Equatable {
             return "Couldn't reach the license server. Try again when you're online — your notes are unaffected."
         case .storefrontNotLive:
             return "Purchasing opens with v1.0 — this build can't activate keys yet."
+        case .rejected(let message):
+            return message
         }
     }
 }
 
-/// Everything that identifies OUR storefront on Polar. One paste fills this
-/// in when the org exists (YAR-95): the organization ID, plus the license-key
-/// benefit ID of each product — the activation response's `benefit_id` is how
-/// the app tells a $149 Lifetime key from a $49/$59 Pro key. None of these
-/// are secrets; Polar's customer-portal endpoints are deliberately public.
+/// Everything that identifies OUR storefront on Freemius. One paste fills
+/// this in when the store exists (YAR-95): the numeric product ID plus the
+/// two checkout links. Tier needs no configuration — it's read from the
+/// license's plan name (a plan named "…lifetime…" is the Lifetime tier).
+/// None of these are secrets; Freemius's activation endpoints are
+/// deliberately public, designed for desktop apps.
 enum SealStore {
-    static let organizationID = "9d41c882-71c8-4f8e-a290-13c5e0e142b7"
-    static let proBenefitID = ""
-    static let lifetimeBenefitID = ""
-    /// Direct checkout links, once the products exist. Until then the Buy
+    static let freemiusProductID = ""
+    /// Direct checkout links, once the plans exist. Until then the Buy
     /// buttons fall back to the website's pricing section.
     static let checkoutPro: URL? = nil
     static let checkoutLifetime: URL? = nil
 
-    static var isLive: Bool { !organizationID.isEmpty }
+    static var isLive: Bool { !freemiusProductID.isEmpty }
 }
 
-/// Polar.sh license activation (YAR-95). Polar is the merchant of record;
-/// its License Key API gives us activate / validate / deactivate with an
-/// activation limit per key. One activation call at purchase time, then the
-/// app never phones home again.
+/// Freemius license activation (YAR-95). Freemius is the merchant of record;
+/// its licensing API gives us activate / deactivate with a per-license
+/// activation quota. One activation call at purchase time, then the app
+/// never phones home again.
 ///
 /// Until `SealStore` is filled in, every call fails fast with
 /// `.storefrontNotLive` so the UI stays honest.
-struct PolarLicenseClient: LicenseActivating {
-
-    private let api = URL(string: "https://api.polar.sh/v1/customer-portal/license-keys")!
+struct FreemiusLicenseClient: LicenseActivating {
     private let session: URLSession
 
     init(session: URLSession = .shared) {
         self.session = session
     }
 
+    private var base: URL {
+        URL(string: "https://api.freemius.com/v1/products/\(SealStore.freemiusProductID)")!
+    }
+
     func activate(key: String) async throws -> LicenseRecord {
         guard SealStore.isLive else { throw LicenseError.storefrontNotLive }
 
-        var request = URLRequest(url: api.appendingPathComponent("activate"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "key": key.trimmingCharacters(in: .whitespacesAndNewlines),
-            "organization_id": SealStore.organizationID,
-            "label": Host.current().localizedName ?? "Mac",
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        let (data, response) = try await send(path: "licenses/activate.json", query: [
+            "license_key": trimmed,
+            "uid": Self.machineUID(),
+            "title": Host.current().localizedName ?? "Mac",
         ])
-
-        let (data, response) = try await send(request)
         switch (response as? HTTPURLResponse)?.statusCode ?? 0 {
         case 200, 201:
-            return try Self.record(fromActivation: data, key: key)
-        case 403:
-            throw LicenseError.activationLimitReached
-        case 404, 422:
+            return try Self.record(fromActivation: data, key: trimmed)
+        case 404:
             throw LicenseError.invalidKey
+        case 400...499:
+            throw Self.rejection(from: data) ?? .invalidKey
         default:
             throw LicenseError.offline
         }
@@ -91,19 +93,27 @@ struct PolarLicenseClient: LicenseActivating {
 
     func deactivate(_ record: LicenseRecord) async throws {
         guard SealStore.isLive else { throw LicenseError.storefrontNotLive }
-
-        var request = URLRequest(url: api.appendingPathComponent("deactivate"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "key": record.key,
-            "organization_id": SealStore.organizationID,
-            "activation_id": record.activationID,
+        let (data, response) = try await send(path: "licenses/deactivate.json", query: [
+            "license_key": record.key,
+            "uid": Self.machineUID(),
+            "install_id": record.activationID,
         ])
-        _ = try await send(request)
+        switch (response as? HTTPURLResponse)?.statusCode ?? 0 {
+        case 200...299:
+            return
+        case 400...499:
+            throw Self.rejection(from: data) ?? .invalidKey
+        default:
+            throw LicenseError.offline
+        }
     }
 
-    private func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
+    private func send(path: String, query: [String: String]) async throws -> (Data, URLResponse) {
+        var components = URLComponents(url: base.appendingPathComponent(path),
+                                       resolvingAgainstBaseURL: false)!
+        components.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "POST"
         do {
             return try await session.data(for: request)
         } catch {
@@ -111,54 +121,92 @@ struct PolarLicenseClient: LicenseActivating {
         }
     }
 
-    /// Maps Polar's activation response onto our local record. The response
-    /// is `{id: <activation id>, license_key: {benefit_id, created_at, …}}`;
-    /// the benefit ID names the product tier. An unknown benefit falls back
-    /// to Pro with a log — a config mistake must never brick a paid key.
-    /// Updates-through is purchase + 12 months for Pro, open-ended for
-    /// Lifetime.
-    static func record(fromActivation data: Data, key: String,
-                       lifetimeBenefitID: String = SealStore.lifetimeBenefitID) throws -> LicenseRecord {
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let id = json["id"] as? String else {
+    // MARK: - Response mapping
+
+    /// Maps Freemius's activation response onto our local record. The
+    /// response carries `install_id` (this Mac's activation), the license's
+    /// plan name, and license details. Tier: a plan whose name contains
+    /// "lifetime" is the Lifetime tier; anything else is Pro — a store
+    /// misconfiguration must never brick a paid key, so unknown maps to Pro
+    /// with a one-year window from the license's own purchase date.
+    /// Parsed tolerantly: field names verified against the live store in the
+    /// end-to-end purchase test before launch.
+    static func record(fromActivation data: Data, key: String) throws -> LicenseRecord {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw LicenseError.invalidKey
         }
-        let licenseKey = json["license_key"] as? [String: Any]
-        let benefitID = licenseKey?["benefit_id"] as? String
+        let installID = (json["install_id"] as? NSNumber)?.stringValue
+            ?? json["install_id"] as? String
+            ?? (json["id"] as? NSNumber)?.stringValue
+            ?? json["id"] as? String
+        guard let installID else { throw LicenseError.invalidKey }
 
-        let tier: LicenseRecord.Tier
-        if let benefitID, !lifetimeBenefitID.isEmpty, benefitID == lifetimeBenefitID {
-            tier = .lifetime
-        } else {
-            if let benefitID, !SealStore.proBenefitID.isEmpty, benefitID != SealStore.proBenefitID {
-                NSLog("LicenseClient: unrecognized benefit \(benefitID) — treating as Pro")
-            }
-            tier = .pro
-        }
+        let license = json["license"] as? [String: Any]
+        let planName = (json["license_plan_name"] as? String
+            ?? json["plan_name"] as? String
+            ?? license?["plan_name"] as? String ?? "").lowercased()
+        let tier: LicenseRecord.Tier = planName.contains("lifetime") ? .lifetime : .pro
 
-        let purchased: Date
-        if let created = licenseKey?["created_at"] as? String,
-           let date = ISO8601DateFormatter().date(from: created)
-               ?? parseFractionalISO8601(created) {
-            purchased = date
-        } else {
-            purchased = Date()
-        }
+        // The license's own creation date is the purchase moment — activation
+        // date would wrongly restart the update window on a re-activation
+        // years later.
+        let created = license?["created"] as? String ?? json["license_created"] as? String
+        let purchased = created.flatMap(parseFreemiusDate) ?? Date()
 
         return LicenseRecord(
-            key: key.trimmingCharacters(in: .whitespacesAndNewlines),
-            activationID: id,
+            key: key,
+            activationID: installID,
             tier: tier,
             purchased: purchased,
             updatesThrough: tier == .lifetime ? nil
                 : Calendar.current.date(byAdding: .year, value: 1, to: purchased))
     }
 
-    /// Polar timestamps may carry fractional seconds, which the plain
-    /// ISO8601DateFormatter rejects.
-    private static func parseFractionalISO8601(_ string: String) -> Date? {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    /// Freemius dates are "Y-m-d H:i:s" in UTC.
+    static func parseFreemiusDate(_ string: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         return formatter.date(from: string)
+    }
+
+    /// Pulls the store's own error message out of a 4xx body, mapping the
+    /// activation-quota case onto our dedicated error.
+    static func rejection(from data: Data) -> LicenseError? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let error = json["error"] as? [String: Any],
+              let message = error["message"] as? String, !message.isEmpty else { return nil }
+        if message.lowercased().contains("activation") || message.lowercased().contains("maximum") {
+            return .activationLimitReached
+        }
+        return .rejected(message)
+    }
+
+    // MARK: - Machine identity
+
+    /// Freemius wants a stable 32-character per-machine id so the activation
+    /// quota can tell Macs apart. The hardware UUID never leaves the Mac
+    /// readable — it's MD5-hashed (as an identifier, not a secret) into
+    /// exactly 32 hex characters. Falls back to a random, persisted id if
+    /// the hardware UUID is unavailable.
+    static func machineUID() -> String {
+        let data: Data
+        var ts = timespec(tv_sec: 1, tv_nsec: 0)
+        var id = uuid_t(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        let ok = withUnsafeMutablePointer(to: &id) { pointer in
+            pointer.withMemoryRebound(to: UInt8.self, capacity: 16) { gethostuuid($0, &ts) == 0 }
+        }
+        if ok {
+            data = withUnsafeBytes(of: id) { Data($0) }
+        } else if let stored = UserDefaults.standard.string(forKey: "machineUID"),
+                  let storedData = stored.data(using: .utf8) {
+            data = storedData
+        } else {
+            let random = UUID().uuidString
+            UserDefaults.standard.set(random, forKey: "machineUID")
+            data = Data(random.utf8)
+        }
+        return Insecure.MD5.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 }

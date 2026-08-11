@@ -15,7 +15,7 @@ struct UpgradeSheet: View {
     @State private var activating = false
     @State private var activationError: String?
 
-    private let client: LicenseActivating = PolarLicenseClient()
+    private let client: LicenseActivating = FreemiusLicenseClient()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
