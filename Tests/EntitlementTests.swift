@@ -232,6 +232,13 @@ final class EntitlementTests: XCTestCase {
     }
 
     func testFreemiusRejectionMapping() {
+        // The live API's actual invalid-key shape (verified 2026-08-11).
+        let invalid = """
+        {"error": {"type": "InvalidArgument", "message": "Invalid license key.",
+         "code": "invalid_license_key", "http": 400}}
+        """
+        XCTAssertEqual(FreemiusLicenseClient.rejection(from: Data(invalid.utf8)), .invalidKey)
+
         let quota = """
         {"error": {"message": "Maximum number of activations reached."}}
         """

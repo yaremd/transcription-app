@@ -171,13 +171,18 @@ struct FreemiusLicenseClient: LicenseActivating {
         return formatter.date(from: string)
     }
 
-    /// Pulls the store's own error message out of a 4xx body, mapping the
-    /// activation-quota case onto our dedicated error.
+    /// Pulls the store's own error out of a 4xx body. Freemius errors look
+    /// like `{"error": {"code": "invalid_license_key", "message": "…"}}`
+    /// (verified against the live API) — the code maps known cases onto our
+    /// friendlier copy; anything else surfaces the store's own words.
     static func rejection(from data: Data) -> LicenseError? {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let error = json["error"] as? [String: Any],
               let message = error["message"] as? String, !message.isEmpty else { return nil }
-        if message.lowercased().contains("activation") || message.lowercased().contains("maximum") {
+        let code = (error["code"] as? String ?? "").lowercased()
+        if code == "invalid_license_key" { return .invalidKey }
+        if code.contains("activation") || message.lowercased().contains("activation")
+            || message.lowercased().contains("maximum") {
             return .activationLimitReached
         }
         return .rejected(message)
