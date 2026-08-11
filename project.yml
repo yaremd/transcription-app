@@ -66,7 +66,8 @@ targets:
           NSAllowsLocalNetworking: true
         # Sparkle auto-update. The appcast lives on GitHub Pages behind the
         # sealformac.com custom domain; the old yaremd.github.io URL
-        # 301-redirects there, so builds shipped before v0.18 keep updating.
+        # 301-redirects there, so builds that shipped with the old URL
+        # (v0.18 and earlier) keep updating.
         SUFeedURL: "https://sealformac.com/appcast.xml"
         SUPublicEDKey: "C4hPB3oc/f+P3F6YEGgmdi7ay++/H5HpggNdv5cI50M="
         SUEnableAutomaticChecks: true

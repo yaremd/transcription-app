@@ -53,7 +53,7 @@ These let Seal verify that an update really came from you.
 The repo URLs are set to `github.com/yaremd/transcription-app`:
 - `SUFeedURL` → `https://sealformac.com/appcast.xml` (the old
   `yaremd.github.io/transcription-app/` URL 301-redirects there, so builds
-  shipped before v0.18 keep updating)
+  that shipped with the old URL — v0.18 and earlier — keep updating)
 - the download links in `docs/index.html` and `docs/appcast.xml` → the repo's release assets
 
 All placeholders are now filled — `SUPublicEDKey` is set to your Sparkle public key.
