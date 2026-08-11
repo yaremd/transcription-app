@@ -13,6 +13,35 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 0.17</title>
+      <sparkle:version>17</sparkle:version>
+      <sparkle:shortVersionString>0.17</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Tue, 11 Aug 2026 13:16:18 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Seal notices when your meeting starts — and when it ends</h3>
+        <ul>
+          <li>When a call app starts using your microphone — Zoom, Teams,
+          Webex, FaceTime, Slack, Discord, or a Meet tab in Chrome, Safari,
+          Arc, Dia, Edge, Brave, or Firefox — a small card floats in:
+          "Record it with Seal?" One click and the meeting is being recorded.
+          Watching for this needs no new permissions, and the signal never
+          leaves your Mac.</li>
+          <li>By default Seal still never records without your click. If you
+          want it to start on its own, there's a new toggle in Settings —
+          off until you turn it on.</li>
+          <li>When every call app has let go of the microphone, Seal stops
+          the recording on its own, saves the meeting, and offers your notes.
+          A drop-and-rejoin doesn't end the meeting, and recordings made
+          outside any call are never touched.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.17/Seal.dmg"
+        sparkle:edSignature="+UwJGrFirFio3hfqYudsNZ5GKgpCmHHmHjL4JSMf9m5DzuiGSVmBpyd0SPNHDQA+iX9WjlQDln6ShbSYTpIICg==" length="18822714"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.16</title>
       <sparkle:version>16</sparkle:version>
       <sparkle:shortVersionString>0.16</sparkle:shortVersionString>
