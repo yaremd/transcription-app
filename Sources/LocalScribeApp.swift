@@ -14,7 +14,10 @@ struct LocalScribeApp: App {
     @StateObject private var entitlements: EntitlementService
 
     /// Sparkle auto-updater: checks the appcast and installs signed updates.
+    /// The policy delegate enforces the perpetual license's update window —
+    /// Sparkle holds delegates weakly, so the App must retain it here.
     private let updaterController: SPUStandardUpdaterController
+    private let updatePolicy: UpdatePolicy
     @StateObject private var updaterViewModel: CheckForUpdatesViewModel
 
     /// True when the test runner launched this process. The app hosts the unit
@@ -27,8 +30,13 @@ struct LocalScribeApp: App {
     }
 
     init() {
+        // Entitlements come first: the update policy consults them, and the
+        // updater may check the appcast as soon as it starts.
+        let entitlements = EntitlementService()
+        let updatePolicy = UpdatePolicy(entitlements: entitlements)
+        self.updatePolicy = updatePolicy
         let updaterController = SPUStandardUpdaterController(
-            startingUpdater: !Self.isRunningTests, updaterDelegate: nil, userDriverDelegate: nil)
+            startingUpdater: !Self.isRunningTests, updaterDelegate: updatePolicy, userDriverDelegate: nil)
         self.updaterController = updaterController
         _updaterViewModel = StateObject(wrappedValue: CheckForUpdatesViewModel(updater: updaterController.updater))
 
@@ -41,7 +49,7 @@ struct LocalScribeApp: App {
         _settings = StateObject(wrappedValue: settings)
         _monitor = StateObject(wrappedValue: monitor)
         _pill = StateObject(wrappedValue: FloatingPillController(monitor: monitor))
-        _entitlements = StateObject(wrappedValue: EntitlementService())
+        _entitlements = StateObject(wrappedValue: entitlements)
         _detector = StateObject(wrappedValue: MeetingDetector(monitor: monitor, settings: settings, openApp: {
             NSApp.activate(ignoringOtherApps: true)
             NSApp.windows.first { $0.canBecomeMain && !($0 is NSPanel) }?.makeKeyAndOrderFront(nil)
@@ -84,7 +92,7 @@ struct LocalScribeApp: App {
         }
 
         MenuBarExtra("Seal", systemImage: monitor.isRunning ? "record.circle" : "mic") {
-            MenuBarView(monitor: monitor)
+            MenuBarView(monitor: monitor, entitlements: entitlements)
         }
 
         Settings {

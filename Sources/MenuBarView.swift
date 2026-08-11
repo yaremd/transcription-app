@@ -7,6 +7,7 @@ import AppKit
 /// menus are glanced at, not watched.
 struct MenuBarView: View {
     @ObservedObject var monitor: AudioMonitor
+    @ObservedObject var entitlements: EntitlementService
 
     var body: some View {
         if monitor.isRunning {
@@ -34,6 +35,20 @@ struct MenuBarView: View {
 
         Button("Quit Seal") {
             NSApp.terminate(nil)
+        }
+
+        // The quiet owner's mark (YAR-98): licensed installs see what they
+        // have; free installs see nothing here — the menu bar never sells.
+        if proTag != nil {
+            Divider()
+            Text(proTag!)
+        }
+    }
+
+    private var proTag: String? {
+        switch entitlements.entitlement {
+        case .pro, .lifetime: return "Seal Pro"
+        case .free, .trial: return nil
         }
     }
 
