@@ -43,7 +43,7 @@ enum LicenseError: LocalizedError, Equatable {
 /// None of these are secrets; Freemius's activation endpoints are
 /// deliberately public, designed for desktop apps.
 enum SealStore {
-    static let freemiusProductID = ""
+    static let freemiusProductID = "21938"
     /// Direct checkout links, once the plans exist. Until then the Buy
     /// buttons fall back to the website's pricing section.
     static let checkoutPro: URL? = nil
