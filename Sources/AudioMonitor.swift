@@ -465,6 +465,10 @@ final class AudioMonitor: ObservableObject {
         let meetingID = currentMeetingID
         guard settings.keepAudio,
               transcript.contains(where: { $0.speaker == speakerOthers }) else { return }
+        // Speaker identification is on the Pro side of the line (during the
+        // trial it's on for everyone). The manual button carries the same
+        // gate, plus the upgrade sheet.
+        guard EntitlementService.shared?.allows(.speakerSplit) == true else { return }
         let diag = diagnosticsLog
         Task { @MainActor [weak self] in
             guard let self else { return }

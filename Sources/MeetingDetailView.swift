@@ -508,10 +508,14 @@ struct MeetingDetailView: View {
                 Spacer()
                 if store.existingAudioURLs(for: meeting.id).system != nil,
                    meeting.lines.contains(where: { $0.speaker == "Others" }) {
-                    Button("Identify speakers", action: identifySpeakers)
-                        .buttonStyle(.linearQuietCompact)
-                        .disabled(store.identifyingSpeakers.contains(meeting.id))
-                        .help("Tell the far side's voices apart in the saved call audio, so each line says who spoke")
+                    HStack(spacing: 5) {
+                        Button("Identify speakers", action: identifySpeakers)
+                            .buttonStyle(.linearQuietCompact)
+                            .disabled(store.identifyingSpeakers.contains(meeting.id))
+                            .help("Tell the far side's voices apart in the saved call audio, so each line says who spoke")
+                        ProBadge()
+                    }
+                    .proGated(.speakerSplit)
                 }
                 if store.hasAudio(for: meeting.id) {
                     HStack(spacing: 5) {
