@@ -31,16 +31,31 @@ enum LicenseError: LocalizedError, Equatable {
     }
 }
 
+/// Everything that identifies OUR storefront on Polar. One paste fills this
+/// in when the org exists (YAR-95): the organization ID, plus the license-key
+/// benefit ID of each product — the activation response's `benefit_id` is how
+/// the app tells a $149 Lifetime key from a $49/$59 Pro key. None of these
+/// are secrets; Polar's customer-portal endpoints are deliberately public.
+enum SealStore {
+    static let organizationID = ""
+    static let proBenefitID = ""
+    static let lifetimeBenefitID = ""
+    /// Direct checkout links, once the products exist. Until then the Buy
+    /// buttons fall back to the website's pricing section.
+    static let checkoutPro: URL? = nil
+    static let checkoutLifetime: URL? = nil
+
+    static var isLive: Bool { !organizationID.isEmpty }
+}
+
 /// Polar.sh license activation (YAR-95). Polar is the merchant of record;
 /// its License Key API gives us activate / validate / deactivate with an
 /// activation limit per key. One activation call at purchase time, then the
 /// app never phones home again.
 ///
-/// `organizationID` is empty until the Polar organization exists; until then
-/// every call fails fast with `.storefrontNotLive` so the UI stays honest.
+/// Until `SealStore` is filled in, every call fails fast with
+/// `.storefrontNotLive` so the UI stays honest.
 struct PolarLicenseClient: LicenseActivating {
-    /// Fill in when the Polar org is created (see YAR-95 setup steps).
-    static let organizationID = ""
 
     private let api = URL(string: "https://api.polar.sh/v1/customer-portal/license-keys")!
     private let session: URLSession
@@ -50,14 +65,14 @@ struct PolarLicenseClient: LicenseActivating {
     }
 
     func activate(key: String) async throws -> LicenseRecord {
-        guard !Self.organizationID.isEmpty else { throw LicenseError.storefrontNotLive }
+        guard SealStore.isLive else { throw LicenseError.storefrontNotLive }
 
         var request = URLRequest(url: api.appendingPathComponent("activate"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "key": key.trimmingCharacters(in: .whitespacesAndNewlines),
-            "organization_id": Self.organizationID,
+            "organization_id": SealStore.organizationID,
             "label": Host.current().localizedName ?? "Mac",
         ])
 
@@ -75,14 +90,14 @@ struct PolarLicenseClient: LicenseActivating {
     }
 
     func deactivate(_ record: LicenseRecord) async throws {
-        guard !Self.organizationID.isEmpty else { throw LicenseError.storefrontNotLive }
+        guard SealStore.isLive else { throw LicenseError.storefrontNotLive }
 
         var request = URLRequest(url: api.appendingPathComponent("deactivate"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "key": record.key,
-            "organization_id": Self.organizationID,
+            "organization_id": SealStore.organizationID,
             "activation_id": record.activationID,
         ])
         _ = try await send(request)
@@ -96,21 +111,35 @@ struct PolarLicenseClient: LicenseActivating {
         }
     }
 
-    /// Maps Polar's activation response onto our local record. The product's
-    /// tier travels in the license key's metadata (set when the products are
-    /// created in Polar); updates-through is purchase + 12 months for Pro.
-    static func record(fromActivation data: Data, key: String) throws -> LicenseRecord {
+    /// Maps Polar's activation response onto our local record. The response
+    /// is `{id: <activation id>, license_key: {benefit_id, created_at, …}}`;
+    /// the benefit ID names the product tier. An unknown benefit falls back
+    /// to Pro with a log — a config mistake must never brick a paid key.
+    /// Updates-through is purchase + 12 months for Pro, open-ended for
+    /// Lifetime.
+    static func record(fromActivation data: Data, key: String,
+                       lifetimeBenefitID: String = SealStore.lifetimeBenefitID) throws -> LicenseRecord {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let id = json["id"] as? String else {
             throw LicenseError.invalidKey
         }
         let licenseKey = json["license_key"] as? [String: Any]
-        let meta = licenseKey?["metadata"] as? [String: Any]
-        let tier: LicenseRecord.Tier = (meta?["tier"] as? String) == "lifetime" ? .lifetime : .pro
+        let benefitID = licenseKey?["benefit_id"] as? String
+
+        let tier: LicenseRecord.Tier
+        if let benefitID, !lifetimeBenefitID.isEmpty, benefitID == lifetimeBenefitID {
+            tier = .lifetime
+        } else {
+            if let benefitID, !SealStore.proBenefitID.isEmpty, benefitID != SealStore.proBenefitID {
+                NSLog("LicenseClient: unrecognized benefit \(benefitID) — treating as Pro")
+            }
+            tier = .pro
+        }
 
         let purchased: Date
         if let created = licenseKey?["created_at"] as? String,
-           let date = ISO8601DateFormatter().date(from: created) {
+           let date = ISO8601DateFormatter().date(from: created)
+               ?? parseFractionalISO8601(created) {
             purchased = date
         } else {
             purchased = Date()
@@ -123,5 +152,13 @@ struct PolarLicenseClient: LicenseActivating {
             purchased: purchased,
             updatesThrough: tier == .lifetime ? nil
                 : Calendar.current.date(byAdding: .year, value: 1, to: purchased))
+    }
+
+    /// Polar timestamps may carry fractional seconds, which the plain
+    /// ISO8601DateFormatter rejects.
+    private static func parseFractionalISO8601(_ string: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: string)
     }
 }

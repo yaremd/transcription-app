@@ -204,24 +204,31 @@ final class EntitlementTests: XCTestCase {
     // MARK: - Polar response mapping
 
     func testPolarActivationParsing() throws {
-        let json = """
-        {"id": "act-abc", "license_key": {"created_at": "2026-08-01T10:00:00Z",
-         "metadata": {"tier": "lifetime"}}}
+        // The benefit ID names the tier — Polar's activation response shape.
+        let lifetime = """
+        {"id": "act-abc", "license_key": {"benefit_id": "ben-life",
+         "created_at": "2026-08-01T10:00:00Z"}}
         """
-        let record = try PolarLicenseClient.record(fromActivation: Data(json.utf8), key: " K-1 ")
+        let record = try PolarLicenseClient.record(fromActivation: Data(lifetime.utf8), key: " K-1 ",
+                                                   lifetimeBenefitID: "ben-life")
         XCTAssertEqual(record.activationID, "act-abc")
         XCTAssertEqual(record.tier, .lifetime)
         XCTAssertEqual(record.key, "K-1")
         XCTAssertNil(record.updatesThrough)
 
+        // Any other benefit — including a fractional-seconds timestamp — is Pro
+        // with a one-year update window.
         let pro = """
-        {"id": "act-def", "license_key": {"created_at": "2026-08-01T10:00:00Z", "metadata": {}}}
+        {"id": "act-def", "license_key": {"benefit_id": "ben-pro",
+         "created_at": "2026-08-01T10:00:00.123456Z"}}
         """
-        let proRecord = try PolarLicenseClient.record(fromActivation: Data(pro.utf8), key: "K-2")
+        let proRecord = try PolarLicenseClient.record(fromActivation: Data(pro.utf8), key: "K-2",
+                                                      lifetimeBenefitID: "ben-life")
         XCTAssertEqual(proRecord.tier, .pro)
+        let purchased = try XCTUnwrap(proRecord.updatesThrough)
         let expected = Calendar.current.date(byAdding: .year, value: 1,
-                                             to: ISO8601DateFormatter().date(from: "2026-08-01T10:00:00Z")!)
-        XCTAssertEqual(proRecord.updatesThrough, expected)
+                                             to: ISO8601DateFormatter().date(from: "2026-08-01T10:00:00Z")!)!
+        XCTAssertEqual(purchased.timeIntervalSince1970, expected.timeIntervalSince1970, accuracy: 1)
 
         XCTAssertThrowsError(try PolarLicenseClient.record(fromActivation: Data("{}".utf8), key: "K"))
     }

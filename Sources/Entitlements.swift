@@ -99,8 +99,8 @@ enum Pricing {
     static let renewal = "$29"
     static let trialDays = 14
     /// The website's pricing section; checkout buttons point here until the
-    /// Polar storefront is live (YAR-95).
-    static let pricingURL = URL(string: "https://yaremd.github.io/transcription-app/#pricing")!
+    /// Polar storefront is live (YAR-95), and Lifetime always sells here.
+    static let pricingURL = URL(string: "https://sealformac.com/#pricing")!
 }
 
 // MARK: - Service
