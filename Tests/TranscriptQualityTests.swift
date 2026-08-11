@@ -841,6 +841,58 @@ final class TranscriptQualityTests: XCTestCase {
         XCTAssertFalse(Transcriber.isBootstrapHallucination("Дякую!", hasMomentum: true))
     }
 
+    // MARK: - Out-of-set lone inventions (YAR-91)
+
+    /// The 2026-08-10 vendor call: the user never spoke, and the mic channel's
+    /// entire transcript was one invented token — "You: Kjöngslið" — committed
+    /// at −0.44 out of a window whose own detector said Icelandic, a language
+    /// the app doesn't even transcribe. Not a stock phrase, so no list can
+    /// catch it; the stacked circumstances must. Exact values from the diag log.
+    func testRareTokenInventionFromOutOfSetSilenceIsDropped() {
+        XCTAssertTrue(Transcriber.isOutOfSetLoneInvention(
+            text: "Kjöngslið", confidence: -0.44,
+            hasMomentum: false, detectedOutsideAllowedSet: true))
+    }
+
+    /// The 2026-08-05 standup's counterexamples, which the NO VOTE doctrine
+    /// protects: real speech comes out of misdetected short windows constantly
+    /// ("de" carried "Hello. Yes.", "es" carried "Demetra?"). Those decode
+    /// above the clearly-heard bar and must survive.
+    func testClearlyHeardSpeechSurvivesMisdetectedWindows() {
+        XCTAssertFalse(Transcriber.isOutOfSetLoneInvention(
+            text: "Hello. Yes.", confidence: -0.15,
+            hasMomentum: false, detectedOutsideAllowedSet: true))
+        XCTAssertFalse(Transcriber.isOutOfSetLoneInvention(
+            text: "Demetra?", confidence: -0.20,
+            hasMomentum: false, detectedOutsideAllowedSet: true))
+    }
+
+    /// Once the channel has momentum, mid-meeting lone words on misdetected
+    /// windows are business as usual ("Thank you." at the end of a call) —
+    /// the gate is a bootstrap rule only.
+    func testOutOfSetLoneWordsAreUntouchedOnceMomentumExists() {
+        XCTAssertFalse(Transcriber.isOutOfSetLoneInvention(
+            text: "Kjöngslið", confidence: -0.44,
+            hasMomentum: true, detectedOutsideAllowedSet: true))
+    }
+
+    /// A window whose detection stayed inside the allowed set never triggers
+    /// the gate, however poor the decode — those cases belong to the other
+    /// filters, with their own evidence.
+    func testInSetLoneWordsAreLeftToTheOtherGates() {
+        XCTAssertFalse(Transcriber.isOutOfSetLoneInvention(
+            text: "Okay.", confidence: -0.60,
+            hasMomentum: false, detectedOutsideAllowedSet: false))
+    }
+
+    /// A full phrase is never a "lone invention", whatever the circumstances —
+    /// genuine language switches arrive as phrases and must pass.
+    func testFullPhrasesAreNeverLoneInventions() {
+        XCTAssertFalse(Transcriber.isOutOfSetLoneInvention(
+            text: "Та таані, граєм, я додавців.", confidence: -0.50,
+            hasMomentum: false, detectedOutsideAllowedSet: true))
+    }
+
     // MARK: - Placement: order and turns
 
     private let t0 = Date(timeIntervalSince1970: 1_800_000_000)

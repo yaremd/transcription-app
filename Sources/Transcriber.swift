@@ -446,6 +446,30 @@ actor Transcriber {
             return ""
         }
 
+        // The rule above has a blind spot the 2026-08-10 call fell through:
+        // the *meeting's* settled language vouches for the lead (the other
+        // side was speaking English all along), so `leadHasEvidence` is true —
+        // but that vouches for which language should lead, not for this near
+        // -silent window containing speech at all. Its own detector said the
+        // opposite: a language we don't even transcribe ("is", Icelandic).
+        // Out of that contradiction Whisper produced a rare-token invention,
+        // "Kjöngslið", at -0.44 — the worst kept confidence of the session —
+        // and it became the mic channel's entire transcript.
+        //
+        // Real speech does come out of out-of-set windows (see the NO VOTE
+        // doctrine below), so this stacks every qualifier: still bootstrapping,
+        // detector outside the set, lone word, and *below* the clearly-heard
+        // bar that genuine short answers clear. Anything real it costs rides
+        // back in on the next utterance's evidence.
+        if Self.isOutOfSetLoneInvention(text: best.text, confidence: best.confidence,
+                                        hasMomentum: established != nil,
+                                        detectedOutsideAllowedSet: detectedOutsideAllowedSet) {
+            filteredSegments += 1
+            log.notice("dropped out-of-set lone invention on \(source, privacy: .public)")
+            diagnostics?("[\(source)] DROP out-of-set lone invention (conf \(String(format: "%.2f", best.confidence))): \"\(best.text.prefix(40))\"")
+            return ""
+        }
+
         // A lone word whose script contradicts the language that decoded it:
         // "Дякую." emitted under an *English* language token, from keyboard
         // noise after a video ended (2026-07-29 afternoon report). Such a line
@@ -524,6 +548,9 @@ actor Transcriber {
         // windows carried "Hello. Yes.", "Demetra?" and "Thank you." — real
         // speech, correctly transcribed. A vote outlives the line it came from,
         // so it is held to evidence the line itself never has to meet.
+        // (One narrow carve-out lives above: a *lone word* from such a window,
+        // before any momentum, below the clearly-heard bar — the "Kjöngslið"
+        // shape — does get dropped. Every real example here clears that bar.)
         if detectedOutsideAllowedSet, !best.text.isEmpty {
             diagnostics?("[\(source)] NO VOTE: detector heard a language outside the allowed set")
         }
@@ -863,6 +890,21 @@ actor Transcriber {
     /// bootstrap condition, so the duration rule can use it too.
     static func isStockFiller(_ text: String) -> Bool {
         isShortFiller(text) && stockFillers.contains(AudioMonitor.normalizedForEcho(text))
+    }
+
+    /// The "Kjöngslið" shape (YAR-91, 2026-08-10): a rare-token invention out
+    /// of near-silence — not a stock phrase, so no list can name it. What
+    /// gives it away is the stack of everything else: the channel has no
+    /// momentum yet, the window's own detector heard a language outside the
+    /// allowed set (its way of saying "this audio is neither of your
+    /// languages"), the output is a lone word, and its confidence sits below
+    /// the bar genuine short answers clear. All four together, and the word
+    /// was invented, not heard.
+    static func isOutOfSetLoneInvention(text: String, confidence: Float,
+                                        hasMomentum: Bool,
+                                        detectedOutsideAllowedSet: Bool) -> Bool {
+        !hasMomentum && detectedOutsideAllowedSet
+            && isShortFiller(text) && confidence < clearlyHeard
     }
 
     /// Longest utterance that can be called silence when all it produced was a
