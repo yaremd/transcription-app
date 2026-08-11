@@ -13,6 +13,40 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 0.18</title>
+      <sparkle:version>18</sparkle:version>
+      <sparkle:shortVersionString>0.18</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Tue, 11 Aug 2026 18:48:24 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Who said what — and Seal Pro</h3>
+        <ul>
+          <li>Seal now tells the far side's voices apart. When a recording
+          stops, the saved call audio goes through speaker identification —
+          on your Mac's Neural Engine, nothing leaves your computer — and the
+          transcript shows Speaker 1, Speaker 2, … as separate turns instead
+          of one "Others". Right-click a line to name a voice; the name
+          follows it through the transcript, exports, and notes. Older
+          meetings get the same with <b>Identify speakers</b>, when their
+          audio was kept. A line Seal can't place with confidence stays
+          unlabeled rather than guessed.</li>
+          <li><b>Seal Pro.</b> Everything you've been using stays free —
+          unlimited meetings, full-accuracy live transcription, notes,
+          search, and export, forever. Pro gathers the assistant extras:
+          speaker identification, transcript polish, ask-your-meeting,
+          reshaped summaries, follow-up drafts, action tracking, and custom
+          templates. Try it free for 14 days — the trial starts only when
+          you choose, from Settings → License. No account, no subscription,
+          and Seal still never phones home.</li>
+          <li>Seal now lives at sealformac.com.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.18/Seal.dmg"
+        sparkle:edSignature="xU8Ff23AeYul4FWD0mvRegej3JIuebMA7up7W+MOYTt8bRO030Q+eoogQu8l/xlQzY/MIUrtvT48KOwyCp6VCg==" length="22720396"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.17</title>
       <sparkle:version>17</sparkle:version>
       <sparkle:shortVersionString>0.17</sparkle:shortVersionString>
