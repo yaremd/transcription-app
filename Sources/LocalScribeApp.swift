@@ -11,6 +11,7 @@ struct LocalScribeApp: App {
     @StateObject private var monitor: AudioMonitor
     @StateObject private var pill: FloatingPillController
     @StateObject private var detector: MeetingDetector
+    @StateObject private var entitlements: EntitlementService
 
     /// Sparkle auto-updater: checks the appcast and installs signed updates.
     private let updaterController: SPUStandardUpdaterController
@@ -40,6 +41,7 @@ struct LocalScribeApp: App {
         _settings = StateObject(wrappedValue: settings)
         _monitor = StateObject(wrappedValue: monitor)
         _pill = StateObject(wrappedValue: FloatingPillController(monitor: monitor))
+        _entitlements = StateObject(wrappedValue: EntitlementService())
         _detector = StateObject(wrappedValue: MeetingDetector(monitor: monitor, settings: settings, openApp: {
             NSApp.activate(ignoringOtherApps: true)
             NSApp.windows.first { $0.canBecomeMain && !($0 is NSPanel) }?.makeKeyAndOrderFront(nil)
@@ -52,6 +54,12 @@ struct LocalScribeApp: App {
                 .environmentObject(store)
                 .environmentObject(settings)
                 .environmentObject(vocabulary)
+                .environmentObject(entitlements)
+                // The single upgrade surface: opened by any locked control.
+                .sheet(item: $entitlements.upgradePrompt) { prompt in
+                    UpgradeSheet(highlighted: prompt.feature)
+                        .environmentObject(entitlements)
+                }
                 .frame(minWidth: 860, minHeight: 620)
                 // Touching the controllers here guarantees SwiftUI actually
                 // creates them — an @StateObject that body never reads may never
@@ -80,7 +88,7 @@ struct LocalScribeApp: App {
         }
 
         Settings {
-            SettingsView(vocabulary: vocabulary, settings: settings)
+            SettingsView(vocabulary: vocabulary, settings: settings, entitlements: entitlements)
         }
     }
 }

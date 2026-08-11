@@ -10,6 +10,7 @@ struct MeetingDetailView: View {
     @EnvironmentObject private var store: MeetingStore
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var vocabulary: VocabularyStore
+    @EnvironmentObject private var entitlements: EntitlementService
 
     private let generator = NotesGenerator()
     /// The on-device notes model's download status — so the very first notes
@@ -307,12 +308,15 @@ struct MeetingDetailView: View {
                                 }
                             }
                             Divider()
-                            Section("Reshape") {
-                                Button("Make shorter") { reshape("Make the notes shorter and tighter.") }
-                                Button("Add more detail") { reshape("Expand the notes with more detail from the transcript.") }
-                                Button("More formal") { reshape("Rewrite in a more formal, professional tone.") }
-                                Button("Bullet points") { reshape("Convert the notes to concise bullet points under each heading.") }
-                                Button("Plain language") { reshape("Rewrite in plain, simple language.") }
+                            // Menu items can't host the .proGated overlay, so
+                            // the gate lives in gatedReshape; the section title
+                            // carries the honesty.
+                            Section(entitlements.allows(.reshapeSummary) ? "Reshape" : "Reshape — Seal Pro") {
+                                Button("Make shorter") { gatedReshape("Make the notes shorter and tighter.") }
+                                Button("Add more detail") { gatedReshape("Expand the notes with more detail from the transcript.") }
+                                Button("More formal") { gatedReshape("Rewrite in a more formal, professional tone.") }
+                                Button("Bullet points") { gatedReshape("Convert the notes to concise bullet points under each heading.") }
+                                Button("Plain language") { gatedReshape("Rewrite in plain, simple language.") }
                             }
                         } label: {
                             Label("Rewrite", systemImage: "sparkles")
@@ -455,6 +459,13 @@ struct MeetingDetailView: View {
         }
     }
 
+    private func gatedReshape(_ instruction: String) {
+        guard entitlements.allows(.reshapeSummary) else {
+            return entitlements.requestUpgrade(for: .reshapeSummary)
+        }
+        reshape(instruction)
+    }
+
     private func reshape(_ instruction: String) {
         guard meeting.hasNotes, reshapingID == nil else { return }
         let id = meeting.id
@@ -495,10 +506,14 @@ struct MeetingDetailView: View {
                 }
                 Spacer()
                 if store.hasAudio(for: meeting.id) {
-                    Button("Improve transcript", action: polishTranscript)
-                        .buttonStyle(.linearQuietCompact)
-                        .disabled(polishingID != nil)
-                        .help("Re-transcribe the whole meeting from its saved audio with the accurate model")
+                    HStack(spacing: 5) {
+                        Button("Improve transcript", action: polishTranscript)
+                            .buttonStyle(.linearQuietCompact)
+                            .disabled(polishingID != nil)
+                            .help("Re-transcribe the whole meeting from its saved audio with the accurate model")
+                        ProBadge()
+                    }
+                    .proGated(.polishPass)
                 }
                 if !meeting.lines.isEmpty {
                     Button(copiedTranscript ? "Copied" : "Copy") {
@@ -722,12 +737,16 @@ struct MeetingDetailView: View {
                 }
                 Spacer()
                 if !meeting.lines.isEmpty {
-                    Button("Find action items") {
-                        actionsOpen = true
-                        extractActions()
+                    HStack(spacing: 5) {
+                        Button("Find action items") {
+                            actionsOpen = true
+                            extractActions()
+                        }
+                        .buttonStyle(.linearQuietCompact)
+                        .disabled(extractingActionsID != nil)
+                        ProBadge()
                     }
-                    .buttonStyle(.linearQuietCompact)
-                    .disabled(extractingActionsID != nil)
+                    .proGated(.actionTracking)
                 }
             }
             if extractingActions {
@@ -832,12 +851,16 @@ struct MeetingDetailView: View {
             HStack {
                 sectionHeader("Follow-up", isOpen: $followUpOpen)
                 Spacer()
-                Button(followUp.isEmpty ? "Draft follow-up" : "Redraft") {
-                    followUpOpen = true
-                    draftFollowUp()
+                HStack(spacing: 5) {
+                    Button(followUp.isEmpty ? "Draft follow-up" : "Redraft") {
+                        followUpOpen = true
+                        draftFollowUp()
+                    }
+                    .buttonStyle(.linearQuietCompact)
+                    .disabled(draftingFollowUpID != nil || meeting.lines.isEmpty)
+                    ProBadge()
                 }
-                .buttonStyle(.linearQuietCompact)
-                .disabled(draftingFollowUpID != nil || meeting.lines.isEmpty)
+                .proGated(.followUpDraft)
                 if !followUp.isEmpty {
                     Button("Copy") { copyToPasteboard(followUp) }
                         .buttonStyle(.linearQuietCompact)
@@ -916,6 +939,7 @@ struct MeetingDetailView: View {
         }
         .buttonStyle(.plain)
         .help("Ask a question about this meeting")
+        .proGated(.askMeeting)
     }
 
     /// The open chat, docked as a full-height right-hand column. Because it's a
