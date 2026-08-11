@@ -846,7 +846,8 @@ final class TranscriptQualityTests: XCTestCase {
     private let t0 = Date(timeIntervalSince1970: 1_800_000_000)
 
     private func timing(_ start: Double, _ end: Double) -> UtteranceTiming {
-        UtteranceTiming(start: t0.addingTimeInterval(start), end: t0.addingTimeInterval(end))
+        UtteranceTiming(start: t0.addingTimeInterval(start), end: t0.addingTimeInterval(end),
+                        startOffset: start, endOffset: end)
     }
 
     /// The ordering bug: "Yeah, it's exactly like accounting" appeared three

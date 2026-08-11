@@ -223,8 +223,12 @@ private struct MeetingTranscriptColumn: View {
     let jumpPulse: Int
     let onAnchor: (Date) -> Void
 
+    @EnvironmentObject private var store: MeetingStore
     @State private var highlighted: Set<UUID> = []
     @State private var tapped: UUID?
+    /// The identified voice being renamed via a row's context menu, if any.
+    @State private var renamingVoice: String?
+    @State private var renameDraft = ""
 
     private var lines: [StoredLine] { meeting.lines }
 
@@ -255,14 +259,26 @@ private struct MeetingTranscriptColumn: View {
                                 .padding(.top, 12)
                         }
                         ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
-                            TranscriptRow(speaker: meeting.displayName(for: line.speaker),
+                            TranscriptRow(speaker: meeting.displayLabel(for: line),
                                           text: line.text,
-                                          showSpeaker: index == 0 || lines[index - 1].speaker != line.speaker,
+                                          // A voice change is a speaker change even when the
+                                          // raw label ("Others") stays the same.
+                                          showSpeaker: index == 0
+                                              || lines[index - 1].speaker != line.speaker
+                                              || lines[index - 1].voice != line.voice,
                                           highlighted: highlighted.contains(line.id) || tapped == line.id,
                                           isYou: line.speaker == "You")
                                 .id(line.id)
                                 .contentShape(Rectangle())
                                 .onTapGesture { anchorTo(index) }
+                                .contextMenu {
+                                    if let voice = line.voice {
+                                        Button("Name \(meeting.displayLabel(for: line))…") {
+                                            renamingVoice = voice
+                                            renameDraft = meeting.speakerNames?[voice] ?? ""
+                                        }
+                                    }
+                                }
                         }
                     }
                     .padding(12)
@@ -271,6 +287,28 @@ private struct MeetingTranscriptColumn: View {
             }
         }
         .insetPanel(radius: 8)
+        // Naming an identified voice: the name lands in speakerNames keyed by
+        // the voice ("S2"), so every line of that voice — and the notes'
+        // participants header — picks it up at once.
+        .alert("Who is this?",
+               isPresented: Binding(get: { renamingVoice != nil },
+                                    set: { if !$0 { renamingVoice = nil } })) {
+            TextField("Name", text: $renameDraft)
+            Button("Save") {
+                if let voice = renamingVoice,
+                   var updated = store.meetings.first(where: { $0.id == meeting.id }) {
+                    var names = updated.speakerNames ?? [:]
+                    let trimmed = renameDraft.trimmingCharacters(in: .whitespaces)
+                    if trimmed.isEmpty { names.removeValue(forKey: voice) } else { names[voice] = trimmed }
+                    updated.speakerNames = names
+                    store.save(updated)
+                }
+                renamingVoice = nil
+            }
+            Button("Cancel", role: .cancel) { renamingVoice = nil }
+        } message: {
+            Text("Every line this voice speaks will show the name, and the notes will use it.")
+        }
     }
 
     /// Each line's time: its real commit time, or — for meetings saved before

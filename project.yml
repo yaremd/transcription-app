@@ -17,6 +17,9 @@ packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     from: "2.6.0"
+  FluidAudio:
+    url: https://github.com/FluidInference/FluidAudio
+    from: "0.1.0"
 settings:
   base:
     MARKETING_VERSION: "0.16"
@@ -46,6 +49,7 @@ targets:
         product: Hub
       - package: Sparkle
         product: Sparkle
+      - package: FluidAudio
     info:
       path: Support/Info.plist
       properties:

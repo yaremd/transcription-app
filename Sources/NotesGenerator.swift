@@ -114,7 +114,7 @@ final class NotesGenerator {
     func suggestSpeakerNames(transcript: String, backend: NotesBackend) async throws -> [String: String] {
         let system = """
         Identify the real names of the conversation participants from the transcript. \
-        Lines labeled "You" are the app's user; lines labeled "Others" are everyone else on the call. \
+        Lines labeled "You" are the app's user; lines labeled "Others" — or by voice as "S1", "S2", … — are everyone else on the call. \
         Use only self-introductions and how people address each other — never invent a name. \
         Reply with EXACTLY two lines and nothing else:
         You: <name or UNKNOWN>
@@ -140,7 +140,7 @@ final class NotesGenerator {
         let language = Self.writeLanguage(hint: languageHint, transcript: transcript)
         let system = """
         You answer questions about a meeting using ONLY the transcript provided. \
-        Lines labeled "You" are the app's user; "Others" are the other participants. \
+        Lines labeled "You" are the app's user; "Others" and voice labels ("S1", "S2", …) are the other participants — each S-label is one distinct person. \
         If the transcript doesn't contain the answer, say you don't see it in this meeting. \
         Be concise and factual. \(languageRule(language))
         """
@@ -283,7 +283,7 @@ final class NotesGenerator {
 
         var system = """
         You are a meeting-notes assistant. You will receive a transcript of a spoken conversation. \
-        Lines labeled "You" are the app's user; lines labeled "Others" are the other participants.
+        Lines labeled "You" are the app's user; lines labeled "Others" are the other participants. Far-side lines may instead carry a voice label — "S1", "S2", … — each of which is one distinct participant; the PARTICIPANTS header, when present, gives their real names.
         """
         if !template.guidance.isEmpty {
             system += "\nContext: \(template.guidance)"

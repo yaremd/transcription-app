@@ -7,6 +7,15 @@ struct StoredLine: Codable, Identifiable, Hashable {
     var text: String
     /// When the line was committed (nil for meetings saved before this existed).
     var at: Date? = nil
+    /// Where this speech sits in its stream's saved audio, in seconds — the
+    /// recording's own timeline, unmoved by pauses. What speaker labels are
+    /// matched against. nil for meetings saved before this existed.
+    var start: TimeInterval? = nil
+    var end: TimeInterval? = nil
+    /// Which far-side voice said this ("S1", "S2", …), once the meeting's
+    /// audio has been through speaker identification. nil until then, and
+    /// always nil for "You" — the mic needs no telling apart.
+    var voice: String? = nil
 }
 
 /// One timestamped block of the user's own notes. `at` anchors it to the
@@ -61,9 +70,10 @@ struct Meeting: Codable, Identifiable, Hashable {
 }
 
 extension Meeting {
-    /// The transcript rendered as "Speaker: text" lines — for copying and notes.
+    /// The transcript rendered as "Speaker: text" lines — for copying and
+    /// export. Far-side lines carry their identified voice when one is known.
     var transcriptText: String {
-        lines.map { "\($0.speaker): \($0.text)" }.joined(separator: "\n")
+        lines.map { "\(displayLabel(for: $0)): \($0.text)" }.joined(separator: "\n")
     }
 
     /// How a raw speaker label ("You"/"Others") should display — the confirmed
@@ -76,17 +86,39 @@ extension Meeting {
         return speaker
     }
 
-    /// Transcript text for AI prompts: keeps the raw You/Others labels (their
-    /// semantics are baked into the prompts) but adds a participants header
-    /// when real names are known, so notes and answers can use them.
+    /// What one line's speaker is called on screen. A far-side line with an
+    /// identified voice shows that voice — the user's name for it if given,
+    /// "Speaker 2" otherwise; everything else falls back to the raw label.
+    func displayLabel(for line: StoredLine) -> String {
+        guard let voice = line.voice else { return displayName(for: line.speaker) }
+        if let named = speakerNames?[voice],
+           !named.trimmingCharacters(in: .whitespaces).isEmpty {
+            return named
+        }
+        if voice.first == "S", let number = Int(voice.dropFirst()) {
+            return "Speaker \(number)"
+        }
+        return voice
+    }
+
+    /// The identified far-side voices this transcript uses, in order.
+    var identifiedVoices: [String] { SpeakerLabeler.voices(in: lines) }
+
+    /// Transcript text for AI prompts: You/Others keep their baked-in
+    /// semantics, far-side lines are labeled by voice (S1, S2, …) when it is
+    /// known, and a participants header maps every label to a real name the
+    /// user (or the name suggester) has provided.
     var aiTranscript: String {
-        guard let names = speakerNames, !names.isEmpty else { return transcriptText }
+        let body = lines
+            .map { "\($0.voice ?? $0.speaker): \($0.text)" }
+            .joined(separator: "\n")
+        guard let names = speakerNames, !names.isEmpty else { return body }
         let parts = names
             .filter { !$0.value.trimmingCharacters(in: .whitespaces).isEmpty }
             .map { "\($0.key) = \($0.value)" }
             .sorted()
-        guard !parts.isEmpty else { return transcriptText }
-        return "PARTICIPANTS: " + parts.joined(separator: "; ") + "\n\n" + transcriptText
+        guard !parts.isEmpty else { return body }
+        return "PARTICIPANTS: " + parts.joined(separator: "; ") + "\n\n" + body
     }
 
     var hasNotes: Bool {

@@ -54,6 +54,7 @@ struct MeetingDetailView: View {
     @State private var copiedTranscript = false
     @State private var polishingID: UUID?
     @State private var polishError: String?
+    @State private var identifyError: String?
 
     // The notes<->transcript workspace opens as a full-height sheet (the inline
     // box was too cramped to scroll); `workspaceJump` carries the moment to
@@ -494,6 +495,13 @@ struct MeetingDetailView: View {
                         .foregroundStyle(.tertiary)
                 }
                 Spacer()
+                if store.existingAudioURLs(for: meeting.id).system != nil,
+                   meeting.lines.contains(where: { $0.speaker == "Others" }) {
+                    Button("Identify speakers", action: identifySpeakers)
+                        .buttonStyle(.linearQuietCompact)
+                        .disabled(store.identifyingSpeakers.contains(meeting.id))
+                        .help("Tell the far side's voices apart in the saved call audio, so each line says who spoke")
+                }
                 if store.hasAudio(for: meeting.id) {
                     Button("Improve transcript", action: polishTranscript)
                         .buttonStyle(.linearQuietCompact)
@@ -517,6 +525,12 @@ struct MeetingDetailView: View {
                 ProgressLabel(text: "Re-transcribing with the accurate model — this takes a few minutes for long meetings…")
             } else if let polishError {
                 Text(polishError).font(Theme.sub).foregroundStyle(Theme.red)
+            }
+
+            if store.identifyingSpeakers.contains(meeting.id) {
+                ProgressLabel(text: "Listening for who's who — under a minute, even for a long meeting…")
+            } else if let identifyError {
+                Text(identifyError).font(Theme.sub).foregroundStyle(Theme.red)
             }
 
             // The model thinks it heard who's who — propose, never apply.
@@ -558,6 +572,20 @@ struct MeetingDetailView: View {
         }
     }
 
+    /// Tells the far side's voices apart in the saved call audio and labels
+    /// the transcript's lines with them. Also how old meetings — recorded
+    /// before Seal did this automatically — get their labels.
+    private func identifySpeakers() {
+        identifyError = nil
+        let id = meeting.id
+        Task {
+            let problem = await SpeakerLabeler.identify(meetingID: id, store: store)
+            await MainActor.run {
+                if meeting.id == id { identifyError = problem }
+            }
+        }
+    }
+
     /// Re-transcribes the whole meeting from its saved audio with the
     /// accurate model and replaces the lines; notes/tags/actions are kept.
     private func polishTranscript() {
@@ -585,6 +613,9 @@ struct MeetingDetailView: View {
                     if var updated = store.meetings.first(where: { $0.id == id }) {
                         updated.lines = lines
                         store.save(updated)
+                        // The rebuilt lines are new objects with no voices —
+                        // re-identify so the labels survive the polish.
+                        Task { _ = await SpeakerLabeler.identify(meetingID: id, store: store) }
                     }
                     guard meeting.id == id else { return }
                     showFullTranscript = false

@@ -15,6 +15,11 @@ struct TranscriptLine: Identifiable {
     /// When the speech ended; decides whether the speaker's next utterance
     /// continues this turn or starts a new one.
     var end: Date
+    /// The turn's span in its stream's saved audio, in seconds — from the
+    /// first fragment's onset to the last one's end. Carried into StoredLine
+    /// so speaker identification can match the audio back to these words.
+    var startOffset: TimeInterval
+    var endOffset: TimeInterval
 
     var text: String { fragments.joined(separator: " ") }
 }
@@ -44,10 +49,12 @@ extension Array where Element == TranscriptLine {
            self[previous].text.count < characterCap {
             self[previous].fragments.append(text)
             self[previous].end = Swift.max(self[previous].end, timing.end)
+            self[previous].endOffset = Swift.max(self[previous].endOffset, timing.endOffset)
             return self[previous].id
         }
         let line = TranscriptLine(speaker: speaker, fragments: [text],
-                                  at: timing.start, end: timing.end)
+                                  at: timing.start, end: timing.end,
+                                  startOffset: timing.startOffset, endOffset: timing.endOffset)
         insert(line, at: insertAt)
         return line.id
     }
@@ -445,7 +452,30 @@ final class AudioMonitor: ObservableObject {
         persistCurrentSession()
         statusMessage = transcript.isEmpty ? "Stopped." : "Saved to your library."
         autoTitleCurrentSession()
+        identifySpeakersAfterStop()
         if !transcript.isEmpty { finishedMeetingID = currentMeetingID }
+    }
+
+    /// After Stop: tell the far side's voices apart in the saved system audio
+    /// and write them onto the meeting's lines. Fire-and-forget on purpose —
+    /// takes ~10–30 s for a long meeting on Apple silicon, arrives alongside
+    /// the auto-title, and failure leaves the transcript exactly as saved.
+    /// First ever run downloads the diarization models, like Whisper's.
+    private func identifySpeakersAfterStop() {
+        let meetingID = currentMeetingID
+        guard settings.keepAudio,
+              transcript.contains(where: { $0.speaker == speakerOthers }) else { return }
+        let diag = diagnosticsLog
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            if let problem = await SpeakerLabeler.identify(meetingID: meetingID, store: self.store) {
+                diag?.write("diarize: \(problem)")
+            } else if let meeting = self.store.meetings.first(where: { $0.id == meetingID }) {
+                let voices = SpeakerLabeler.voices(in: meeting.lines)
+                let labeled = meeting.lines.filter { $0.voice != nil }.count
+                diag?.write("diarize: \(voices.count) voice(s), \(labeled) lines labeled")
+            }
+        }
     }
 
     /// Clears a finished session off the recording screen ("New Recording"
@@ -619,7 +649,10 @@ final class AudioMonitor: ObservableObject {
         // notes anchor to the transcript moment they were written in. Without
         // it every saved line has a nil timestamp and note→transcript jumps
         // have nothing to aim at.
-        let lines = transcript.map { StoredLine(speaker: $0.speaker, text: $0.text, at: $0.at) }
+        let lines = transcript.map {
+            StoredLine(speaker: $0.speaker, text: $0.text, at: $0.at,
+                       start: $0.startOffset, end: $0.endOffset)
+        }
         let existing = store.meetings.first { $0.id == currentMeetingID }
         let joined = joinedNotes
         let jottedToStore: String? = joined.isEmpty ? existing?.userNotes : joined
