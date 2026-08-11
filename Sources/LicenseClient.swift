@@ -37,7 +37,7 @@ enum LicenseError: LocalizedError, Equatable {
 /// the app tells a $149 Lifetime key from a $49/$59 Pro key. None of these
 /// are secrets; Polar's customer-portal endpoints are deliberately public.
 enum SealStore {
-    static let organizationID = ""
+    static let organizationID = "9d41c882-71c8-4f8e-a290-13c5e0e142b7"
     static let proBenefitID = ""
     static let lifetimeBenefitID = ""
     /// Direct checkout links, once the products exist. Until then the Buy
