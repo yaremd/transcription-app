@@ -43,11 +43,13 @@ enum LicenseError: LocalizedError, Equatable {
 /// None of these are secrets; Freemius's activation endpoints are
 /// deliberately public, designed for desktop apps.
 enum SealStore {
-    static let freemiusProductID = "21938"
-    /// Direct checkout links, once the plans exist. Until then the Buy
-    /// buttons fall back to the website's pricing section.
-    static let checkoutPro: URL? = nil
-    static let checkoutLifetime: URL? = nil
+    /// Live values from the Freemius dashboard (store 19113, app "Seal"),
+    /// verified against the rendered checkout on 2026-08-11. Plans: Pro
+    /// (61232, $49 one-off) and Lifetime (61233, $149 one-off), both
+    /// 2 activations per license, no trial (the trial lives in the app).
+    static let freemiusProductID = "36930"
+    static let checkoutPro: URL? = URL(string: "https://checkout.freemius.com/product/36930/plan/61232/")
+    static let checkoutLifetime: URL? = URL(string: "https://checkout.freemius.com/product/36930/plan/61233/")
 
     static var isLive: Bool { !freemiusProductID.isEmpty }
 }
@@ -74,7 +76,7 @@ struct FreemiusLicenseClient: LicenseActivating {
         guard SealStore.isLive else { throw LicenseError.storefrontNotLive }
 
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        let (data, response) = try await send(path: "licenses/activate.json", query: [
+        let (data, response) = try await send(path: "licenses/activate.json", body: [
             "license_key": trimmed,
             "uid": Self.machineUID(),
             "title": Host.current().localizedName ?? "Mac",
@@ -93,7 +95,7 @@ struct FreemiusLicenseClient: LicenseActivating {
 
     func deactivate(_ record: LicenseRecord) async throws {
         guard SealStore.isLive else { throw LicenseError.storefrontNotLive }
-        let (data, response) = try await send(path: "licenses/deactivate.json", query: [
+        let (data, response) = try await send(path: "licenses/deactivate.json", body: [
             "license_key": record.key,
             "uid": Self.machineUID(),
             "install_id": record.activationID,
@@ -108,12 +110,15 @@ struct FreemiusLicenseClient: LicenseActivating {
         }
     }
 
-    private func send(path: String, query: [String: String]) async throws -> (Data, URLResponse) {
-        var components = URLComponents(url: base.appendingPathComponent(path),
-                                       resolvingAgainstBaseURL: false)!
-        components.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
-        var request = URLRequest(url: components.url!)
+    /// Parameters travel as a JSON body, never a query string: license keys
+    /// contain `+`, `%`, and `#`, and query-string form-decoding reads `+`
+    /// as a space — which turned real purchased keys into "invalid key"
+    /// (found the hard way in the first live activation, 2026-08-11).
+    private func send(path: String, body: [String: String]) async throws -> (Data, URLResponse) {
+        var request = URLRequest(url: base.appendingPathComponent(path))
         request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         do {
             return try await session.data(for: request)
         } catch {
