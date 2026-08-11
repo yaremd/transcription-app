@@ -77,11 +77,24 @@ actor TranscriptPolisher {
         }
         utterances.sort { $0.start < $1.start }
 
+        // The pass reports where each utterance starts but not where it ends;
+        // for matching voices to lines, a line plausibly runs until its own
+        // stream speaks again — capped, since a monologue arrives as many
+        // separate utterances anyway.
+        var endsAt: [Int: Double] = [:]
+        var lastIndexBySpeaker: [String: Int] = [:]
+        for (index, utterance) in utterances.enumerated() {
+            if let previous = lastIndexBySpeaker[utterance.speaker] {
+                endsAt[previous] = utterance.start
+            }
+            lastIndexBySpeaker[utterance.speaker] = index
+        }
+
         // Interleave and drop echo ghosts: a "You" line that duplicates an
         // "Others" phrase spoken within the same ~12 s came from the speakers,
         // not the user.
         var lines: [StoredLine] = []
-        for utterance in utterances {
+        for (index, utterance) in utterances.enumerated() {
             if utterance.speaker == "You" {
                 let normalized = AudioMonitor.normalizedForEcho(utterance.text)
                 let isGhost = utterances.contains {
@@ -91,9 +104,12 @@ actor TranscriptPolisher {
                 }
                 if isGhost { continue }
             }
+            let end = min(endsAt[index] ?? utterance.start + 15, utterance.start + 15)
             lines.append(StoredLine(speaker: utterance.speaker,
                                     text: utterance.text,
-                                    at: meeting.date.addingTimeInterval(utterance.start)))
+                                    at: meeting.date.addingTimeInterval(utterance.start),
+                                    start: utterance.start,
+                                    end: max(end, utterance.start + 1)))
         }
         // This pass replaces the transcript wholesale, so it has to repair the
         // names itself — the live path's correction went out with the lines it

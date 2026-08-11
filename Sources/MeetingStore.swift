@@ -8,6 +8,9 @@ import Combine
 /// in memory, so `meetings` is the single source of truth the UI observes.
 final class MeetingStore: ObservableObject {
     @Published private(set) var meetings: [Meeting] = []
+    /// Meetings whose far-side voices are being identified right now — the
+    /// detail view shows progress and keeps the button from double-running.
+    @Published var identifyingSpeakers: Set<UUID> = []
 
     let directory: URL
     private let encoder: JSONEncoder

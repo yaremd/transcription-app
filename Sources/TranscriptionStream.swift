@@ -16,6 +16,12 @@ enum TranscribeMode {
 struct UtteranceTiming {
     let start: Date
     let end: Date
+    /// The same boundaries as seconds into this stream's own audio — the
+    /// saved recording's timeline. Pauses feed neither the stream nor the
+    /// recorder, so these line up with the audio file exactly, which is what
+    /// lets a diarizer's segments be matched back to transcript lines.
+    let startOffset: TimeInterval
+    let endOffset: TimeInterval
 }
 
 /// Buffers 16 kHz mono samples for one audio source, segments them into
@@ -268,7 +274,8 @@ final class TranscriptionStream {
         let start = offset + (firstVoiced ?? 0)
         let end = offset + (lastVoicedEnd ?? elapsed)
         return UtteranceTiming(start: origin.addingTimeInterval(start),
-                               end: origin.addingTimeInterval(max(start, end)))
+                               end: origin.addingTimeInterval(max(start, end)),
+                               startOffset: start, endOffset: max(start, end))
     }
 
     private func setCommitBusy(_ busy: Bool) {
