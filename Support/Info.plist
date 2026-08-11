@@ -32,7 +32,7 @@
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://yaremd.github.io/transcription-app/appcast.xml</string>
+	<string>https://sealformac.com/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>C4hPB3oc/f+P3F6YEGgmdi7ay++/H5HpggNdv5cI50M=</string>
 </dict>

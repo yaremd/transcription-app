@@ -64,10 +64,10 @@ targets:
         LSApplicationCategoryType: "public.app-category.productivity"
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
-        # Sparkle auto-update. Replace both placeholders before release:
-        #   SUFeedURL     → your GitHub Pages appcast URL
-        #   SUPublicEDKey → the public key printed by Sparkle's generate_keys
-        SUFeedURL: "https://yaremd.github.io/transcription-app/appcast.xml"
+        # Sparkle auto-update. The appcast lives on GitHub Pages behind the
+        # sealformac.com custom domain; the old yaremd.github.io URL
+        # 301-redirects there, so builds shipped before v0.18 keep updating.
+        SUFeedURL: "https://sealformac.com/appcast.xml"
         SUPublicEDKey: "C4hPB3oc/f+P3F6YEGgmdi7ay++/H5HpggNdv5cI50M="
         SUEnableAutomaticChecks: true
     settings:

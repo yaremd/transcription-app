@@ -51,7 +51,9 @@ These let Seal verify that an update really came from you.
 ### 4. Placeholders  ✅ done
 
 The repo URLs are set to `github.com/yaremd/transcription-app`:
-- `SUFeedURL` → `https://yaremd.github.io/transcription-app/appcast.xml`
+- `SUFeedURL` → `https://sealformac.com/appcast.xml` (the old
+  `yaremd.github.io/transcription-app/` URL 301-redirects there, so builds
+  shipped before v0.18 keep updating)
 - the download links in `docs/index.html` and `docs/appcast.xml` → the repo's release assets
 
 All placeholders are now filled — `SUPublicEDKey` is set to your Sparkle public key.
@@ -89,8 +91,10 @@ Then:
 ## Put the download page online (GitHub Pages)  **[you, one time]**
 
 In your repo on github.com: **Settings → Pages → Source: Deploy from a branch →
-Branch: `main`, Folder: `/docs`**. Your page appears at
-`https://yaremd.github.io/transcription-app/`.
+Branch: `main`, Folder: `/docs`**. The page is served at
+`https://sealformac.com` — the custom domain is bound by `docs/CNAME`, and the
+DNS A/AAAA + `www` records live in Vercel's DNS (the domain registrar).
+`https://yaremd.github.io/transcription-app/` 301-redirects there.
 
 ---
 
