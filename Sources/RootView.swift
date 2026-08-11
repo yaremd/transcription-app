@@ -55,6 +55,7 @@ struct RootView: View {
                     Label {
                         HStack {
                             Text("Action Items").font(Theme.body)
+                            ProBadge()
                             if openActionCount > 0 {
                                 Spacer()
                                 Text("\(openActionCount)")

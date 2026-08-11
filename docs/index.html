@@ -110,6 +110,28 @@
   .step h3 { margin: 8px 0 4px; font-size: 15.5px; }
   .step p { margin: 0; color: var(--muted); font-size: 14px; }
 
+  .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; max-width: 760px; margin: 0 auto; }
+  .plan { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 28px; display: flex; flex-direction: column; }
+  .plan.pro { border-color: var(--accent); box-shadow: 0 18px 50px -30px var(--accent); }
+  .plan .name { font-weight: 650; font-size: 15px; letter-spacing: -0.01em; }
+  .plan .price { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; margin: 10px 0 2px; }
+  .plan .price .was { font-size: 17px; font-weight: 500; color: var(--muted); text-decoration: line-through; margin-left: 8px; }
+  .plan .terms { color: var(--muted); font-size: 13.5px; margin: 0 0 18px; }
+  .plan ul { list-style: none; margin: 0 0 22px; padding: 0; font-size: 14.5px; }
+  .plan li { padding: 5px 0 5px 24px; position: relative; }
+  .plan li::before { content: "✓"; position: absolute; left: 2px; color: var(--accent); font-weight: 700; }
+  .plan li .soon { color: var(--muted); font-size: 12px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; margin-left: 7px; white-space: nowrap; }
+  .plan .foot { margin-top: auto; }
+  .btn.ghost { background: var(--surface-2); color: var(--muted); box-shadow: none; cursor: default; }
+  .btn.ghost:hover { transform: none; }
+  .plan .note { color: var(--muted); font-size: 13px; margin-top: 12px; }
+  .strip { display: flex; flex-wrap: wrap; gap: 8px 22px; justify-content: center; color: var(--muted); font-size: 13.5px; margin: 30px auto 0; max-width: 760px; }
+  .strip span::before { content: "· "; color: var(--accent); font-weight: 700; }
+  .faq { max-width: 680px; margin: 44px auto 0; }
+  .faq details { border-bottom: 1px solid var(--border); padding: 14px 4px; }
+  .faq summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+  .faq p { color: var(--muted); font-size: 14.5px; margin: 10px 0 2px; }
+
   footer { border-top: 1px solid var(--border); padding: 30px 0 50px; color: var(--muted); font-size: 13px; text-align: center; }
   footer a { color: var(--muted); }
 </style>
@@ -121,6 +143,7 @@
     <nav class="nav">
       <a href="#features">Features</a>
       <a href="#privacy">Privacy</a>
+      <a href="#pricing">Pricing</a>
       <a href="#download">Download</a>
     </nav>
   </header>
@@ -164,6 +187,78 @@
     <div class="privacy">
       <h2>Private by architecture, not by promise</h2>
       <p>Seal doesn't have a server to send your meetings to. There's no account to create and nothing to opt out of. If you ever turn on a cloud model yourself, only the transcript text is sent — never your audio — and transcription always stays on your Mac.</p>
+    </div>
+  </section>
+
+  <section id="pricing">
+    <h2>Own it. Don't rent it.</h2>
+    <p class="lede">Seal has no servers, so it doesn't need your monthly fee to stay alive. The core is free forever; Pro is a license you buy once and keep.</p>
+    <div class="plans">
+      <div class="plan">
+        <div class="name">Seal Free</div>
+        <div class="price">$0</div>
+        <p class="terms">Unlimited meetings. Full accuracy. Forever.</p>
+        <ul>
+          <li>Unlimited recording &amp; live transcription</li>
+          <li>On-device AI notes, titles &amp; built-in templates</li>
+          <li>Meeting library with full-text search</li>
+          <li>Markdown &amp; PDF export, always</li>
+          <li>Notices your meetings and offers to record</li>
+          <li>Free updates, no account, no time limits</li>
+        </ul>
+        <div class="foot">
+          <a class="btn" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download free</a>
+        </div>
+      </div>
+      <div class="plan pro">
+        <div class="name">Seal Pro</div>
+        <div class="price">$49<span class="was">$59</span></div>
+        <p class="terms">One-time, early-bird · includes 1 year of updates · keep the app forever.<br>Lifetime updates: $149. Optional renewal after year one: $29/yr.</p>
+        <ul>
+          <li>Ask your meeting — local Q&amp;A over any transcript</li>
+          <li>Follow-up drafts &amp; regenerated, reshaped notes</li>
+          <li>Action items, tracked across meetings</li>
+          <li>Improve transcript — maximum-accuracy re-pass</li>
+          <li>Cloud notes with your own API key, if you choose</li>
+          <li>Speaker split — you vs. them <span class="soon">on the way</span></li>
+          <li>Custom templates &amp; DOCX/SRT export <span class="soon">on the way</span></li>
+          <li>Calendar context <span class="soon">on the way</span></li>
+        </ul>
+        <div class="foot">
+          <span class="btn ghost">Purchasing opens with v1.0</span>
+          <p class="note">Right now Seal is in free beta — everything above is unlocked for everyone. At v1.0, every download includes a 14-day Pro trial, no card and no account.</p>
+        </div>
+      </div>
+    </div>
+    <div class="strip">
+      <span>No account</span>
+      <span>No subscription required</span>
+      <span>Works fully offline</span>
+      <span>License checked once — Seal never phones home</span>
+      <span>Your notes never lock behind a paywall</span>
+      <span>Open formats — your data outlives any app</span>
+    </div>
+    <div class="faq">
+      <details>
+        <summary>What happens when my year of updates ends?</summary>
+        <p>Nothing dramatic. Seal keeps working exactly as it is, forever — every feature you paid for stays yours. If you want the updates released after your year, renew for $29; if not, don't. There is no subscription and nothing expires.</p>
+      </details>
+      <details>
+        <summary>What stays free, really?</summary>
+        <p>Recording, live transcription at full accuracy, AI notes with the built-in templates, your whole meeting history, search, and Markdown/PDF export — with no meeting limits and no countdown. And two promises that hold in every state, paid or not: your history is never locked, and export is never taken away.</p>
+      </details>
+      <details>
+        <summary>Can I move Seal Pro to a new Mac?</summary>
+        <p>Yes — one license covers two Macs, and you can deactivate a Mac yourself in Settings → License to free a slot. No account needed; your key is your proof of purchase.</p>
+      </details>
+      <details>
+        <summary>Why one-time instead of a subscription?</summary>
+        <p>Cloud note-takers pay per-minute server bills, so they have to charge you monthly — and some lock your own meeting history behind the paywall. Seal runs on your Mac, costs us nothing when you use it, and can't be shut down remotely. A license you own is the honest shape for software like that.</p>
+      </details>
+      <details>
+        <summary>Refunds?</summary>
+        <p>30 days, no questions. Email us with your order and it's done.</p>
+      </details>
     </div>
   </section>
 

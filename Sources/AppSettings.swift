@@ -74,9 +74,15 @@ final class AppSettings: ObservableObject {
         cloudAPIKey = Keychain.get(account: Self.apiKeyAccount) ?? ""
     }
 
-    /// True only when notes should use the cloud model: opt-in AND a key is set.
+    /// True only when notes should use the cloud model: opt-in AND a key is
+    /// set AND the install is licensed for it. The entitlement check lives
+    /// here — not just in Settings — so a beta install whose toggle was
+    /// already on falls back to on-device notes rather than silently keeping
+    /// a Pro feature. The PrivacyBadge and backend pickers all read this.
     var usingCloudNotes: Bool {
-        cloudNotesEnabled && !cloudAPIKey.trimmingCharacters(in: .whitespaces).isEmpty
+        cloudNotesEnabled
+            && !cloudAPIKey.trimmingCharacters(in: .whitespaces).isEmpty
+            && (EntitlementService.shared?.allows(.byoCloudKey) ?? false)
     }
 
     /// The on-device model id, chosen automatically by the machine's RAM — the

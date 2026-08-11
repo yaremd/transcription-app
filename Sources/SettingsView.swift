@@ -227,24 +227,41 @@ private struct VocabularySettings: View {
 
 private struct NotesSettings: View {
     @ObservedObject var settings: AppSettings
+    @EnvironmentObject private var entitlements: EntitlementService
     @ObservedObject private var modelStatus = EmbeddedModelStatus.shared
+    @State private var showUpgrade = false
 
     var body: some View {
         Form {
             Section("Notes model (on your Mac)") {
                 modelStatusView
             }
-            .disabled(settings.cloudNotesEnabled)
+            .disabled(settings.usingCloudNotes)
 
             Section {
-                Toggle("Use a cloud model for notes", isOn: $settings.cloudNotesEnabled)
-                Text("Off by default. When on, only the transcript text (never your audio) is sent to the model you configure, using your own API key. Transcription always stays on your Mac.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if entitlements.allows(.byoCloudKey) {
+                    Toggle("Use a cloud model for notes", isOn: $settings.cloudNotesEnabled)
+                    Text("Off by default. When on, only the transcript text (never your audio) is sent to the model you configure, using your own API key. Transcription always stays on your Mac.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    // The Settings window can't reach the main window's sheet,
+                    // so the locked row presents its own.
+                    HStack {
+                        Text("Use a cloud model for notes")
+                        ProBadge()
+                        Spacer()
+                        Button("See Seal Pro…") { showUpgrade = true }
+                    }
+                    Text("Optional frontier-model notes with your own API key are part of Seal Pro. On-device notes stay free, and transcription always stays on your Mac.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
-            if settings.cloudNotesEnabled {
+            if settings.cloudNotesEnabled && entitlements.allows(.byoCloudKey) {
                 Section("OpenAI-compatible endpoint") {
                     TextField("Base URL", text: $settings.cloudBaseURL)
                     SecureField("API key", text: $settings.cloudAPIKey)
@@ -259,6 +276,9 @@ private struct NotesSettings: View {
         }
         .formStyle(.grouped)
         .task { await modelStatus.attach() }
+        .sheet(isPresented: $showUpgrade) {
+            UpgradeSheet(highlighted: .byoCloudKey).environmentObject(entitlements)
+        }
     }
 
     @ViewBuilder

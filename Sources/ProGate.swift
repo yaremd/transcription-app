@@ -31,6 +31,33 @@ private struct ProGateModifier: ViewModifier {
     }
 }
 
+/// Full-pane lock for surfaces that ARE the feature (the Action Items inbox):
+/// explains instead of teasing with dead UI, and one click opens the sheet.
+struct ProLockedPane: View {
+    let feature: ProFeature
+    @EnvironmentObject private var entitlements: EntitlementService
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "checkmark.seal")
+                .font(.system(size: 28, weight: .light))
+                .foregroundStyle(Theme.accent)
+            Text("\(feature.displayName) is part of Seal Pro")
+                .font(Theme.title)
+            Text(feature.blurb + ". Runs on your Mac, like everything in Seal.")
+                .font(Theme.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 380)
+            Button("See Seal Pro") { entitlements.requestUpgrade(for: feature) }
+                .buttonStyle(.linearPrimary)
+                .padding(.top, 6)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.background)
+    }
+}
+
 /// The small "PRO" mark call sites can place beside a gated control's label.
 /// Hidden once the install is licensed or in trial — paid users shouldn't
 /// read badges for things they own.

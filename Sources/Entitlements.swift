@@ -152,6 +152,11 @@ final class EntitlementService: ObservableObject {
         return d
     }()
 
+    /// The app's instance, for the few non-view seams that can't take an
+    /// injected reference (AppSettings.usingCloudNotes). Set only by the app
+    /// path below — test instances never touch it.
+    static private(set) var shared: EntitlementService?
+
     /// App-wide instance. Tests use the designated initializer with a temp
     /// directory, a fixed key, and a controllable clock.
     convenience init() {
@@ -163,6 +168,7 @@ final class EntitlementService: ObservableObject {
         self.init(fileURL: dir.appendingPathComponent("entitlement.json"),
                   macKey: Self.keychainMACKey(),
                   now: Date.init)
+        Self.shared = self
     }
 
     init(fileURL: URL, macKey: SymmetricKey, now: @escaping () -> Date) {
