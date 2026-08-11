@@ -2,6 +2,9 @@ import SwiftUI
 import AppKit
 import Combine
 import CoreAudio
+import os
+
+private let log = Logger(subsystem: "com.yarem.Seal", category: "Meetings")
 
 /// Notices meetings by the one signal that actually means one: a call app is
 /// using the microphone. Core Audio publishes every process that touches
@@ -62,9 +65,11 @@ final class MeetingDetector: ObservableObject {
     /// the unit tests never registers Core Audio listeners.
     func activate() {
         guard watcher == nil else { return }
+        log.notice("meeting detection active")
         let watcher = CallAudioWatcher()
         watcher.onChange = { [weak self] apps in
             guard let self else { return }
+            log.notice("call apps on the microphone: \(apps.map(\.name).sorted().joined(separator: ", "), privacy: .public)\(apps.isEmpty ? "(none)" : "", privacy: .public)")
             self.apply(self.model.callAppsChanged(apps, isRecording: self.monitor.isRunning,
                                                   now: Date(), config: self.config))
         }
@@ -82,6 +87,7 @@ final class MeetingDetector: ObservableObject {
 
     private func apply(_ effects: [MeetingSessionModel.Effect]) {
         for effect in effects {
+            log.notice("effect: \(String(describing: effect), privacy: .public)")
             switch effect {
             case .offer(let app):
                 showStartNudge(for: app)
@@ -176,6 +182,7 @@ final class MeetingDetector: ObservableObject {
         }
         panel.orderFrontRegardless()
         self.panel = panel
+        log.notice("nudge shown: \(view.title, privacy: .public)")
 
         // Not a permanent fixture — fade out on its own if ignored.
         let hide = DispatchWorkItem { [weak self] in self?.hide() }
@@ -364,6 +371,7 @@ private final class CallAudioWatcher {
     private(set) var active: Set<CallApp> = []
     private var inputListeners: [AudioObjectID: AudioObjectPropertyListenerBlock] = [:]
     private var listListener: AudioObjectPropertyListenerBlock?
+    private var poll: Timer?
 
     private static var listAddress = AudioObjectPropertyAddress(
         mSelector: kAudioHardwarePropertyProcessObjectList,
@@ -376,9 +384,20 @@ private final class CallAudioWatcher {
 
     func start() {
         let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in self?.rescan() }
-        if AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject),
-                                               &Self.listAddress, .main, block) == noErr {
+        let status = AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject),
+                                                         &Self.listAddress, .main, block)
+        if status == noErr {
             listListener = block
+        } else {
+            log.error("watcher: process-list listener failed (\(status, privacy: .public))")
+        }
+        // Belt and braces: notifications for the per-process input flag have
+        // to be delivered by the HAL, and a signal this feature lives or dies
+        // by should not depend on that arriving. A poll is a few dozen
+        // property reads every two seconds — nothing — and guarantees the
+        // flip is seen within two seconds even if no notification ever comes.
+        poll = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            self?.rescan()
         }
         rescan()
     }
@@ -406,8 +425,11 @@ private final class CallAudioWatcher {
         }
         for object in wanted where inputListeners[object] == nil {
             let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in self?.rescan() }
-            if AudioObjectAddPropertyListenerBlock(object, &Self.inputAddress, .main, block) == noErr {
+            let status = AudioObjectAddPropertyListenerBlock(object, &Self.inputAddress, .main, block)
+            if status == noErr {
                 inputListeners[object] = block
+            } else {
+                log.error("watcher: input listener failed (\(status, privacy: .public)) on process \(object, privacy: .public)")
             }
         }
 
