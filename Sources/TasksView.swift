@@ -5,11 +5,22 @@ import SwiftUI
 /// its meeting; clicking a card's header opens that meeting.
 struct TasksView: View {
     @EnvironmentObject private var store: MeetingStore
+    @EnvironmentObject private var entitlements: EntitlementService
     /// Navigates the window to the given meeting (wired by RootView).
     var openMeeting: (UUID) -> Void = { _ in }
     @State private var showCompleted = false
 
     var body: some View {
+        if entitlements.allows(.actionTracking) {
+            inbox
+        } else {
+            // This pane IS the feature — a full explanation beats a dead list.
+            ProLockedPane(feature: .actionTracking)
+                .navigationTitle("Action Items")
+        }
+    }
+
+    private var inbox: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack {

@@ -121,6 +121,9 @@ fi
 echo ""
 echo "✅ Built: $DMG"
 echo ""
+# The pubDate below is load-bearing since the Seal Pro update window
+# (UpdatePolicy.swift): a Pro license admits updates published within its
+# year, judged by this exact date. Never hand-edit or omit it.
 echo "Paste this <item> at the top of the <channel> in docs/appcast.xml:"
 echo ""
 cat <<ITEM
