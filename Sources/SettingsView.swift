@@ -33,7 +33,7 @@ private struct LicenseSettings: View {
     @State private var deactivating = false
     @State private var deactivateError: String?
 
-    private let client: LicenseActivating = PolarLicenseClient()
+    private let client: LicenseActivating = FreemiusLicenseClient()
 
     var body: some View {
         Form {

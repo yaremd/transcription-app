@@ -203,26 +203,59 @@ final class EntitlementTests: XCTestCase {
 
     // MARK: - Polar response mapping
 
-    func testPolarActivationParsing() throws {
-        let json = """
-        {"id": "act-abc", "license_key": {"created_at": "2026-08-01T10:00:00Z",
-         "metadata": {"tier": "lifetime"}}}
+    func testFreemiusActivationParsing() throws {
+        // The plan name names the tier — Freemius's activation response shape.
+        let lifetime = """
+        {"install_id": 90210, "install_api_token": "t",
+         "license_plan_name": "Lifetime",
+         "license": {"created": "2026-08-01 10:00:00"}}
         """
-        let record = try PolarLicenseClient.record(fromActivation: Data(json.utf8), key: " K-1 ")
-        XCTAssertEqual(record.activationID, "act-abc")
+        let record = try FreemiusLicenseClient.record(fromActivation: Data(lifetime.utf8), key: "K-1")
+        XCTAssertEqual(record.activationID, "90210")
         XCTAssertEqual(record.tier, .lifetime)
-        XCTAssertEqual(record.key, "K-1")
         XCTAssertNil(record.updatesThrough)
 
+        // Any other plan is Pro, with a one-year window from the license's
+        // OWN purchase date — never the activation date.
         let pro = """
-        {"id": "act-def", "license_key": {"created_at": "2026-08-01T10:00:00Z", "metadata": {}}}
+        {"install_id": "90211", "license_plan_name": "Pro",
+         "license": {"created": "2026-08-01 10:00:00"}}
         """
-        let proRecord = try PolarLicenseClient.record(fromActivation: Data(pro.utf8), key: "K-2")
+        let proRecord = try FreemiusLicenseClient.record(fromActivation: Data(pro.utf8), key: "K-2")
         XCTAssertEqual(proRecord.tier, .pro)
-        let expected = Calendar.current.date(byAdding: .year, value: 1,
-                                             to: ISO8601DateFormatter().date(from: "2026-08-01T10:00:00Z")!)
-        XCTAssertEqual(proRecord.updatesThrough, expected)
+        let purchaseDate = try XCTUnwrap(FreemiusLicenseClient.parseFreemiusDate("2026-08-01 10:00:00"))
+        let expected = Calendar.current.date(byAdding: .year, value: 1, to: purchaseDate)!
+        let window = try XCTUnwrap(proRecord.updatesThrough)
+        XCTAssertEqual(window.timeIntervalSince1970, expected.timeIntervalSince1970, accuracy: 1)
 
-        XCTAssertThrowsError(try PolarLicenseClient.record(fromActivation: Data("{}".utf8), key: "K"))
+        XCTAssertThrowsError(try FreemiusLicenseClient.record(fromActivation: Data("{}".utf8), key: "K"))
+    }
+
+    func testFreemiusRejectionMapping() {
+        // The live API's actual invalid-key shape (verified 2026-08-11).
+        let invalid = """
+        {"error": {"type": "InvalidArgument", "message": "Invalid license key.",
+         "code": "invalid_license_key", "http": 400}}
+        """
+        XCTAssertEqual(FreemiusLicenseClient.rejection(from: Data(invalid.utf8)), .invalidKey)
+
+        let quota = """
+        {"error": {"message": "Maximum number of activations reached."}}
+        """
+        XCTAssertEqual(FreemiusLicenseClient.rejection(from: Data(quota.utf8)), .activationLimitReached)
+
+        let other = """
+        {"error": {"message": "License is blocked."}}
+        """
+        XCTAssertEqual(FreemiusLicenseClient.rejection(from: Data(other.utf8)), .rejected("License is blocked."))
+
+        XCTAssertNil(FreemiusLicenseClient.rejection(from: Data("{}".utf8)))
+    }
+
+    func testMachineUIDIsStableAnd32Hex() {
+        let uid = FreemiusLicenseClient.machineUID()
+        XCTAssertEqual(uid.count, 32)
+        XCTAssertTrue(uid.allSatisfy { $0.isHexDigit })
+        XCTAssertEqual(uid, FreemiusLicenseClient.machineUID(), "must be stable per machine")
     }
 }

@@ -15,7 +15,7 @@ struct UpgradeSheet: View {
     @State private var activating = false
     @State private var activationError: String?
 
-    private let client: LicenseActivating = PolarLicenseClient()
+    private let client: LicenseActivating = FreemiusLicenseClient()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -159,6 +159,10 @@ struct UpgradeSheet: View {
         }
     }
 
+    /// Straight to checkout once the storefront is live; the pricing page
+    /// (which also sells Lifetime) until then.
+    private var buyURL: URL { SealStore.checkoutPro ?? Pricing.pricingURL }
+
     private var actions: some View {
         HStack(spacing: 8) {
             if entitlements.trialAvailable {
@@ -168,10 +172,10 @@ struct UpgradeSheet: View {
                 }
                 .buttonStyle(.linearPrimary)
                 .keyboardShortcut(.defaultAction)
-                Button("Buy Seal Pro") { NSWorkspace.shared.open(Pricing.pricingURL) }
+                Button("Buy Seal Pro") { NSWorkspace.shared.open(buyURL) }
                     .buttonStyle(.linearQuiet)
             } else {
-                Button("Buy Seal Pro") { NSWorkspace.shared.open(Pricing.pricingURL) }
+                Button("Buy Seal Pro") { NSWorkspace.shared.open(buyURL) }
                     .buttonStyle(.linearPrimary)
                     .keyboardShortcut(.defaultAction)
             }
