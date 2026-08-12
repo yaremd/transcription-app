@@ -201,6 +201,34 @@ final class EntitlementTests: XCTestCase {
         XCTAssertEqual(service.entitlement, .free)
     }
 
+    /// The 2026-08-12 lesson as a permanent regression test: the founder's
+    /// real license was wiped by a service that read the file with a
+    /// different key (the test host's ephemeral one) and then persisted its
+    /// fresh-free state over it. A service that couldn't verify the file must
+    /// never replace it — reading wrong is survivable, writing wrong is not.
+    func testWrongKeyReaderNeverOverwritesTheRealLicense() {
+        makeService().apply(license: proLicense())
+
+        let otherKey = SymmetricKey(data: Data(repeating: 9, count: 32))
+        let wrongKeyReader = EntitlementService(fileURL: fileURL, macKey: otherKey) { [self] in clock }
+        XCTAssertEqual(wrongKeyReader.entitlement, .free)
+        wrongKeyReader.refresh()   // the exact write path that did the damage
+
+        let recovered = makeService()
+        XCTAssertTrue(recovered.allows(.askMeeting), "the real license must survive a wrong-key reader")
+        XCTAssertEqual(recovered.license?.activationID, "act-1")
+    }
+
+    /// And the cause behind that lesson: the app hosts the unit tests, so the
+    /// app-wide initializer runs at test startup — under test it must point
+    /// at a throwaway file, never the user's real state.
+    func testTestHostStateIsIsolatedFromTheRealFile() {
+        let testHost = EntitlementService.stateFileURL(underTest: true)
+        let real = EntitlementService.stateFileURL(underTest: false)
+        XCTAssertTrue(testHost.path.hasPrefix(FileManager.default.temporaryDirectory.path))
+        XCTAssertNotEqual(testHost, real)
+    }
+
     // MARK: - Polar response mapping
 
     func testFreemiusActivationParsing() throws {
