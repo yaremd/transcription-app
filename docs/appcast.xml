@@ -13,6 +13,33 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 0.20</title>
+      <sparkle:version>20</sparkle:version>
+      <sparkle:shortVersionString>0.20</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 12 Aug 2026 08:32:18 +0000</pubDate>
+      <description><![CDATA[
+        <h3>A clearer look at Seal Pro</h3>
+        <ul>
+          <li><b>The upgrade sheet is a pitch now, not a spec sheet.</b> A
+          headline that says what Pro is for — and when you open it from a
+          locked button, that feature's own promise leads. Features sit in a
+          scannable icon grid, and the things that make Seal different stand
+          right above the price: pay once and it's yours, everything stays
+          on your Mac, the free core stays free.</li>
+          <li><b>Activating a license now lands the moment.</b> Instead of
+          the window silently closing, you get a proper welcome: your plan
+          stated plainly, and one button back to work.</li>
+        </ul>
+        <p>Everything else is as it was in 0.19 — and as always: no
+        subscription required, no account, nothing leaves your Mac.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.20/Seal.dmg"
+        sparkle:edSignature="piis/gJVKLF4UbMvMbGOLOJMM3M2/1M/w5cu25+XgcZM5rogRnO1gAoc8swxGehGLtpqiNtgpcBH+0ObQojjAg==" length="23039716"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.19</title>
       <sparkle:version>19</sparkle:version>
       <sparkle:shortVersionString>0.19</sparkle:shortVersionString>
