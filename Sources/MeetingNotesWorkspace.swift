@@ -226,6 +226,7 @@ private struct MeetingTranscriptColumn: View {
     @EnvironmentObject private var store: MeetingStore
     @State private var highlighted: Set<UUID> = []
     @State private var tapped: UUID?
+    @State private var justCopied = false
     /// The identified voice being renamed via a row's context menu, if any.
     @State private var renamingVoice: String?
     @State private var renameDraft = ""
@@ -243,6 +244,21 @@ private struct MeetingTranscriptColumn: View {
                 Text("tap a line to anchor a note")
                     .font(Theme.meta)
                     .foregroundStyle(.quaternary)
+                Button {
+                    copyToPasteboard(meeting.transcriptText)
+                    justCopied = true
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 1_400_000_000)
+                        justCopied = false
+                    }
+                } label: {
+                    Image(systemName: justCopied ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 11))
+                        .foregroundStyle(justCopied ? Theme.green : .secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(lines.isEmpty)
+                .help("Copy the transcript")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)

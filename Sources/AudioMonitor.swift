@@ -156,8 +156,28 @@ final class AudioMonitor: ObservableObject {
     @Published var modelStatus = ""
     @Published var errorMessage: String?
     /// Soft mic conditions (echo-cancellation restart, quiet input) — shown as
-    /// a caption by the recording controls, separate from hard errors.
+    /// a caption by the recording controls, separate from hard errors. A notice
+    /// is a moment, not a state: `showNotice` clears it after a few seconds,
+    /// and the diagnostics log keeps the durable record.
     @Published var noticeMessage: String?
+    private var noticeClearTask: Task<Void, Never>?
+
+    /// Shows a transient notice by the recording controls; it dismisses itself
+    /// after `seconds` (a fresh notice restarts the clock).
+    func showNotice(_ message: String, for seconds: TimeInterval = 8) {
+        noticeMessage = message
+        noticeClearTask?.cancel()
+        noticeClearTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            self?.noticeMessage = nil
+        }
+    }
+
+    private func clearNotice() {
+        noticeClearTask?.cancel()
+        noticeMessage = nil
+    }
     @Published var transcript: [TranscriptLine] = []
     @Published var liveLines: [String: String] = [:]
     /// Set when Stop saves a meeting — the UI navigates to it and clears this.
@@ -340,7 +360,7 @@ final class AudioMonitor: ObservableObject {
 
     func start() {
         errorMessage = nil
-        noticeMessage = nil
+        clearNotice()
         transcript = []
         liveLines = [:]
         liveUtterance = [:]
@@ -440,7 +460,7 @@ final class AudioMonitor: ObservableObject {
         mic.onNotice = { [weak self] message in
             DispatchQueue.main.async {
                 guard let self, self.isRunning else { return }
-                self.noticeMessage = message
+                self.showNotice(message)
                 // A status line the user may not be looking at is not a record.
                 // A mic that dropped out mid-meeting has to be readable off the
                 // meeting afterwards, next to the audio it explains.
@@ -521,7 +541,7 @@ final class AudioMonitor: ObservableObject {
         notesError = nil
         noteBlocks = []
         errorMessage = nil
-        noticeMessage = nil
+        clearNotice()
         statusMessage = "Press Start. You and the call will both be transcribed."
     }
 
@@ -610,7 +630,7 @@ final class AudioMonitor: ObservableObject {
         levels.mic = 0
         levels.system = 0
         recordingStart = nil
-        noticeMessage = nil
+        clearNotice()
         // Detach the tap before closing, so a straggling final pass can't write
         // into a closed file. Closing is idempotent either way.
         let finished = diagnosticsLog

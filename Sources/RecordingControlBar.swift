@@ -2,9 +2,11 @@ import SwiftUI
 
 /// The one home for everything about the live session: proof it's working
 /// (pulsing dot, elapsed timer, live waveform), the controls (Pause, Stop),
-/// the transcript-panel toggle, language & speed, discard — and the privacy
-/// promise. A floating capsule docked bottom-center, so the most important
-/// controls never move, no matter which panes are open.
+/// language & speed, and the ⋯ menu (transcript panel, discard). A floating
+/// capsule docked bottom-center, so the most important controls never move,
+/// no matter which panes are open. Fully local is the default and needs no
+/// announcing — the privacy badge appears only as a caution when the opt-in
+/// cloud notes model is on.
 struct RecordingControlBar: View {
     @ObservedObject var monitor: AudioMonitor
     @EnvironmentObject private var settings: AppSettings
@@ -35,6 +37,7 @@ struct RecordingControlBar: View {
                     monitor.pauseResume()
                 }
                 .buttonStyle(.linearQuietCompact)
+                .help(monitor.isPaused ? "Resume the recording" : "Pause — nothing is transcribed until you resume")
             }
 
             Button(monitor.isRunning ? "Stop" : "Start Listening") {
@@ -42,16 +45,9 @@ struct RecordingControlBar: View {
             }
             .buttonStyle(startStopStyle)
             .keyboardShortcut(.defaultAction)
+            .help(monitor.isRunning ? "Stop and save this meeting" : "Start listening")
 
             barDivider
-
-            Button(action: toggleTranscript) {
-                Image(systemName: "sidebar.trailing")
-                    .font(.system(size: 11))
-                    .foregroundStyle(transcriptVisible ? Theme.accent : .secondary)
-            }
-            .buttonStyle(.plain)
-            .help(transcriptVisible ? "Hide the transcript" : "Show the transcript")
 
             Button {
                 showSettings.toggle()
@@ -66,23 +62,27 @@ struct RecordingControlBar: View {
                 SessionSettingsPopover(monitor: monitor)
             }
 
-            if monitor.isRunning {
-                Menu {
+            Menu {
+                Button(transcriptVisible ? "Hide transcript" : "Show transcript",
+                       action: toggleTranscript)
+                if monitor.isRunning {
+                    Divider()
                     Button("Discard recording…", role: .destructive, action: requestDiscard)
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .help("More")
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("More")
 
-            barDivider
-
-            PrivacyBadge(usingCloud: settings.usingCloudNotes, compact: true)
+            if settings.usingCloudNotes {
+                barDivider
+                PrivacyBadge(usingCloud: true, compact: true)
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)

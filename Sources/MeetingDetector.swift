@@ -93,7 +93,7 @@ final class MeetingDetector: ObservableObject {
                 showStartNudge(for: app)
             case .startRecording(let app):
                 monitor.start()
-                monitor.noticeMessage = "Recording started automatically — \(app.name) is in a call."
+                monitor.showNotice("Recording started automatically — \(app.name) is in a call.", for: 12)
             case .armEndCheck:
                 let work = DispatchWorkItem { [weak self] in
                     guard let self else { return }
