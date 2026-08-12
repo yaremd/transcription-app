@@ -219,11 +219,42 @@ final class AudioMonitor: ObservableObject {
     func addNoteBlock(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        noteBlocks.append(NoteBlock(text: trimmed, at: Date()))
+        noteBlocks.append(NoteBlock(text: NoteMark.normalized(trimmed), at: Date()))
+    }
+
+    /// Stamps the current moment as important: a ★ note block the notes
+    /// generator is told to cover, anchored like any note so its time links
+    /// back to what was being said.
+    func addHighlight() {
+        guard isRunning else { return }
+        noteBlocks.append(NoteBlock(text: "★", at: Date()))
+        showNotice("Moment starred — the notes will cover it.", for: 4)
     }
 
     func deleteNoteBlock(_ id: UUID) {
         noteBlocks.removeAll { $0.id == id }
+    }
+
+    /// The live session's notes as the AI reads them: checkbox state spelled
+    /// out, starred moments marked IMPORTANT and grounded with what was being
+    /// said around them (mirrors Meeting.notesForAI for the saved copy).
+    var notesForAIDuringSession: String {
+        noteBlocks.map { block in
+            switch NoteMark.parse(block.text) {
+            case .plain(let s): return s
+            case .bullet(let s): return "- " + s
+            case .task(let done, let body): return (done ? "[done] " : "[todo] ") + body
+            case .highlight(let s):
+                var line = "★ IMPORTANT"
+                if !s.isEmpty { line += ": " + s }
+                if let near = transcript.min(by: {
+                    abs($0.at.timeIntervalSince(block.at)) < abs($1.at.timeIntervalSince(block.at))
+                }), abs(near.at.timeIntervalSince(block.at)) < 30 {
+                    line += " (said around then: \"\(near.text.prefix(160))\")"
+                }
+                return line
+            }
+        }.joined(separator: "\n")
     }
 
     /// Describes where notes are generated, for the UI.
@@ -682,7 +713,7 @@ final class AudioMonitor: ObservableObject {
         notesError = nil
         isGeneratingNotes = true
         let hint = language.notesHint
-        let jotted = joinedNotes
+        let jotted = notesForAIDuringSession
         let tmpl = template
         let backend: NotesBackend = settings.usingCloudNotes
             ? .cloudOpenAICompatible(baseURL: settings.cloudBaseURL, apiKey: settings.cloudAPIKey, model: settings.cloudModel)
@@ -730,7 +761,7 @@ final class AudioMonitor: ObservableObject {
         let joined = joinedNotes
         let jottedToStore: String? = joined.isEmpty ? existing?.userNotes : joined
         let blocksToStore: [NoteBlock]? = noteBlocks.isEmpty ? existing?.noteBlocks : noteBlocks
-        let meeting = Meeting(
+        var meeting = Meeting(
             id: currentMeetingID,
             title: Meeting.startingTitle(existing: existing?.title,
                                          calendar: sessionCalendarContext?.title),
@@ -743,9 +774,12 @@ final class AudioMonitor: ObservableObject {
             noteBlocks: blocksToStore,
             templateID: template.id,
             tags: existing?.tags,
+            folder: existing?.folder,
             actionItems: existing?.actionItems,
             calendarTitle: sessionCalendarContext?.title ?? existing?.calendarTitle,
             calendarAttendees: sessionCalendarContext?.attendees ?? existing?.calendarAttendees)
+        // Checkbox notes taken during the call flow into the action items.
+        meeting.syncActionItems(fromNoteBlocks: blocksToStore)
         store.save(meeting)
     }
 

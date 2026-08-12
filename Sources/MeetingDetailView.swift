@@ -491,7 +491,7 @@ struct MeetingDetailView: View {
         let b = backend
         let hint = languageHint
         let transcript = meeting.aiTranscript
-        let jotted = meeting.userNotes ?? ""
+        let jotted = meeting.notesForAI
         let chosenTemplateID = templateID
         let template = NotesTemplate.byID(chosenTemplateID)
         Task {
@@ -733,11 +733,7 @@ struct MeetingDetailView: View {
                             Text(Self.noteTimeFormatter.string(from: block.at))
                                 .font(Theme.meta).monospacedDigit()
                                 .foregroundStyle(Theme.accent.opacity(0.7))
-                            Text(block.text)
-                                .font(Theme.body)
-                                .foregroundStyle(.primary)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
+                            notePreviewBody(block)
                             Spacer(minLength: 0)
                         }
                         .contentShape(Rectangle())
@@ -755,6 +751,52 @@ struct MeetingDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .insetPanel(radius: 8)
+    }
+
+    /// One preview line of a jotted note, marker-aware: checkboxes show their
+    /// state, bullets their dot, starred moments their star (see NoteMark).
+    @ViewBuilder
+    private func notePreviewBody(_ block: NoteBlock) -> some View {
+        switch NoteMark.parse(block.text) {
+        case .plain(let s):
+            Text(s)
+                .font(Theme.body)
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+        case .bullet(let s):
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("•").foregroundStyle(.tertiary)
+                Text(s)
+                    .font(Theme.body)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+        case .task(let done, let body):
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: done ? "checkmark.square" : "square")
+                    .font(.system(size: 11))
+                    .foregroundStyle(done ? Theme.green : .secondary)
+                Text(body)
+                    .font(Theme.body)
+                    .strikethrough(done)
+                    .foregroundStyle(done ? .secondary : .primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+        case .highlight(let s):
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.amber)
+                Text(s.isEmpty ? "Marked important" : s)
+                    .font(Theme.body)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+        }
     }
 
     /// The full-height notes ↔ transcript workspace in a resizable sheet, so the

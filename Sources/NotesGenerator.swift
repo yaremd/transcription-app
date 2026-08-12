@@ -300,7 +300,9 @@ final class NotesGenerator {
 
             The user also jotted their own rough notes during the meeting (provided after "USER NOTES"). \
             Treat those as the priority: expand, organize, and complete them using the transcript. \
-            Where the transcript adds relevant detail the user didn't capture, include it — but never contradict the user's notes.
+            Where the transcript adds relevant detail the user didn't capture, include it — but never contradict the user's notes. \
+            Lines marked "★ IMPORTANT" are moments the user explicitly starred: cover each one clearly in the notes. \
+            Lines marked "[todo]" or "[done]" are tasks the user tracked — reflect them, with their state, wherever the notes cover actions.
             """
         }
         system += """

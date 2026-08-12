@@ -33,6 +33,16 @@ struct RecordingControlBar: View {
                              active: monitor.isRunning && !monitor.isPaused)
                     .frame(width: 88, height: 16)
 
+                Button {
+                    monitor.addHighlight()
+                } label: {
+                    Image(systemName: "star")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Star this moment — the notes will cover it (⇧⌘H)")
+
                 Button(monitor.isPaused ? "Resume" : "Pause") {
                     monitor.pauseResume()
                 }

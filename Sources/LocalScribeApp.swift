@@ -88,6 +88,9 @@ struct LocalScribeApp: App {
                     monitor.toggle()
                 }
                 .keyboardShortcut("r", modifiers: [.command, .shift])
+                Button("Star This Moment") { monitor.addHighlight() }
+                    .keyboardShortcut("h", modifiers: [.command, .shift])
+                    .disabled(!monitor.isRunning)
             }
         }
 
@@ -267,6 +270,18 @@ private struct FloatingPillView: View {
             Rectangle()
                 .fill(Theme.divider)
                 .frame(width: 1, height: 16)
+
+            Button {
+                monitor.addHighlight()
+            } label: {
+                Image(systemName: "star")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Star this moment — the notes will cover it")
 
             Button {
                 monitor.pauseResume()

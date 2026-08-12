@@ -92,9 +92,9 @@ struct MeetingNotesWorkspace: View {
                                 .padding(.vertical, 4)
                         }
                         ForEach($blocks) { $block in
-                            MeetingNoteRow(block: $block,
-                                           onJump: { jumpTo($0) },
-                                           onDelete: { delete(block.id) })
+                            EditableNoteRow(block: $block,
+                                            onJump: { jumpTo($0) },
+                                            onDelete: { delete(block.id) })
                                 .id(block.id)
                         }
                         addRow(proxy: proxy)
@@ -130,7 +130,7 @@ struct MeetingNotesWorkspace: View {
         // Attach to the tapped line, else the meeting's opening — a note must
         // always land somewhere so its time link works when reviewed later.
         let at = anchor ?? meeting.lines.first?.at ?? meeting.date
-        blocks.append(NoteBlock(text: text, at: at))
+        blocks.append(NoteBlock(text: NoteMark.normalized(text), at: at))
         draft = ""
         draftFocused = true
         if let last = blocks.last {
@@ -164,50 +164,15 @@ struct MeetingNotesWorkspace: View {
             updated.noteBlocks = snapshot.isEmpty ? nil : snapshot
             let joined = snapshot.map(\.text).joined(separator: "\n")
             updated.userNotes = joined.isEmpty ? nil : joined
+            // Checkbox notes flow into the meeting's action items.
+            updated.syncActionItems(fromNoteBlocks: snapshot)
             store.save(updated)
         }
     }
 
     private static func time(_ date: Date) -> String {
-        MeetingNoteRow.timeFormatter.string(from: date)
+        EditableNoteRow.timeFormatter.string(from: date)
     }
-}
-
-// MARK: - Editable note row
-
-/// One timestamped note in the saved meeting: a clickable time that highlights
-/// the transcript moment, and its text editable in place. Delete via the
-/// context menu — same shape as the live note row, but bound to a saved block.
-private struct MeetingNoteRow: View {
-    @Binding var block: NoteBlock
-    let onJump: (Date) -> Void
-    let onDelete: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Button(Self.timeFormatter.string(from: block.at)) { onJump(block.at) }
-                .buttonStyle(.plain)
-                .font(Theme.meta)
-                .monospacedDigit()
-                .foregroundStyle(hovering ? Theme.accent : Theme.accent.opacity(0.65))
-                .help("Show what was being said at this moment")
-
-            TextField("", text: $block.text, axis: .vertical)
-                .textFieldStyle(.plain)
-                .font(Theme.body)
-        }
-        .onHover { hovering = $0 }
-        .contextMenu {
-            Button("Delete note", role: .destructive, action: onDelete)
-        }
-    }
-
-    static let timeFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        return f
-    }()
 }
 
 // MARK: - Transcript column (right)

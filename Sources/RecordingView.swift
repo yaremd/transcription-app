@@ -109,9 +109,9 @@ private struct NotesPane: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 7) {
                         ForEach($monitor.noteBlocks) { $block in
-                            NoteBlockRow(block: $block,
-                                         onJump: onJump,
-                                         onDelete: { monitor.deleteNoteBlock(block.id) })
+                            EditableNoteRow(block: $block,
+                                            onJump: onJump,
+                                            onDelete: { monitor.deleteNoteBlock(block.id) })
                                 .id(block.id)
                         }
 
@@ -131,7 +131,7 @@ private struct NotesPane: View {
                                         withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                                     }
                                 }
-                                .help("Times link to the talk — click a note's time to see that moment")
+                                .help("Times link to the talk — click a note's time to see that moment. Start a note with \"- \" for a bullet or \"[]\" for a task.")
                         }
                         .id("draft")
                     }
@@ -154,7 +154,12 @@ private struct NotesPane: View {
     }
 }
 
-private struct NoteBlockRow: View {
+/// One editable timestamped note — the live pane and the saved workspace
+/// share it. A note carries its formatting in its own text ("- ", "[ ]",
+/// "★" — see NoteMark): bullets get a dot, checkboxes a real toggle that
+/// strikes the text, starred moments an amber star. The marker stays in the
+/// stored text, so plain-text exports and older versions read naturally.
+struct EditableNoteRow: View {
     @Binding var block: NoteBlock
     let onJump: (Date) -> Void
     let onDelete: () -> Void
@@ -171,14 +176,80 @@ private struct NoteBlockRow: View {
             .foregroundStyle(hovering ? Theme.accent : Theme.accent.opacity(0.65))
             .help("Show what was being said at this moment")
 
-            TextField("", text: $block.text, axis: .vertical)
-                .textFieldStyle(.plain)
-                .font(Theme.body)
+            switch NoteMark.parse(block.text) {
+            case .task(let done, let body):
+                Toggle("", isOn: taskDoneBinding(body: body))
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                TextField("", text: taskBodyBinding(done: done), axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .font(Theme.body)
+                    .strikethrough(done)
+                    .foregroundStyle(done ? .secondary : .primary)
+            case .bullet:
+                Text("•")
+                    .font(Theme.body)
+                    .foregroundStyle(.tertiary)
+                TextField("", text: bulletBodyBinding(), axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .font(Theme.body)
+            case .highlight:
+                Image(systemName: "star.fill")
+                    .font(.system(size: 9))
+                    .foregroundStyle(Theme.amber)
+                TextField("Starred — add why it matters (optional)",
+                          text: highlightBodyBinding(), axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .font(Theme.body)
+            case .plain:
+                TextField("", text: $block.text, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .font(Theme.body)
+            }
         }
         .onHover { hovering = $0 }
         .contextMenu {
             Button("Delete note", role: .destructive, action: onDelete)
         }
+    }
+
+    // The body is edited while the marker stays put — each binding rewrites
+    // the stored text with the marker re-attached.
+
+    private func taskDoneBinding(body: String) -> Binding<Bool> {
+        Binding(
+            get: {
+                if case .task(let done, _) = NoteMark.parse(block.text) { return done }
+                return false
+            },
+            set: { block.text = NoteMark.composeTask(done: $0, body: body) })
+    }
+
+    private func taskBodyBinding(done: Bool) -> Binding<String> {
+        Binding(
+            get: {
+                if case .task(_, let body) = NoteMark.parse(block.text) { return body }
+                return block.text
+            },
+            set: { block.text = NoteMark.composeTask(done: done, body: $0) })
+    }
+
+    private func bulletBodyBinding() -> Binding<String> {
+        Binding(
+            get: {
+                if case .bullet(let body) = NoteMark.parse(block.text) { return body }
+                return block.text
+            },
+            set: { block.text = "- " + $0 })
+    }
+
+    private func highlightBodyBinding() -> Binding<String> {
+        Binding(
+            get: {
+                if case .highlight(let body) = NoteMark.parse(block.text) { return body }
+                return block.text
+            },
+            set: { block.text = $0.isEmpty ? "★" : "★ " + $0 })
     }
 
     static let timeFormatter: DateFormatter = {
