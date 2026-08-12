@@ -96,7 +96,7 @@ struct LocalScribeApp: App {
         }
 
         Settings {
-            SettingsView(vocabulary: vocabulary, settings: settings, entitlements: entitlements)
+            SettingsView(vocabulary: vocabulary, settings: settings, entitlements: entitlements, monitor: monitor)
         }
     }
 }

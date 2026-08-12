@@ -5,6 +5,7 @@ struct SettingsView: View {
     @ObservedObject var vocabulary: VocabularyStore
     @ObservedObject var settings: AppSettings
     @ObservedObject var entitlements: EntitlementService
+    @ObservedObject var monitor: AudioMonitor
 
     var body: some View {
         TabView {
@@ -14,7 +15,7 @@ struct SettingsView: View {
                 .tabItem { Label("Notes", systemImage: "brain") }
             VocabularySettings(vocabulary: vocabulary)
                 .tabItem { Label("Vocabulary", systemImage: "text.book.closed") }
-            RecordingSettings(settings: settings)
+            RecordingSettings(settings: settings, monitor: monitor)
                 .tabItem { Label("Recording", systemImage: "waveform") }
             LicenseSettings(entitlements: entitlements)
                 .tabItem { Label("License", systemImage: "checkmark.seal") }
@@ -362,9 +363,41 @@ private struct NotesSettings: View {
 
 private struct RecordingSettings: View {
     @ObservedObject var settings: AppSettings
+    @ObservedObject var monitor: AudioMonitor
+    @StateObject private var inputs = AudioInputsObserver()
 
     var body: some View {
         Form {
+            Section("Microphone") {
+                Picker("Record from", selection: micSelection) {
+                    Text("Automatic (recommended)").tag("")
+                    ForEach(inputs.devices) { device in
+                        Text(device.name).tag(device.id)
+                    }
+                    if isChosenMissing {
+                        Text("\(settings.preferredMicName) — not connected").tag(settings.preferredMicUID)
+                    }
+                }
+                if isChosenMissing {
+                    Text("That microphone isn't connected, so the automatic choice is used until it returns.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.amber)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text("Automatic picks a wired microphone when your headset is Bluetooth, so your headphones keep full-quality playback. A change applies immediately, even mid-recording.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Section("Call audio") {
+                Toggle("Record the call's other side (system audio)", isOn: $settings.captureSystemAudio)
+                Text("Captures what plays on your Mac — the other participants of a call — as the \"Others\" side of the transcript. Turning it off records only your microphone. Applies from the next recording.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Section {
                 Toggle("Keep meeting audio", isOn: $settings.keepAudio)
                 Text("Saves each meeting's audio on your Mac, next to its transcript (~15 MB per hour). This powers \"Improve transcript\" — re-transcribing a finished meeting with the accurate model. Nothing ever leaves your Mac; deleting a meeting deletes its audio.")
@@ -374,5 +407,23 @@ private struct RecordingSettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var isChosenMissing: Bool {
+        !settings.preferredMicUID.isEmpty
+            && !inputs.devices.contains { $0.id == settings.preferredMicUID }
+    }
+
+    /// Selecting stores the preference and applies it to a live session.
+    private var micSelection: Binding<String> {
+        Binding(
+            get: { settings.preferredMicUID },
+            set: { uid in
+                settings.preferredMicUID = uid
+                if let name = inputs.devices.first(where: { $0.id == uid })?.name {
+                    settings.preferredMicName = name
+                }
+                monitor.applyMicrophoneSelection()
+            })
     }
 }

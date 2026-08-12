@@ -57,7 +57,7 @@ struct RecordingControlBar: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .help("Language & speed")
+            .help("Microphone, language & speed")
             .popover(isPresented: $showSettings, arrowEdge: .top) {
                 SessionSettingsPopover(monitor: monitor)
             }
@@ -156,13 +156,35 @@ struct LiveWaveform: View {
 
 // MARK: - Session settings
 
-/// Language & speed, one level below the surface. Language applies live to
-/// the next phrases; speed needs the next meeting (it swaps the model).
+/// Microphone, language & speed, one level below the surface. Microphone and
+/// language apply live; speed needs the next meeting (it swaps the model).
 struct SessionSettingsPopover: View {
     @ObservedObject var monitor: AudioMonitor
+    @EnvironmentObject private var settings: AppSettings
+    @StateObject private var inputs = AudioInputsObserver()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                SectionLabel("Microphone")
+                Picker("Microphone", selection: micSelection) {
+                    Text("Automatic").tag("")
+                    ForEach(inputs.devices) { device in
+                        Text(device.name).tag(device.id)
+                    }
+                    if isChosenMissing {
+                        Text("\(settings.preferredMicName) — not connected").tag(settings.preferredMicUID)
+                    }
+                }
+                .labelsHidden()
+                .controlSize(.small)
+                .frame(width: 250)
+                if monitor.isRunning {
+                    Text("A switch applies to this recording immediately.")
+                        .font(Theme.meta)
+                        .foregroundStyle(.tertiary)
+                }
+            }
             VStack(alignment: .leading, spacing: 5) {
                 SectionLabel("Language")
                 Picker("Language", selection: $monitor.language) {
@@ -195,5 +217,23 @@ struct SessionSettingsPopover: View {
             }
         }
         .padding(14)
+    }
+
+    private var isChosenMissing: Bool {
+        !settings.preferredMicUID.isEmpty
+            && !inputs.devices.contains { $0.id == settings.preferredMicUID }
+    }
+
+    /// Selecting stores the preference and applies it to the live session.
+    private var micSelection: Binding<String> {
+        Binding(
+            get: { settings.preferredMicUID },
+            set: { uid in
+                settings.preferredMicUID = uid
+                if let name = inputs.devices.first(where: { $0.id == uid })?.name {
+                    settings.preferredMicName = name
+                }
+                monitor.applyMicrophoneSelection()
+            })
     }
 }

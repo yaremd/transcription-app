@@ -250,7 +250,8 @@ private struct TranscriptPane: View {
                     LazyVStack(spacing: 8) {
                         if monitor.transcript.isEmpty && monitor.liveLines.isEmpty {
                             if monitor.isRunning {
-                                GuidedListeningEmptyState(levels: monitor.levels)
+                                GuidedListeningEmptyState(levels: monitor.levels,
+                                                          systemAudioOn: monitor.systemAudioOn)
                                     .padding(.top, 12)
                             } else {
                                 Text("The conversation will appear here.")
@@ -329,6 +330,7 @@ private struct TranscriptPane: View {
 /// their ~30 Hz updates redraw only these two small meters.
 private struct GuidedListeningEmptyState: View {
     let levels: AudioLevels
+    var systemAudioOn = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var mic: CGFloat = 0
     @State private var system: CGFloat = 0
@@ -336,8 +338,12 @@ private struct GuidedListeningEmptyState: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             meterRow(label: "You · microphone", tint: Theme.accent, level: mic)
-            meterRow(label: "Others · call audio", tint: Theme.green, level: system)
-            Text("Both sides are transcribed on your Mac — speak, or start your call.")
+            if systemAudioOn {
+                meterRow(label: "Others · call audio", tint: Theme.green, level: system)
+            }
+            Text(systemAudioOn
+                 ? "Both sides are transcribed on your Mac — speak, or start your call."
+                 : "Call audio is off (Settings → Recording) — only your microphone is transcribed.")
                 .font(Theme.meta)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)

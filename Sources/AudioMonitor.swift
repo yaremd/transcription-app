@@ -183,6 +183,9 @@ final class AudioMonitor: ObservableObject {
     /// Set when Stop saves a meeting — the UI navigates to it and clears this.
     @Published var finishedMeetingID: UUID?
     let levels = AudioLevels()
+    /// Whether this session records system audio — a per-session snapshot of
+    /// the setting, so the UI describes the session actually running.
+    @Published private(set) var systemAudioOn = true
     private var liveUtterance: [String: Int] = [:]   // which utterance each live line shows
     @Published var language: TranscriptLanguage = .auto {
         didSet {
@@ -438,7 +441,9 @@ final class AudioMonitor: ObservableObject {
     private func beginCapture() {
         let diag = DiagnosticsLog(url: store.diagnosticsURL(for: currentMeetingID))
         diagnosticsLog = diag
-        diag.write("session start — speed=\(speed.rawValue) language=\(language.rawValue) keepAudio=\(settings.keepAudio)")
+        mic.preferredUID = settings.preferredMicUID.isEmpty ? nil : settings.preferredMicUID
+        systemAudioOn = settings.captureSystemAudio
+        diag.write("session start — speed=\(speed.rawValue) language=\(language.rawValue) keepAudio=\(settings.keepAudio) mic=\(settings.preferredMicUID.isEmpty ? "automatic" : settings.preferredMicName) systemAudio=\(settings.captureSystemAudio ? "on" : "off")")
         Task { [transcriber] in
             await transcriber.setDiagnostics { diag.write($0) }
         }
@@ -450,7 +455,9 @@ final class AudioMonitor: ObservableObject {
         // finished meeting can be re-transcribed with the accurate model.
         if settings.keepAudio {
             micRecorder = SessionAudioRecorder(url: store.audioURL(for: currentMeetingID, stream: "mic"))
-            systemRecorder = SessionAudioRecorder(url: store.audioURL(for: currentMeetingID, stream: "system"))
+            if settings.captureSystemAudio {
+                systemRecorder = SessionAudioRecorder(url: store.audioURL(for: currentMeetingID, stream: "system"))
+            }
         }
 
         mic.onSamples = { [weak self] samples in self?.handleMic(samples) }
@@ -483,8 +490,28 @@ final class AudioMonitor: ObservableObject {
         } catch {
             appendError("Microphone: \(error.localizedDescription)")
         }
-        system.start()
-        statusMessage = "Listening… speak, and play the call for the \"Others\" side."
+        if settings.captureSystemAudio {
+            system.start()
+            statusMessage = "Listening… speak, and play the call for the \"Others\" side."
+        } else {
+            statusMessage = "Listening… (call audio is off — only your microphone is recorded)."
+        }
+    }
+
+    /// Applies the microphone choice from Settings or the session popover.
+    /// Mid-recording this rebuilds capture on the new device (a fraction of a
+    /// second); otherwise the next session simply reads the setting.
+    func applyMicrophoneSelection() {
+        let uid = settings.preferredMicUID.isEmpty ? nil : settings.preferredMicUID
+        guard isRunning else {
+            mic.preferredUID = uid
+            return
+        }
+        mic.switchInput(toUID: uid)
+        let label = uid == nil ? "Automatic" : settings.preferredMicName
+        diagnosticsLog?.write("mic: user switched input to \(label)")
+        showNotice(uid == nil ? "Microphone set to Automatic."
+                              : "Recording from \(settings.preferredMicName).")
     }
 
     func stop() {
