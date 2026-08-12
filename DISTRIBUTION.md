@@ -88,6 +88,31 @@ Then:
    Leave older items alone: each one's `edSignature` belongs to its own DMG.
 3. Commit and push. Done — existing users get the update automatically.
 
+### Pre-publish checklist (the licensing era)
+
+- **`pubDate` on the new appcast item is present and untouched** — the Pro
+  update-window (UpdatePolicy) is judged by it. The script prints it; never
+  hand-edit or omit it.
+- **Verify the deploy**: `gh api repos/yaremd/transcription-app/pages/builds/latest`
+  says `built` AND `curl https://sealformac.com/appcast.xml` shows the new
+  `sparkle:version`. A push that "worked" can still leave the appcast stale.
+- **Licensing smoke test** on a machine or VM that has never run Seal —
+  the full funnel in `QA-ENTITLEMENTS.md` ("Clean-VM funnel"). Non-negotiable
+  before the v1.0 tag; spot-check on ordinary releases.
+- Beta-era installs (meetings older than 2026-08-11) see the SEALBETA
+  thank-you note exactly once, and never on licensed installs.
+
+### At v1.0
+- Release notes say plainly: this is the build where the Free/Pro line turns
+  on, and beta users are thanked (SEALBETA — free Pro; capped redemptions;
+  expires Nov 10, 2026).
+- Create the purchasing-power-parity coupon (~50% off) in Freemius.
+- Connect the Freemius payout method (Wise/Payoneer) if not done yet.
+
+### At v1.1
+- **Early-bird ends**: change plan 61232 to $59 in Freemius, then update
+  `Pricing.earlyBird` and the site's price block in the same release.
+
 ## Put the download page online (GitHub Pages)  **[you, one time]**
 
 In your repo on github.com: **Settings → Pages → Source: Deploy from a branch →

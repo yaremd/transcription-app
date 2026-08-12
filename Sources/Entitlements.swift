@@ -153,6 +153,13 @@ final class EntitlementService: ObservableObject {
     @Published private(set) var entitlement: Entitlement = .free
     /// Non-nil while the upgrade sheet should be on screen.
     @Published var upgradePrompt: UpgradePrompt?
+#if DEBUG
+    /// Manual-QA override (Settings → License, debug builds only): forces the
+    /// derived state so every gated surface can be walked through the whole
+    /// matrix on one machine (YAR-102). Ephemeral — never persisted, gone on
+    /// relaunch, compiled out of release builds entirely.
+    @Published var debugForcedEntitlement: Entitlement? { didSet { refresh() } }
+#endif
 
     private struct Persisted: Codable, Equatable {
         var trialStarted: Date?
@@ -292,6 +299,9 @@ final class EntitlementService: ObservableObject {
     // MARK: - Derivation
 
     private func derived() -> Entitlement {
+#if DEBUG
+        if let forced = debugForcedEntitlement { return forced }
+#endif
         if let license = state.license {
             switch license.tier {
             case .lifetime: return .lifetime

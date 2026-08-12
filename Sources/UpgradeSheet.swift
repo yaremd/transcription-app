@@ -257,7 +257,7 @@ struct UpgradeSheet: View {
                 }
                 if enteringKey { keyEntry }
                 actions
-                Text("One license, two Macs. Checked once at activation — Seal never phones home.")
+                Text("One license, two Macs · 30-day money-back guarantee. Checked once at activation — Seal never phones home.")
                     .font(Theme.meta)
                     .foregroundStyle(.tertiary)
             }

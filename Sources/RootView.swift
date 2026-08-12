@@ -19,9 +19,16 @@ struct RootView: View {
     @ObservedObject var monitor: AudioMonitor
     @EnvironmentObject private var store: MeetingStore
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var entitlements: EntitlementService
     @State private var selection: Panel?
     @State private var searchText = ""
     @State private var showOnboarding = false
+    /// One-time thank-you for beta-era installs (YAR-101).
+    @AppStorage("betaThankYouShown") private var betaThankYouShown = false
+    @State private var showBetaThanks = false
+    /// When the Free/Pro line first reached the public beta (v0.17,
+    /// 2026-08-11) — meetings older than this mark a beta-era install.
+    private static let paywallEpoch = ISO8601DateFormatter().date(from: "2026-08-11T00:00:00Z")!
     /// A meeting awaiting delete confirmation — deletion is irreversible
     /// (transcript, notes, and audio), so it always asks first.
     @State private var pendingDelete: Meeting?
@@ -187,6 +194,16 @@ struct RootView: View {
             // run starts hearing immediately.
             monitor.prewarmModel()
             settings.appearance.apply()
+            // One-time note for installs that predate the Free/Pro line
+            // (YAR-101): thanks, what stays free, and their free-Pro code.
+            // Never for licensed installs, fresh installs, or over onboarding.
+            if !betaThankYouShown, !showOnboarding, entitlements.license == nil,
+               store.meetings.contains(where: { $0.date < Self.paywallEpoch }) {
+                showBetaThanks = true
+            }
+        }
+        .sheet(isPresented: $showBetaThanks, onDismiss: { betaThankYouShown = true }) {
+            BetaThankYouSheet(dismiss: { showBetaThanks = false })
         }
         // Observe on-device model download progress. This does not start a
         // download — the model is fetched lazily the first time notes or a

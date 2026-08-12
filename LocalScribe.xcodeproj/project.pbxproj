@@ -42,6 +42,7 @@
 		73613F40A9CAB96F5A7FCFC4 /* Entitlements.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0962CF81AC38FA4CDD423E0 /* Entitlements.swift */; };
 		73ECF20DB7946F0236C1BFB5 /* EntitlementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD66DC3AA306EA2541FD0465 /* EntitlementTests.swift */; };
 		78E4E20C27F9A10013E81FF9 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = C913E189926AE6B1BBE7C16E /* MLXLLM */; };
+		79B26C245FCBA085E72ECA20 /* EntitlementMatrixTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0882F4F68AE42D16F73B91AA /* EntitlementMatrixTests.swift */; };
 		7C60C2A8EA86F11A5A5B0B5D /* SystemAudioCapturer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12E28AA1D4B46F62332318F9 /* SystemAudioCapturer.swift */; };
 		7E3F633C5DB807057F92908E /* SystemAudioTapSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26D2EA0D194F90236A10F429 /* SystemAudioTapSmokeTests.swift */; };
 		84CC0F7251B15C1F9EFC2CAE /* MLXEngineSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 293CED8E6BF6F039CE78D60D /* MLXEngineSmokeTests.swift */; };
@@ -58,6 +59,7 @@
 		ABC82EDD10AB03153376515B /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4DF2E2221BC76630B23DDF /* AppSettings.swift */; };
 		B4437BD448A055ACEC5B8A7A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 675D3B4978DB6B5C40EBB797 /* SettingsView.swift */; };
 		B8DBF5070182B786CC5AE11E /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = E2B13DCBC9DCF8E96808527D /* MLXHuggingFace */; };
+		B9D6C9D2DB0532F1FBA6BB5A /* BetaThankYouSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D0B5CF5112716814716E1A7 /* BetaThankYouSheet.swift */; };
 		BCA2191D9A37D54C04D6E88D /* AdvancedExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F19DCC0F930EE5E921724A /* AdvancedExporter.swift */; };
 		BFBF5B2124FEBD080D41833E /* SpeakerLabeler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F566F54E1643AB512E7438 /* SpeakerLabeler.swift */; };
 		C1B9F1FC04D4195E15B49AE2 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 08D4666DC7B4E71E16C024E5 /* Sparkle */; };
@@ -86,6 +88,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0882F4F68AE42D16F73B91AA /* EntitlementMatrixTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementMatrixTests.swift; sourceTree = "<group>"; };
 		08BF4795BC19AB71148BEBD8 /* TemplateEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateEditorSheet.swift; sourceTree = "<group>"; };
 		0D6AD9ADD2342B2558A3E921 /* UpgradeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpgradeSheet.swift; sourceTree = "<group>"; };
 		10F566F54E1643AB512E7438 /* SpeakerLabeler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakerLabeler.swift; sourceTree = "<group>"; };
@@ -114,6 +117,7 @@
 		636C4207B5AFE548058FB0BB /* AudioResampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioResampler.swift; sourceTree = "<group>"; };
 		66C0A9DC2A94C6D63A11E414 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		675D3B4978DB6B5C40EBB797 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		6D0B5CF5112716814716E1A7 /* BetaThankYouSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BetaThankYouSheet.swift; sourceTree = "<group>"; };
 		6E1A798E4FC53A1F3EAFDFF0 /* SessionReplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionReplayTests.swift; sourceTree = "<group>"; };
 		719B69DE624A5645DFD00405 /* LicenseClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseClient.swift; sourceTree = "<group>"; };
 		80C293EA6E9349FDA5D864F0 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
@@ -191,6 +195,7 @@
 				5A4DF2E2221BC76630B23DDF /* AppSettings.swift */,
 				4E16FA4DA148CA831E4FF2A4 /* AudioMonitor.swift */,
 				636C4207B5AFE548058FB0BB /* AudioResampler.swift */,
+				6D0B5CF5112716814716E1A7 /* BetaThankYouSheet.swift */,
 				F03BAF141485200D35147698 /* CalendarContext.swift */,
 				CC98B722D6192FCB84610A35 /* DiagnosticsLog.swift */,
 				F42710A08519DC801195EEAC /* EmbeddedModelStatus.swift */,
@@ -241,6 +246,7 @@
 				497607AF1EF2C6309C5D1BAD /* AdvancedExportTests.swift */,
 				843EEBAC3FC34958DCD2516A /* CalendarContextTests.swift */,
 				ED6C6DB41AD28CE4D94A3C2C /* DiagnosticsLogTests.swift */,
+				0882F4F68AE42D16F73B91AA /* EntitlementMatrixTests.swift */,
 				DD66DC3AA306EA2541FD0465 /* EntitlementTests.swift */,
 				B2DE5D18F32DD17A765354AF /* MeetingDetectionTests.swift */,
 				B4C0E212FE60127FFBA349FE /* MicWatchdogSmokeTests.swift */,
@@ -378,6 +384,7 @@
 				D4FDE3C473E8A71171D4A301 /* AdvancedExportTests.swift in Sources */,
 				66A4DAA5B8980F75EB178C6E /* CalendarContextTests.swift in Sources */,
 				0FE1928A527C1ABED852B4F0 /* DiagnosticsLogTests.swift in Sources */,
+				79B26C245FCBA085E72ECA20 /* EntitlementMatrixTests.swift in Sources */,
 				73ECF20DB7946F0236C1BFB5 /* EntitlementTests.swift in Sources */,
 				84CC0F7251B15C1F9EFC2CAE /* MLXEngineSmokeTests.swift in Sources */,
 				929EEAE0C9B16493F4D3F273 /* MeetingDetectionTests.swift in Sources */,
@@ -399,6 +406,7 @@
 				ABC82EDD10AB03153376515B /* AppSettings.swift in Sources */,
 				1DFC21B9579079CDAEB4F832 /* AudioMonitor.swift in Sources */,
 				3ADF59A8E72A7970B7CF6BD0 /* AudioResampler.swift in Sources */,
+				B9D6C9D2DB0532F1FBA6BB5A /* BetaThankYouSheet.swift in Sources */,
 				EC5B7AF4715716BD39438009 /* CalendarContext.swift in Sources */,
 				6171EA9E7D1E7A542F437346 /* DiagnosticsLog.swift in Sources */,
 				40C0A9AFCC76952E79313742 /* EmbeddedModelStatus.swift in Sources */,
@@ -488,7 +496,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 21;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = S4M9R72TXR;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -503,7 +511,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.20;
+				MARKETING_VERSION = 0.21;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -549,7 +557,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 21;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = S4M9R72TXR;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -570,7 +578,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.20;
+				MARKETING_VERSION = 0.21;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
