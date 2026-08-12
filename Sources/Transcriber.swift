@@ -381,9 +381,54 @@ actor Transcriber {
                 diagnostics?("[\(source)]   \(candidate ?? "auto") outscored \(protected ?? "-") but lacks standing; keeping the prior")
             }
         }
-        guard let best else { return "" }
+        guard var best else { return "" }
         if candidates.count > 1 {
             log.notice("bilingual arbitration on \(source, privacy: .public): picked \(best.language ?? "?", privacy: .public) (score \(best.score, format: .fixed(precision: 2)), dominant \(dominant ?? "-", privacy: .public))")
+        }
+
+        // Whisper's output style is bistable: the same audio that decodes
+        // cased and punctuated on one pass can come back as a lowercase,
+        // unpunctuated run-on on the next — its transcript-register training
+        // data showing through. The 2026-08-10 call committed two such
+        // stretches (YAR-90), and its live passes seconds apart rendered the
+        // same exchange both ways, so this is a coin the decode flips, not an
+        // accuracy limit. No prompt is involved (the running transcript is
+        // never prompted) and no temperature either (one instance was a live
+        // pass, where the fallback ladder is off).
+        //
+        // The repair is one re-decode with timestamp tokens enabled — the
+        // strongest style anchor the model has; timestamped decodes segment
+        // the audio sentence by sentence and don't run on. We decode finals
+        // without timestamps for speed, so this costs one extra pass only on
+        // the rare window that actually came back degenerate, and the original
+        // text stands unless the repair returns the normal register.
+        if mode == .final, Self.isDegenerateStyle(best.text) {
+            diagnostics?("[\(source)] STYLE REPAIR: final came back lowercase run-on — re-decoding with timestamps")
+            var repair = DecodingOptions()
+            repair.task = .transcribe
+            repair.skipSpecialTokens = true
+            repair.withoutTimestamps = false
+            repair.suppressBlank = true
+            repair.temperatureFallbackCount = 2
+            repair.language = best.language
+            repair.detectLanguage = false
+            repair.firstTokenLogProbThreshold = nil
+            if best.language == "uk" { repair.supressTokens = russianMarkerTokens(pipe: pipe) }
+            let repaired = try? await serializedModelCall(timeout: 120) {
+                try await pipe.transcribe(audioArray: samples, decodeOptions: repair)
+            }
+            if let repaired {
+                let kept = repaired.flatMap { $0.segments }.filter { trustworthy($0) }
+                let text = Self.cleaned(kept.map { $0.text }.joined(separator: " "))
+                if !text.isEmpty, !Self.isDegenerateStyle(text) {
+                    diagnostics?("[\(source)] STYLE REPAIR kept: \"\(text.prefix(100))\"")
+                    best.text = text
+                } else {
+                    diagnostics?("[\(source)] STYLE REPAIR failed (\(text.isEmpty ? "empty" : "still degenerate")) — keeping the original")
+                }
+            } else {
+                diagnostics?("[\(source)] STYLE REPAIR decode threw or timed out — keeping the original")
+            }
         }
 
         // The language this source has spoken all session heard nothing here.
@@ -890,6 +935,21 @@ actor Transcriber {
     /// bootstrap condition, so the duration rule can use it too.
     static func isStockFiller(_ text: String) -> Bool {
         isShortFiller(text) && stockFillers.contains(AudioMonitor.normalizedForEcho(text))
+    }
+
+    /// The degenerate register (YAR-90): a long stretch with no capitals and
+    /// no punctuation at all — Whisper's transcript-style training data
+    /// surfacing in place of its normal written register. Real dictation in
+    /// either of this app's languages acquires a capital or a mark well before
+    /// its eighth word; asking for both signals to be entirely absent over a
+    /// stretch that long keeps every ordinary sentence, fragment, and
+    /// non-Latin line out of the net.
+    static func isDegenerateStyle(_ text: String) -> Bool {
+        let words = text.split(whereSeparator: { $0.isWhitespace })
+        guard words.count >= 8 else { return false }
+        guard !text.contains(where: { $0.isUppercase }) else { return false }
+        let marks: Set<Character> = [".", ",", "!", "?", ";", ":", "…"]
+        return !text.contains(where: { marks.contains($0) })
     }
 
     /// The "Kjöngslið" shape (YAR-91, 2026-08-10): a rare-token invention out

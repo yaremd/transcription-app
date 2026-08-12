@@ -893,6 +893,51 @@ final class TranscriptQualityTests: XCTestCase {
             hasMomentum: false, detectedOutsideAllowedSet: true))
     }
 
+    // MARK: - Degenerate style (YAR-90)
+
+    /// Both run-on stretches the 2026-08-10 call actually committed: long,
+    /// all-lowercase, not one punctuation mark. This register reads as broken
+    /// rather than imperfect, and it must be caught at final commit.
+    func testCommittedRunOnStretchesAreDegenerate() {
+        XCTAssertTrue(Transcriber.isDegenerateStyle(
+            "uh no lana is anyone else joining from your silent guy no no one is joining from"))
+        XCTAssertTrue(Transcriber.isDegenerateStyle(
+            "of uh agent currently we are using the tier which gives us thousand tokens okay and you think that"))
+    }
+
+    /// The same exchanges as the model's normal register rendered them —
+    /// seconds apart in the same session. Cased and punctuated text is never
+    /// degenerate, whatever its length.
+    func testNormalRegisterIsNeverDegenerate() {
+        XCTAssertFalse(Transcriber.isDegenerateStyle(
+            "No, no, no. Is anyone else joining from your cell? No, no one is joining from our site. Okay."))
+        XCTAssertFalse(Transcriber.isDegenerateStyle(
+            "So, and for actual deployment, when the vendors start using, it will be even more."))
+    }
+
+    /// Short lowercase fragments are how people actually mumble — length is
+    /// what makes the register unmistakable, so the net starts at eight words.
+    func testShortLowercaseFragmentsAreNotDegenerate() {
+        XCTAssertFalse(Transcriber.isDegenerateStyle("uh no lana"))
+        XCTAssertFalse(Transcriber.isDegenerateStyle("okay so yeah"))
+    }
+
+    /// One mark or one capital is proof the normal register is engaged — a
+    /// single comma eight words in must clear the whole stretch.
+    func testAnyPunctuationOrCapitalClearsTheStretch() {
+        XCTAssertFalse(Transcriber.isDegenerateStyle(
+            "uh no, lana is anyone else joining from your silent guy no one is joining"))
+        XCTAssertFalse(Transcriber.isDegenerateStyle(
+            "uh no Lana is anyone else joining from your silent guy no one is joining"))
+    }
+
+    /// Ukrainian has the same two signals, and the detector is script-blind —
+    /// a cased, punctuated Ukrainian sentence is normal register.
+    func testUkrainianNormalRegisterIsNotDegenerate() {
+        XCTAssertFalse(Transcriber.isDegenerateStyle(
+            "Добре, тоді ми подивимось на це наступного тижня, дякую вам."))
+    }
+
     // MARK: - Placement: order and turns
 
     private let t0 = Date(timeIntervalSince1970: 1_800_000_000)
