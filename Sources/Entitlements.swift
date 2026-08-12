@@ -41,20 +41,55 @@ enum ProFeature: String, CaseIterable, Identifiable {
         }
     }
 
-    /// One line for the upgrade sheet's feature list.
+    /// One line for the upgrade sheet's feature grid.
     var blurb: String {
         switch self {
-        case .speakerSplit: return "Who said what — you vs. everyone else"
-        case .askMeeting: return "Ask questions across a meeting's transcript"
+        case .speakerSplit: return "Who said what — every voice named"
+        case .askMeeting: return "Answers from the transcript, on demand"
         case .reshapeSummary: return "Regenerate notes in a different shape"
         case .followUpDraft: return "A ready-to-send follow-up, drafted locally"
-        case .actionTracking: return "Your action items, tracked across meetings"
-        case .polishPass: return "Re-transcribe a finished meeting at maximum accuracy"
-        case .customTemplates: return "Your own note templates (built-ins stay free)"
-        case .advancedExport: return "DOCX, SRT, and Obsidian / Notion handoff"
+        case .actionTracking: return "Action items tracked across meetings"
+        case .polishPass: return "Re-transcribe at maximum accuracy"
+        case .customTemplates: return "Notes in your format (built-ins stay free)"
+        case .advancedExport: return "Word, subtitles, Obsidian / Notion"
         case .calendarContext: return "Titles and attendees from your calendar"
-        case .byoCloudKey: return "Optional frontier-model notes with your own API key"
-        case .semanticMemory: return "Search every meeting by meaning, not keywords"
+        case .byoCloudKey: return "Frontier-model notes, your own key"
+        case .semanticMemory: return "Search meetings by meaning"
+        }
+    }
+
+    /// The upgrade sheet's icon for this feature.
+    var symbol: String {
+        switch self {
+        case .speakerSplit: return "person.2"
+        case .askMeeting: return "questionmark.bubble"
+        case .reshapeSummary: return "arrow.2.squarepath"
+        case .followUpDraft: return "paperplane"
+        case .actionTracking: return "checklist"
+        case .polishPass: return "wand.and.stars"
+        case .customTemplates: return "rectangle.stack"
+        case .advancedExport: return "square.and.arrow.up"
+        case .calendarContext: return "calendar"
+        case .byoCloudKey: return "cloud"
+        case .semanticMemory: return "sparkle.magnifyingglass"
+        }
+    }
+
+    /// The headline the upgrade sheet leads with when this feature is what
+    /// the user tapped — sell the outcome, not the mechanism.
+    var heroLine: String {
+        switch self {
+        case .speakerSplit: return "Put a name on every voice."
+        case .askMeeting: return "Ask your meeting anything."
+        case .reshapeSummary: return "Notes in exactly your shape."
+        case .followUpDraft: return "The follow-up, already written."
+        case .actionTracking: return "Every promise, tracked."
+        case .polishPass: return "Transcripts at maximum accuracy."
+        case .customTemplates: return "Notes that follow your format."
+        case .advancedExport: return "Take your meetings anywhere."
+        case .calendarContext: return "Meetings that name themselves."
+        case .byoCloudKey: return "Your key, your frontier model."
+        case .semanticMemory: return "Find it by meaning."
         }
     }
 }
