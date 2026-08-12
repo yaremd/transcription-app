@@ -7,8 +7,9 @@ enum Panel: Hashable {
     case meeting(UUID)
 }
 
-/// Top-level layout, meeting-first: the sidebar is the library (grouped by
-/// day) plus Action Items; recording is an *action*, not a place — the "+"
+/// Top-level layout, meeting-first: the sidebar is the library — folders
+/// first (collapsible, one per project/client), then the rest grouped by
+/// day — plus Action Items; recording is an *action*, not a place — the "+"
 /// toolbar button (⌘N) creates a meeting and starts listening immediately.
 /// While recording, the live meeting shows as a red-dot row pinned on top of
 /// the sidebar. With nothing selected the detail area is a welcome screen.
@@ -24,6 +25,14 @@ struct RootView: View {
     /// A meeting awaiting delete confirmation — deletion is irreversible
     /// (transcript, notes, and audio), so it always asks first.
     @State private var pendingDelete: Meeting?
+    /// Folder disclosure state; folders start collapsed each launch.
+    @State private var expandedFolders: Set<String> = []
+    /// A meeting awaiting a name for "New folder…".
+    @State private var folderAssign: Meeting?
+    @State private var newFolderName = ""
+    /// A folder being renamed via its context menu.
+    @State private var renamingFolder: String?
+    @State private var renameFolderDraft = ""
 
     var body: some View {
         NavigationSplitView {
@@ -72,18 +81,30 @@ struct RootView: View {
                     .tag(Panel.tasks)
                 }
 
+                // Folders first — a filed meeting's home. Hidden while
+                // searching: results go flat below so none are missed.
+                if searchText.isEmpty {
+                    ForEach(folders, id: \.self) { folder in
+                        Section {
+                            if expandedFolders.contains(folder) {
+                                ForEach(meetings(in: folder)) { meeting in
+                                    MeetingRow(meeting: meeting)
+                                        .tag(Panel.meeting(meeting.id))
+                                        .contextMenu { meetingContextMenu(meeting) }
+                                }
+                            }
+                        } header: {
+                            folderHeader(folder)
+                        }
+                    }
+                }
+
                 ForEach(groupedMeetings) { group in
                     Section {
                         ForEach(group.meetings) { meeting in
                             MeetingRow(meeting: meeting, showTime: group.showsTime)
                                 .tag(Panel.meeting(meeting.id))
-                                .contextMenu {
-                                    Button(role: .destructive) {
-                                        pendingDelete = meeting
-                                    } label: {
-                                        Label("Delete…", systemImage: "trash")
-                                    }
-                                }
+                                .contextMenu { meetingContextMenu(meeting) }
                         }
                     } header: {
                         SectionLabel(group.title)
@@ -199,6 +220,146 @@ struct RootView: View {
         } message: {
             Text("The transcript, notes, and audio for this meeting will be removed from your Mac. This can't be undone.")
         }
+        .alert("New folder", isPresented: Binding(get: { folderAssign != nil },
+                                                  set: { if !$0 { folderAssign = nil } })) {
+            TextField("Name", text: $newFolderName)
+            Button("Create") {
+                if let meeting = folderAssign {
+                    let name = newFolderName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !name.isEmpty { setFolder(meeting, to: name) }
+                }
+                folderAssign = nil
+            }
+            Button("Cancel", role: .cancel) { folderAssign = nil }
+        } message: {
+            Text("Folders group meetings by project or client in the sidebar.")
+        }
+        .alert("Rename folder", isPresented: Binding(get: { renamingFolder != nil },
+                                                     set: { if !$0 { renamingFolder = nil } })) {
+            TextField("Name", text: $renameFolderDraft)
+            Button("Rename") {
+                if let old = renamingFolder { renameFolder(old, to: renameFolderDraft) }
+                renamingFolder = nil
+            }
+            Button("Cancel", role: .cancel) { renamingFolder = nil }
+        } message: {
+            Text("Every meeting in the folder moves with it.")
+        }
+    }
+
+    // MARK: - Folders
+
+    /// Folder names in use, alphabetical. Folders exist through membership —
+    /// no separate store, nothing to migrate, nothing to clean up. They're
+    /// created from a meeting's "Move to folder → New folder…", so an empty
+    /// folder can't exist.
+    private var folders: [String] {
+        Array(Set(store.meetings.compactMap(\.folder)))
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private func meetings(in folder: String) -> [Meeting] {
+        store.meetings.filter { $0.folder == folder }
+    }
+
+    /// A folder's collapsible header: chevron, name (section-label style),
+    /// count. The whole row toggles; right-click renames or deletes.
+    private func folderHeader(_ folder: String) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.25, dampingFraction: 1.0)) {
+                if expandedFolders.contains(folder) {
+                    expandedFolders.remove(folder)
+                } else {
+                    expandedFolders.insert(folder)
+                }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(expandedFolders.contains(folder) ? 90 : 0))
+                Image(systemName: "folder")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                Text(folder.uppercased())
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(0.7)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Text("\(meetings(in: folder).count)")
+                    .font(Theme.meta)
+                    .monospacedDigit()
+                    .foregroundStyle(.tertiary)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button("Rename folder…") {
+                renamingFolder = folder
+                renameFolderDraft = folder
+            }
+            Button("Delete folder") { deleteFolder(folder) }
+        }
+    }
+
+    /// The right-click menu every meeting row carries: file it, or delete it.
+    @ViewBuilder
+    private func meetingContextMenu(_ meeting: Meeting) -> some View {
+        Menu("Move to folder") {
+            Button("New folder…") {
+                newFolderName = ""
+                folderAssign = meeting
+            }
+            if !folders.isEmpty { Divider() }
+            ForEach(folders, id: \.self) { folder in
+                Button(folder) { setFolder(meeting, to: folder) }
+                    .disabled(meeting.folder == folder)
+            }
+            if meeting.folder != nil {
+                Divider()
+                Button("Remove from folder") { setFolder(meeting, to: nil) }
+            }
+        }
+        Divider()
+        Button(role: .destructive) {
+            pendingDelete = meeting
+        } label: {
+            Label("Delete…", systemImage: "trash")
+        }
+    }
+
+    private func setFolder(_ meeting: Meeting, to folder: String?) {
+        var updated = meeting
+        updated.folder = folder
+        store.save(updated)
+        if let folder { expandedFolders.insert(folder) }
+    }
+
+    /// Deleting a folder unfiles its meetings — nothing is ever lost.
+    private func deleteFolder(_ folder: String) {
+        for meeting in store.meetings where meeting.folder == folder {
+            var updated = meeting
+            updated.folder = nil
+            store.save(updated)
+        }
+        expandedFolders.remove(folder)
+    }
+
+    private func renameFolder(_ old: String, to new: String) {
+        let name = new.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name != old else { return }
+        for meeting in store.meetings where meeting.folder == old {
+            var updated = meeting
+            updated.folder = name
+            store.save(updated)
+        }
+        if expandedFolders.contains(old) {
+            expandedFolders.remove(old)
+            expandedFolders.insert(name)
+        }
     }
 
     /// "+" / ⌘N: create a meeting and start listening immediately. If one is
@@ -222,8 +383,17 @@ struct RootView: View {
             meeting.title.lowercased().contains(q)
                 || meeting.notes.lowercased().contains(q)
                 || (meeting.tags ?? []).contains { $0.lowercased().contains(q) }
+                || (meeting.folder?.lowercased().contains(q) ?? false)
                 || meeting.lines.contains { $0.text.lowercased().contains(q) }
         }
+    }
+
+    /// What the date-grouped library lists: with no search, the unfiled
+    /// meetings (filed ones live in their folder above); while searching,
+    /// every match — folders hide and the library goes flat, so a result
+    /// can never be silently missing.
+    private var libraryMeetings: [Meeting] {
+        searchText.isEmpty ? store.meetings.filter { $0.folder == nil } : filteredMeetings
     }
 
     /// The library grouped the native way: Today, Yesterday, Previous 7 days,
@@ -239,7 +409,7 @@ struct RootView: View {
         let calendar = Calendar.current
         var today: [Meeting] = [], yesterday: [Meeting] = []
         var week: [Meeting] = [], older: [Meeting] = []
-        for meeting in filteredMeetings {
+        for meeting in libraryMeetings {
             if calendar.isDateInToday(meeting.date) {
                 today.append(meeting)
             } else if calendar.isDateInYesterday(meeting.date) {

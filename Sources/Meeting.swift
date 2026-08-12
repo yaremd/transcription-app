@@ -54,6 +54,9 @@ struct Meeting: Codable, Identifiable, Hashable {
     var templateID: String? = nil
     /// User-assigned tags for organizing meetings.
     var tags: [String]? = nil
+    /// The sidebar folder this meeting is filed under (a project, a client).
+    /// nil = unfiled — the meeting lives in the date-grouped library instead.
+    var folder: String? = nil
     /// Action items / tasks for this meeting.
     var actionItems: [ActionItem]? = nil
     /// Real participant names, keyed by the raw speaker label ("You"/"Others").
