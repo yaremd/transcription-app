@@ -14,10 +14,27 @@ struct UpgradeSheet: View {
     @State private var key = ""
     @State private var activating = false
     @State private var activationError: String?
+    /// Set the moment a key activates: the sheet turns into the success
+    /// ceremony instead of silently closing (field-pass day one: "activated,
+    /// but nothing happened").
+    @State private var justActivated: LicenseRecord?
 
     private let client: LicenseActivating = FreemiusLicenseClient()
 
     var body: some View {
+        Group {
+            if let record = justActivated {
+                success(record)
+            } else {
+                standard
+            }
+        }
+        .frame(width: 460)
+        .background(Theme.background)
+        .onAppear { entitlements.refresh() }
+    }
+
+    private var standard: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
                 .padding(.horizontal, 24)
@@ -32,9 +49,39 @@ struct UpgradeSheet: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 18)
         }
-        .frame(width: 460)
-        .background(Theme.background)
-        .onAppear { entitlements.refresh() }
+    }
+
+    /// The moment the wax seal goes on: unmistakable, quiet, and over in one
+    /// click. States what was bought in plain terms — including exactly what
+    /// the update window means — because the receipt moment is where trust
+    /// is cheapest to build.
+    private func success(_ record: LicenseRecord) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 44, weight: .medium))
+                .foregroundStyle(Theme.accent)
+                .padding(.top, 30)
+            Text("Seal Pro is active on this Mac")
+                .font(Theme.pageTitle)
+            Text(record.tier == .lifetime
+                 ? "Lifetime updates included."
+                 : "Updates included through \((record.updatesThrough ?? record.purchased).formatted(date: .long, time: .omitted)) — and the app is yours forever either way.")
+                .font(Theme.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 360)
+            Text("That was Seal's only call home. From here on, everything happens on your Mac.")
+                .font(Theme.sub)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 340)
+            Button("Done") { dismiss() }
+                .buttonStyle(.linearPrimary)
+                .keyboardShortcut(.defaultAction)
+                .padding(.top, 10)
+                .padding(.bottom, 28)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Header
@@ -216,7 +263,7 @@ struct UpgradeSheet: View {
             do {
                 let record = try await client.activate(key: trimmed)
                 entitlements.apply(license: record)
-                dismiss()
+                withAnimation(.easeOut(duration: 0.2)) { justActivated = record }
             } catch {
                 activationError = (error as? LicenseError)?.errorDescription
                     ?? error.localizedDescription

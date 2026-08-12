@@ -121,14 +121,21 @@ struct ThemeDivider: View {
 
 extension View {
     /// A sunken, hairline-bordered well (transcript area, editors, results).
+    /// Clips its content: a panel's rounded border is a promise about where
+    /// its content ends, and scroll views don't keep it on their own — the
+    /// 2026-08-12 field pass had live transcript text drawing past the box
+    /// onto the status line and the control pill below it.
     func insetPanel(radius: CGFloat = 8) -> some View {
         background(Theme.inset, in: RoundedRectangle(cornerRadius: radius))
+            .clipShape(RoundedRectangle(cornerRadius: radius))
             .overlay(RoundedRectangle(cornerRadius: radius).strokeBorder(Theme.border, lineWidth: 1))
     }
 
     /// A raised, hairline-bordered surface (tiles, sheets' inner panels).
+    /// Clips for the same reason as `insetPanel`.
     func surfacePanel(radius: CGFloat = 8) -> some View {
         background(Theme.surface, in: RoundedRectangle(cornerRadius: radius))
+            .clipShape(RoundedRectangle(cornerRadius: radius))
             .overlay(RoundedRectangle(cornerRadius: radius).strokeBorder(Theme.border, lineWidth: 1))
     }
 }
