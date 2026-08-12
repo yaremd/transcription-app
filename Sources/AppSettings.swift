@@ -47,6 +47,10 @@ final class AppSettings: ObservableObject {
     /// When a recording overlapped a call and every call app has let go of the
     /// microphone, stop on their behalf. On by default.
     @Published var autoStopAfterMeeting: Bool { didSet { d.set(autoStopAfterMeeting, forKey: "autoStopAfterMeeting") } }
+    /// Name recordings after the calendar event they overlap and note who was
+    /// invited (YAR-36, Pro). Off by default — reading the calendar is opt-in
+    /// like every integration, and macOS asks its own permission on top.
+    @Published var calendarContextEnabled: Bool { didSet { d.set(calendarContextEnabled, forKey: "calendarContextEnabled") } }
 
     private let d = UserDefaults.standard
     private static let apiKeyAccount = "cloudAPIKey"
@@ -61,6 +65,7 @@ final class AppSettings: ObservableObject {
         suggestRecording = d.object(forKey: "suggestRecording") == nil ? true : d.bool(forKey: "suggestRecording")
         autoStartOnMeeting = d.bool(forKey: "autoStartOnMeeting")
         autoStopAfterMeeting = d.object(forKey: "autoStopAfterMeeting") == nil ? true : d.bool(forKey: "autoStopAfterMeeting")
+        calendarContextEnabled = d.bool(forKey: "calendarContextEnabled")
 
         // The API key lives in the macOS Keychain, not UserDefaults. Migrate any
         // legacy plaintext key an earlier build may have stored in UserDefaults.

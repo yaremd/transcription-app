@@ -136,6 +136,9 @@ private struct LicenseSettings: View {
 
 private struct GeneralSettings: View {
     @ObservedObject var settings: AppSettings
+    @EnvironmentObject private var entitlements: EntitlementService
+    @State private var showUpgrade = false
+    @State private var calendarDenied = false
 
     var body: some View {
         Form {
@@ -165,8 +168,49 @@ private struct GeneralSettings: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            Section("Calendar") {
+                if entitlements.allows(.calendarContext) {
+                    Toggle("Name recordings after their calendar event", isOn: $settings.calendarContextEnabled)
+                        .onChange(of: settings.calendarContextEnabled) { _, enabled in
+                            guard enabled else { calendarDenied = false; return }
+                            Task { @MainActor in
+                                let granted = await CalendarContext.requestAccess()
+                                calendarDenied = !granted
+                                if !granted { settings.calendarContextEnabled = false }
+                            }
+                        }
+                    if calendarDenied {
+                        Text("Calendar access was declined. Grant it in System Settings → Privacy & Security → Calendars, then turn this on again.")
+                            .font(.caption)
+                            .foregroundStyle(Theme.amber)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Text("When a recording starts during a calendar event, Seal names the meeting after it and notes who was invited — context the notes and speaker suggestions can use. Read-only, on your Mac; nothing leaves it.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    // The Settings window can't reach the main window's
+                    // sheet, so the locked row presents its own (the
+                    // cloud-notes pattern).
+                    HStack {
+                        Text("Name recordings after their calendar event")
+                        ProBadge()
+                        Spacer()
+                        Button("See Seal Pro…") { showUpgrade = true }
+                    }
+                    Text("Calendar context is part of Seal Pro. Your calendar is only ever read on your Mac, and only when a recording starts.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
         .formStyle(.grouped)
+        .sheet(isPresented: $showUpgrade) {
+            UpgradeSheet(highlighted: .calendarContext).environmentObject(entitlements)
+        }
     }
 }
 
