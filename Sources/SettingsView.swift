@@ -73,6 +73,19 @@ private struct LicenseSettings: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+#if DEBUG
+            Section("QA (debug builds only)") {
+                Picker("Force state", selection: debugStateBinding) {
+                    ForEach(DebugEntitlementState.allCases) { state in
+                        Text(state.label).tag(state)
+                    }
+                }
+                Text("Walks the entitlement matrix (YAR-102) on one machine: every gated surface can be checked in every state. Ephemeral — never saved, gone on relaunch, absent from release builds.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+#endif
         }
         .formStyle(.grouped)
         .onAppear { entitlements.refresh() }
@@ -80,6 +93,14 @@ private struct LicenseSettings: View {
             UpgradeSheet().environmentObject(entitlements)
         }
     }
+
+#if DEBUG
+    private var debugStateBinding: Binding<DebugEntitlementState> {
+        Binding(
+            get: { DebugEntitlementState.matching(entitlements.debugForcedEntitlement) },
+            set: { entitlements.debugForcedEntitlement = $0.entitlement })
+    }
+#endif
 
     @ViewBuilder
     private var statusRow: some View {
@@ -134,6 +155,47 @@ private struct LicenseSettings: View {
         }
     }
 }
+
+#if DEBUG
+/// The QA matrix's manual half (YAR-102): states the License pane can force
+/// in debug builds so every gated surface can be eyeballed on one machine.
+private enum DebugEntitlementState: String, CaseIterable, Identifiable {
+    case off, free, trial, proInWindow, proLapsed, lifetime
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .off: return "Off (real state)"
+        case .free: return "Free"
+        case .trial: return "Trial — 3 days left"
+        case .proInWindow: return "Pro — updates current"
+        case .proLapsed: return "Pro — updates lapsed"
+        case .lifetime: return "Lifetime"
+        }
+    }
+
+    var entitlement: Entitlement? {
+        switch self {
+        case .off: return nil
+        case .free: return .free
+        case .trial: return .trial(expires: Date().addingTimeInterval(3 * 86_400))
+        case .proInWindow: return .pro(updatesThrough: Date().addingTimeInterval(300 * 86_400))
+        case .proLapsed: return .pro(updatesThrough: Date().addingTimeInterval(-30 * 86_400))
+        case .lifetime: return .lifetime
+        }
+    }
+
+    static func matching(_ entitlement: Entitlement?) -> DebugEntitlementState {
+        switch entitlement {
+        case nil: return .off
+        case .free: return .free
+        case .trial: return .trial
+        case .pro(let through): return through > Date() ? .proInWindow : .proLapsed
+        case .lifetime: return .lifetime
+        }
+    }
+}
+#endif
 
 private struct GeneralSettings: View {
     @ObservedObject var settings: AppSettings
