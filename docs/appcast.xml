@@ -13,6 +13,41 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 0.21</title>
+      <sparkle:version>21</sparkle:version>
+      <sparkle:shortVersionString>0.21</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 12 Aug 2026 09:52:39 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Thank you, beta users</h3>
+        <p>If you were using Seal before Seal Pro existed, this update owes
+        you two things: an explanation and a gift.</p>
+        <ul>
+          <li><b>The explanation, in-app.</b> Recent updates drew the line
+          between free Seal and Seal Pro — quietly, which wasn't fair. This
+          version greets long-time installs once with exactly what changed.
+          The short version: everything you rely on stays free forever, and
+          your meetings are never locked.</li>
+          <li><b>The gift.</b> Seal Pro is on us: the in-app note carries the
+          code <b>SEALBETA</b> — 100% off at checkout, valid through
+          November 10, 2026. You tested Seal when it was rough; that
+          counts.</li>
+          <li>The upgrade sheet now states the <b>30-day money-back
+          guarantee</b>, and licensing got a hardening pass: every state is
+          now tested against every gated surface, with the standing
+          guarantees pinned in code — your history and export can never end
+          up behind the paywall.</li>
+        </ul>
+        <p>No new meeting features this time — those were 0.19 and 0.20. As
+        always: no subscription required, no account, nothing leaves your
+        Mac.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.21/Seal.dmg"
+        sparkle:edSignature="UuGKeC/CPykY8PdvyepLCrjNme/c/yxOCkRA/er5OMj718ytMlsvnl/Wnwu4fCsL0FrGpsxpselVcLzEe5c7DQ==" length="23065547"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.20</title>
       <sparkle:version>20</sparkle:version>
       <sparkle:shortVersionString>0.20</sparkle:shortVersionString>
