@@ -62,7 +62,9 @@ struct MeetingDetailView: View {
     // scroll to when it's opened by clicking a note.
     @State private var showWorkspace = false
     @State private var showReportProblem = false
+    @State private var showTemplateEditor = false
     @State private var workspaceJump: Date?
+    @ObservedObject private var customTemplates = CustomTemplateStore.shared
 
     // Ephemeral chat — a floating widget, closed until opened.
     @State private var chat: [ChatMessage] = []
@@ -119,6 +121,15 @@ struct MeetingDetailView: View {
                     Divider()
                     Button("Export as Markdown…") { MeetingExporter.exportMarkdown(meeting) }
                     Button("Export as PDF…") { MeetingExporter.exportPDF(meeting) }
+                    // The Pro formats (YAR-104). Menu items can't host the
+                    // .proGated overlay, so the gate lives in gatedExport and
+                    // the section title carries the honesty — the Reshape
+                    // menu's pattern.
+                    Section(entitlements.allows(.advancedExport) ? "More formats" : "More formats — Seal Pro") {
+                        Button("Export as Word (.docx)…") { gatedExport { AdvancedExporter.exportDocx(meeting) } }
+                        Button("Export subtitles (.srt)…") { gatedExport { AdvancedExporter.exportSRT(meeting) } }
+                        Button("Export subtitles (.vtt)…") { gatedExport { AdvancedExporter.exportVTT(meeting) } }
+                    }
                     Divider()
                     Button("Report a problem…") { showReportProblem = true }
                 } label: {
@@ -158,6 +169,32 @@ struct MeetingDetailView: View {
         .sheet(isPresented: $showReportProblem) {
             ReportProblemView(meeting: meeting).environmentObject(store)
         }
+        .sheet(isPresented: $showTemplateEditor) { TemplateEditorSheet() }
+    }
+
+    /// Menu items can't host the .proGated overlay, so the Pro exports and
+    /// custom templates gate at the action, opening the upgrade sheet instead
+    /// of running (YAR-103/104).
+    private func gatedExport(_ export: () -> Void) {
+        guard entitlements.allows(.advancedExport) else {
+            return entitlements.requestUpgrade(for: .advancedExport)
+        }
+        export()
+    }
+
+    private func gatedTemplate(_ template: NotesTemplate) {
+        guard entitlements.allows(.customTemplates) else {
+            return entitlements.requestUpgrade(for: .customTemplates)
+        }
+        templateID = template.id
+        generateNotes()
+    }
+
+    private func gatedManageTemplates() {
+        guard entitlements.allows(.customTemplates) else {
+            return entitlements.requestUpgrade(for: .customTemplates)
+        }
+        showTemplateEditor = true
     }
 
     /// Asks the local model who was actually talking (from self-intros and
@@ -307,6 +344,15 @@ struct MeetingDetailView: View {
                                 ForEach(NotesTemplate.all) { t in
                                     Button(t.name) { templateID = t.id; generateNotes() }
                                 }
+                                if !customTemplates.templates.isEmpty {
+                                    Section(entitlements.allows(.customTemplates) ? "Yours" : "Yours — Seal Pro") {
+                                        ForEach(customTemplates.templates) { t in
+                                            Button(t.name.isEmpty ? "Untitled" : t.name) { gatedTemplate(t) }
+                                        }
+                                    }
+                                }
+                                Divider()
+                                Button("Manage templates…") { gatedManageTemplates() }
                             }
                             Divider()
                             // Menu items can't host the .proGated overlay, so
@@ -340,6 +386,15 @@ struct MeetingDetailView: View {
                             ForEach(NotesTemplate.all) { t in
                                 Button(t.name) { templateID = t.id; generateNotes() }
                             }
+                            if !customTemplates.templates.isEmpty {
+                                Section(entitlements.allows(.customTemplates) ? "Yours" : "Yours — Seal Pro") {
+                                    ForEach(customTemplates.templates) { t in
+                                        Button(t.name.isEmpty ? "Untitled" : t.name) { gatedTemplate(t) }
+                                    }
+                                }
+                            }
+                            Divider()
+                            Button("Manage templates…") { gatedManageTemplates() }
                         } label: {
                             Label("Generate Notes", systemImage: "sparkles")
                         } primaryAction: {
@@ -431,7 +486,7 @@ struct MeetingDetailView: View {
         let transcript = meeting.aiTranscript
         let jotted = meeting.userNotes ?? ""
         let chosenTemplateID = templateID
-        let template = NotesTemplate.all.first { $0.id == chosenTemplateID } ?? .general
+        let template = NotesTemplate.byID(chosenTemplateID)
         Task {
             do {
                 let result = try await generator.generate(transcript: transcript, userNotes: jotted,
