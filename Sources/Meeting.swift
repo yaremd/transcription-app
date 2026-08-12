@@ -60,6 +60,11 @@ struct Meeting: Codable, Identifiable, Hashable {
     /// nil = never asked; empty = the user was asked and declined (so the
     /// suggestion isn't offered again); entries rename how speakers display.
     var speakerNames: [String: String]? = nil
+    /// The calendar event this recording belonged to, when calendar context
+    /// was on (YAR-36): its title, and who was invited. nil = no event, or
+    /// the feature was off.
+    var calendarTitle: String? = nil
+    var calendarAttendees: [String]? = nil
 
     /// The placeholder title for a meeting that hasn't been named yet. The
     /// date/time is shown separately in the UI, so the title's job is to say
@@ -112,13 +117,38 @@ extension Meeting {
         let body = lines
             .map { "\($0.voice ?? $0.speaker): \($0.text)" }
             .joined(separator: "\n")
-        guard let names = speakerNames, !names.isEmpty else { return body }
-        let parts = names
-            .filter { !$0.value.trimmingCharacters(in: .whitespaces).isEmpty }
-            .map { "\($0.key) = \($0.value)" }
-            .sorted()
-        guard !parts.isEmpty else { return body }
-        return "PARTICIPANTS: " + parts.joined(separator: "; ") + "\n\n" + body
+        var header: [String] = []
+        if let names = speakerNames, !names.isEmpty {
+            let parts = names
+                .filter { !$0.value.trimmingCharacters(in: .whitespaces).isEmpty }
+                .map { "\($0.key) = \($0.value)" }
+                .sorted()
+            if !parts.isEmpty { header.append("PARTICIPANTS: " + parts.joined(separator: "; ")) }
+        }
+        // Who the calendar says was invited — context for notes and the
+        // speaker-name suggester, clearly labeled as the invite list rather
+        // than who actually spoke.
+        if let attendees = calendarAttendees, !attendees.isEmpty {
+            header.append("INVITED (from calendar): " + attendees.joined(separator: ", "))
+        }
+        guard !header.isEmpty else { return body }
+        return header.joined(separator: "\n") + "\n\n" + body
+    }
+
+    /// The title a session should persist with: a name the user (or a past
+    /// save) already gave wins; then the calendar event's name; then the
+    /// placeholder — which the AI titler later replaces, and it skips
+    /// anything that no longer carries the placeholder.
+    static func startingTitle(existing: String?, calendar: String?) -> String {
+        if let existing {
+            let trimmed = existing.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty && trimmed != defaultTitle { return existing }
+        }
+        if let calendar {
+            let trimmed = calendar.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
+        return defaultTitle
     }
 
     var hasNotes: Bool {

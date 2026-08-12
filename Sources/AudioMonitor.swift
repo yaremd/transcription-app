@@ -215,6 +215,9 @@ final class AudioMonitor: ObservableObject {
     private var sessionStart = Date()
     private var sessionEnd = Date()
     private var currentMeetingID = UUID()
+    /// The calendar event the running session belongs to, when calendar
+    /// context is on — applied at save time (YAR-36).
+    private var sessionCalendarContext: CalendarEventContext?
     private var discarding = false
     private var titlingMeetingID: UUID?   // meeting with an auto-title request in flight
 
@@ -356,6 +359,25 @@ final class AudioMonitor: ObservableObject {
         sessionEnd = sessionStart
         recordingStart = sessionStart
         currentMeetingID = UUID()
+        // Calendar context (YAR-36, Pro, opt-in): fetched once, right now,
+        // off the main thread — a Start must never wait on EventKit. The
+        // result names the session at save time; access was granted (or not)
+        // back in Settings, never prompted here.
+        sessionCalendarContext = nil
+        if settings.calendarContextEnabled, EntitlementService.shared?.allows(.calendarContext) == true {
+            let startedAt = sessionStart
+            let startedID = currentMeetingID
+            Task.detached { [weak self] in
+                let context = CalendarContext.currentEvent(at: startedAt)
+                await MainActor.run { [weak self] in
+                    guard let self, self.currentMeetingID == startedID else { return }
+                    self.sessionCalendarContext = context
+                    if let context {
+                        self.diagnosticsLog?.write("calendar: \"\(context.title)\", \(context.attendees.count) attendee(s)")
+                    }
+                }
+            }
+        }
         levels.mic = 0
         levels.system = 0
         isRunning = true
@@ -663,7 +685,8 @@ final class AudioMonitor: ObservableObject {
         let blocksToStore: [NoteBlock]? = noteBlocks.isEmpty ? existing?.noteBlocks : noteBlocks
         let meeting = Meeting(
             id: currentMeetingID,
-            title: existing?.title ?? Meeting.defaultTitle,
+            title: Meeting.startingTitle(existing: existing?.title,
+                                         calendar: sessionCalendarContext?.title),
             date: sessionStart,
             duration: max(0, sessionEnd.timeIntervalSince(sessionStart)),
             language: language.rawValue,
@@ -673,7 +696,9 @@ final class AudioMonitor: ObservableObject {
             noteBlocks: blocksToStore,
             templateID: template.id,
             tags: existing?.tags,
-            actionItems: existing?.actionItems)
+            actionItems: existing?.actionItems,
+            calendarTitle: sessionCalendarContext?.title ?? existing?.calendarTitle,
+            calendarAttendees: sessionCalendarContext?.attendees ?? existing?.calendarAttendees)
         store.save(meeting)
     }
 

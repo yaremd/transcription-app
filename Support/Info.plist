@@ -27,6 +27,8 @@
 	</dict>
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>Seal captures your Mac's audio output to transcribe the other side of a call, entirely on your Mac.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Seal reads your calendar only to name a recording after its meeting and list who was invited. Nothing leaves your Mac.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Seal listens to your microphone to transcribe your side of the conversation, entirely on your Mac.</string>
 	<key>SUEnableAutomaticChecks</key>
