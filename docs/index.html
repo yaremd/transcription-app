@@ -106,7 +106,7 @@
   }
   .bar { display: flex; align-items: center; gap: 20px; padding-top: 11px; padding-bottom: 11px; }
   .brand { display: flex; align-items: center; gap: 9px; color: var(--ink); text-decoration: none; font-weight: 700; font-size: 19px; letter-spacing: -0.02em; }
-  .brand svg { width: 25px; height: 25px; display: block; }
+  .brand img { width: 30px; height: 30px; display: block; }
   nav.links { display: flex; gap: 2px; margin: 0 auto; }
   nav.links a {
     color: var(--body); text-decoration: none; font-size: 14.5px; font-weight: 500;
@@ -115,11 +115,7 @@
   nav.links a:hover { color: var(--ink); background: var(--mist); }
 
   /* ---------- Hero ---------- */
-  .hero { padding: 64px 0 56px; }
-  .hero .appicon {
-    display: block; width: 88px; height: 88px; margin: 0 0 24px;
-    filter: drop-shadow(0 12px 24px rgba(7, 31, 25, .2));
-  }
+  .hero { padding: 72px 0 56px; }
   .hero h1 {
     font-size: clamp(40px, 6.2vw, 64px); line-height: 1.05; margin: 0 0 22px;
     max-width: 700px;
@@ -370,7 +366,7 @@
   .footband .ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
   .footgrid { display: flex; justify-content: space-between; gap: 40px; flex-wrap: wrap; border-top: 1px solid rgba(255, 255, 255, .14); padding-top: 36px; }
   .footgrid .fbrand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 18px; }
-  .footgrid .fbrand svg { width: 24px; height: 24px; }
+  .footgrid .fbrand img { width: 26px; height: 26px; display: block; }
   .footgrid .fbrand + p { color: #8FA69A; font-size: 13px; margin: 10px 0 0; max-width: 300px; line-height: 1.6; }
   .fcols { display: flex; gap: 64px; flex-wrap: wrap; }
   .fcol b { display: block; font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; color: #8FA69A; margin-bottom: 12px; font-weight: 700; }
@@ -446,7 +442,7 @@
 <header class="site">
   <div class="wrap bar">
     <a class="brand" href="#download" aria-label="Seal — back to top">
-      <svg viewBox="38 36 164 164" aria-hidden="true"><path fill="#0A2A21" fill-rule="evenodd" d="M44,118 a76,76 0 1 0 152,0 a76,76 0 1 0 -152,0 M83,104 a9,9 0 1 1 18,0 a9,9 0 1 1 -18,0 M139,104 a9,9 0 1 1 18,0 a9,9 0 1 1 -18,0 M111,138 a9,6.5 0 1 1 18,0 a9,6.5 0 1 1 -18,0 M93,144 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0 M89,152 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0 M141,144 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0 M145,152 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0"/></svg>
+      <img src="/app-icon.png" width="30" height="30" alt="">
       Seal
     </a>
     <nav class="links" aria-label="Site">
@@ -463,7 +459,6 @@
 
   <!-- ============ HERO ============ -->
   <div class="wrap hero" id="download">
-    <img class="appicon" src="/app-icon.png" alt="The Seal app icon — a hand-drawn seal pup" width="88" height="88">
     <h1>Meeting notes that <span class="hl">never leave</span> your&nbsp;Mac</h1>
     <p class="sub">Seal records, transcribes, and writes up your meetings — all of it locally. No cloud, no bots in your calls, no account.</p>
     <div class="cta">
@@ -864,7 +859,7 @@
       <div class="footgrid">
         <div>
           <div class="fbrand">
-            <svg viewBox="38 36 164 164" aria-hidden="true"><path fill="#FFFFFF" fill-rule="evenodd" d="M44,118 a76,76 0 1 0 152,0 a76,76 0 1 0 -152,0 M83,104 a9,9 0 1 1 18,0 a9,9 0 1 1 -18,0 M139,104 a9,9 0 1 1 18,0 a9,9 0 1 1 -18,0 M111,138 a9,6.5 0 1 1 18,0 a9,6.5 0 1 1 -18,0 M93,144 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0 M89,152 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0 M141,144 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0 M145,152 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0"/></svg>
+            <img src="/app-icon.png" width="26" height="26" alt="">
             Seal
           </div>
           <p>Private meeting notes for macOS. Recording, transcription, and notes run entirely on your Mac.</p>
