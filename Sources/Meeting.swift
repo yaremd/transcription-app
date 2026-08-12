@@ -26,6 +26,42 @@ struct NoteBlock: Codable, Identifiable, Hashable {
     var at: Date
 }
 
+/// The lightweight formatting a note's text can carry, encoded in the text
+/// itself — so it survives as plain text everywhere (userNotes, exports,
+/// older versions of the app): "- " bullets, "[ ] " / "[x] " checkboxes, and
+/// "★" highlights stamped by the record-time star button.
+enum NoteMark {
+    case plain(String)
+    case bullet(String)
+    case task(done: Bool, body: String)
+    case highlight(String)
+
+    static func parse(_ text: String) -> NoteMark {
+        let s = text.trimmingCharacters(in: .whitespaces)
+        for (prefix, done) in [("[x] ", true), ("[X] ", true), ("[ ] ", false), ("[] ", false)] {
+            if s.hasPrefix(prefix) {
+                return .task(done: done,
+                             body: String(s.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces))
+            }
+        }
+        if s == "[x]" || s == "[X]" { return .task(done: true, body: "") }
+        if s == "[]" || s == "[ ]" { return .task(done: false, body: "") }
+        if s.hasPrefix("- ") { return .bullet(String(s.dropFirst(2))) }
+        if s.hasPrefix("★") { return .highlight(String(s.dropFirst()).trimmingCharacters(in: .whitespaces)) }
+        return .plain(text)
+    }
+
+    static func composeTask(done: Bool, body: String) -> String {
+        "\(done ? "[x]" : "[ ]") \(body)"
+    }
+
+    /// Canonical spelling for storage — typed variants like "[]" become "[ ]".
+    static func normalized(_ text: String) -> String {
+        if case .task(let done, let body) = parse(text) { return composeTask(done: done, body: body) }
+        return text
+    }
+}
+
 /// A single action item / task extracted from (or added to) a meeting.
 struct ActionItem: Codable, Identifiable, Hashable {
     var id: UUID = UUID()
@@ -54,6 +90,9 @@ struct Meeting: Codable, Identifiable, Hashable {
     var templateID: String? = nil
     /// User-assigned tags for organizing meetings.
     var tags: [String]? = nil
+    /// The sidebar folder this meeting is filed under (a project, a client).
+    /// nil = unfiled — the meeting lives in the date-grouped library instead.
+    var folder: String? = nil
     /// Action items / tasks for this meeting.
     var actionItems: [ActionItem]? = nil
     /// Real participant names, keyed by the raw speaker label ("You"/"Others").
@@ -192,5 +231,53 @@ extension Meeting {
 
     var openActionItems: [ActionItem] {
         (actionItems ?? []).filter { !$0.done }
+    }
+
+    /// Folds checkbox notes ("[ ] task" / "[x] task") into the action items:
+    /// unknown texts are added with their state; a checked note completes a
+    /// matching open item. Never reopens or removes — the checklist UI owns
+    /// those moves. Idempotent, so a session's repeated saves never duplicate.
+    mutating func syncActionItems(fromNoteBlocks blocks: [NoteBlock]?) {
+        var items = actionItems ?? []
+        for block in blocks ?? [] {
+            guard case .task(let done, let body) = NoteMark.parse(block.text), !body.isEmpty else { continue }
+            if let idx = items.firstIndex(where: { $0.text.caseInsensitiveCompare(body) == .orderedSame }) {
+                if done { items[idx].done = true }
+            } else {
+                items.append(ActionItem(text: body, done: done))
+            }
+        }
+        actionItems = items.isEmpty ? nil : items
+    }
+
+    /// The user's notes as the AI should read them: checkbox state spelled
+    /// out, starred moments marked IMPORTANT and grounded with what was being
+    /// said around them — the prompt sees no timestamps otherwise.
+    var notesForAI: String {
+        guard let blocks = noteBlocks, !blocks.isEmpty else { return userNotes ?? "" }
+        return blocks.map { block in
+            switch NoteMark.parse(block.text) {
+            case .plain(let s): return s
+            case .bullet(let s): return "- " + s
+            case .task(let done, let body): return (done ? "[done] " : "[todo] ") + body
+            case .highlight(let s):
+                var line = "★ IMPORTANT"
+                if !s.isEmpty { line += ": " + s }
+                if let quote = nearestLineText(to: block.at) {
+                    line += " (said around then: \"\(quote)\")"
+                }
+                return line
+            }
+        }.joined(separator: "\n")
+    }
+
+    /// The transcript line closest to a moment, if one is within 30 seconds —
+    /// used to ground a starred moment in what was actually being said.
+    private func nearestLineText(to date: Date) -> String? {
+        let dated = lines.compactMap { line in line.at.map { (at: $0, text: line.text) } }
+        guard let best = dated.min(by: {
+            abs($0.at.timeIntervalSince(date)) < abs($1.at.timeIntervalSince(date))
+        }), abs(best.at.timeIntervalSince(date)) < 30 else { return nil }
+        return String(best.text.prefix(160))
     }
 }

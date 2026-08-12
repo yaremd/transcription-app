@@ -156,13 +156,36 @@ final class AudioMonitor: ObservableObject {
     @Published var modelStatus = ""
     @Published var errorMessage: String?
     /// Soft mic conditions (echo-cancellation restart, quiet input) — shown as
-    /// a caption by the recording controls, separate from hard errors.
+    /// a caption by the recording controls, separate from hard errors. A notice
+    /// is a moment, not a state: `showNotice` clears it after a few seconds,
+    /// and the diagnostics log keeps the durable record.
     @Published var noticeMessage: String?
+    private var noticeClearTask: Task<Void, Never>?
+
+    /// Shows a transient notice by the recording controls; it dismisses itself
+    /// after `seconds` (a fresh notice restarts the clock).
+    func showNotice(_ message: String, for seconds: TimeInterval = 8) {
+        noticeMessage = message
+        noticeClearTask?.cancel()
+        noticeClearTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            self?.noticeMessage = nil
+        }
+    }
+
+    private func clearNotice() {
+        noticeClearTask?.cancel()
+        noticeMessage = nil
+    }
     @Published var transcript: [TranscriptLine] = []
     @Published var liveLines: [String: String] = [:]
     /// Set when Stop saves a meeting — the UI navigates to it and clears this.
     @Published var finishedMeetingID: UUID?
     let levels = AudioLevels()
+    /// Whether this session records system audio — a per-session snapshot of
+    /// the setting, so the UI describes the session actually running.
+    @Published private(set) var systemAudioOn = true
     private var liveUtterance: [String: Int] = [:]   // which utterance each live line shows
     @Published var language: TranscriptLanguage = .auto {
         didSet {
@@ -196,11 +219,42 @@ final class AudioMonitor: ObservableObject {
     func addNoteBlock(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        noteBlocks.append(NoteBlock(text: trimmed, at: Date()))
+        noteBlocks.append(NoteBlock(text: NoteMark.normalized(trimmed), at: Date()))
+    }
+
+    /// Stamps the current moment as important: a ★ note block the notes
+    /// generator is told to cover, anchored like any note so its time links
+    /// back to what was being said.
+    func addHighlight() {
+        guard isRunning else { return }
+        noteBlocks.append(NoteBlock(text: "★", at: Date()))
+        showNotice("Moment starred — the notes will cover it.", for: 4)
     }
 
     func deleteNoteBlock(_ id: UUID) {
         noteBlocks.removeAll { $0.id == id }
+    }
+
+    /// The live session's notes as the AI reads them: checkbox state spelled
+    /// out, starred moments marked IMPORTANT and grounded with what was being
+    /// said around them (mirrors Meeting.notesForAI for the saved copy).
+    var notesForAIDuringSession: String {
+        noteBlocks.map { block in
+            switch NoteMark.parse(block.text) {
+            case .plain(let s): return s
+            case .bullet(let s): return "- " + s
+            case .task(let done, let body): return (done ? "[done] " : "[todo] ") + body
+            case .highlight(let s):
+                var line = "★ IMPORTANT"
+                if !s.isEmpty { line += ": " + s }
+                if let near = transcript.min(by: {
+                    abs($0.at.timeIntervalSince(block.at)) < abs($1.at.timeIntervalSince(block.at))
+                }), abs(near.at.timeIntervalSince(block.at)) < 30 {
+                    line += " (said around then: \"\(near.text.prefix(160))\")"
+                }
+                return line
+            }
+        }.joined(separator: "\n")
     }
 
     /// Describes where notes are generated, for the UI.
@@ -340,7 +394,7 @@ final class AudioMonitor: ObservableObject {
 
     func start() {
         errorMessage = nil
-        noticeMessage = nil
+        clearNotice()
         transcript = []
         liveLines = [:]
         liveUtterance = [:]
@@ -418,7 +472,9 @@ final class AudioMonitor: ObservableObject {
     private func beginCapture() {
         let diag = DiagnosticsLog(url: store.diagnosticsURL(for: currentMeetingID))
         diagnosticsLog = diag
-        diag.write("session start — speed=\(speed.rawValue) language=\(language.rawValue) keepAudio=\(settings.keepAudio)")
+        mic.preferredUID = settings.preferredMicUID.isEmpty ? nil : settings.preferredMicUID
+        systemAudioOn = settings.captureSystemAudio
+        diag.write("session start — speed=\(speed.rawValue) language=\(language.rawValue) keepAudio=\(settings.keepAudio) mic=\(settings.preferredMicUID.isEmpty ? "automatic" : settings.preferredMicName) systemAudio=\(settings.captureSystemAudio ? "on" : "off")")
         Task { [transcriber] in
             await transcriber.setDiagnostics { diag.write($0) }
         }
@@ -430,7 +486,9 @@ final class AudioMonitor: ObservableObject {
         // finished meeting can be re-transcribed with the accurate model.
         if settings.keepAudio {
             micRecorder = SessionAudioRecorder(url: store.audioURL(for: currentMeetingID, stream: "mic"))
-            systemRecorder = SessionAudioRecorder(url: store.audioURL(for: currentMeetingID, stream: "system"))
+            if settings.captureSystemAudio {
+                systemRecorder = SessionAudioRecorder(url: store.audioURL(for: currentMeetingID, stream: "system"))
+            }
         }
 
         mic.onSamples = { [weak self] samples in self?.handleMic(samples) }
@@ -440,7 +498,7 @@ final class AudioMonitor: ObservableObject {
         mic.onNotice = { [weak self] message in
             DispatchQueue.main.async {
                 guard let self, self.isRunning else { return }
-                self.noticeMessage = message
+                self.showNotice(message)
                 // A status line the user may not be looking at is not a record.
                 // A mic that dropped out mid-meeting has to be readable off the
                 // meeting afterwards, next to the audio it explains.
@@ -463,8 +521,28 @@ final class AudioMonitor: ObservableObject {
         } catch {
             appendError("Microphone: \(error.localizedDescription)")
         }
-        system.start()
-        statusMessage = "Listening… speak, and play the call for the \"Others\" side."
+        if settings.captureSystemAudio {
+            system.start()
+            statusMessage = "Listening… speak, and play the call for the \"Others\" side."
+        } else {
+            statusMessage = "Listening… (call audio is off — only your microphone is recorded)."
+        }
+    }
+
+    /// Applies the microphone choice from Settings or the session popover.
+    /// Mid-recording this rebuilds capture on the new device (a fraction of a
+    /// second); otherwise the next session simply reads the setting.
+    func applyMicrophoneSelection() {
+        let uid = settings.preferredMicUID.isEmpty ? nil : settings.preferredMicUID
+        guard isRunning else {
+            mic.preferredUID = uid
+            return
+        }
+        mic.switchInput(toUID: uid)
+        let label = uid == nil ? "Automatic" : settings.preferredMicName
+        diagnosticsLog?.write("mic: user switched input to \(label)")
+        showNotice(uid == nil ? "Microphone set to Automatic."
+                              : "Recording from \(settings.preferredMicName).")
     }
 
     func stop() {
@@ -521,7 +599,7 @@ final class AudioMonitor: ObservableObject {
         notesError = nil
         noteBlocks = []
         errorMessage = nil
-        noticeMessage = nil
+        clearNotice()
         statusMessage = "Press Start. You and the call will both be transcribed."
     }
 
@@ -610,7 +688,7 @@ final class AudioMonitor: ObservableObject {
         levels.mic = 0
         levels.system = 0
         recordingStart = nil
-        noticeMessage = nil
+        clearNotice()
         // Detach the tap before closing, so a straggling final pass can't write
         // into a closed file. Closing is idempotent either way.
         let finished = diagnosticsLog
@@ -635,7 +713,7 @@ final class AudioMonitor: ObservableObject {
         notesError = nil
         isGeneratingNotes = true
         let hint = language.notesHint
-        let jotted = joinedNotes
+        let jotted = notesForAIDuringSession
         let tmpl = template
         let backend: NotesBackend = settings.usingCloudNotes
             ? .cloudOpenAICompatible(baseURL: settings.cloudBaseURL, apiKey: settings.cloudAPIKey, model: settings.cloudModel)
@@ -683,7 +761,7 @@ final class AudioMonitor: ObservableObject {
         let joined = joinedNotes
         let jottedToStore: String? = joined.isEmpty ? existing?.userNotes : joined
         let blocksToStore: [NoteBlock]? = noteBlocks.isEmpty ? existing?.noteBlocks : noteBlocks
-        let meeting = Meeting(
+        var meeting = Meeting(
             id: currentMeetingID,
             title: Meeting.startingTitle(existing: existing?.title,
                                          calendar: sessionCalendarContext?.title),
@@ -696,9 +774,12 @@ final class AudioMonitor: ObservableObject {
             noteBlocks: blocksToStore,
             templateID: template.id,
             tags: existing?.tags,
+            folder: existing?.folder,
             actionItems: existing?.actionItems,
             calendarTitle: sessionCalendarContext?.title ?? existing?.calendarTitle,
             calendarAttendees: sessionCalendarContext?.attendees ?? existing?.calendarAttendees)
+        // Checkbox notes taken during the call flow into the action items.
+        meeting.syncActionItems(fromNoteBlocks: blocksToStore)
         store.save(meeting)
     }
 

@@ -1,4 +1,5 @@
 import AVFoundation
+import Combine
 import CoreAudio
 import OSLog
 
@@ -94,6 +95,15 @@ final class MicCapturer {
     private let maxStallRecoveries = 3
     private var reportedStall = false
 
+    /// The UID of a microphone the user picked explicitly (Settings →
+    /// Recording, or the session popover). nil/empty = Automatic. A pinned
+    /// device bypasses the Bluetooth-substitution policy entirely — an
+    /// explicit choice is never second-guessed.
+    var preferredUID: String?
+    /// One "your chosen mic isn't connected" notice per session, not one per
+    /// engine rebuild.
+    private var warnedMissingPreferred = false
+
     /// Whether to substitute a wired mic when the default input is Bluetooth.
     /// Cleared for the rest of the session once the substitute turns out not to
     /// be hearing anyone — see `fallBackToDefaultInput`.
@@ -109,10 +119,23 @@ final class MicCapturer {
         }
         sessionActive = true
         avoidBluetoothInput = true
+        warnedMissingPreferred = false
         stallRecoveries = 0
         reportedStall = false
         engineStarts = 0
         try startEngine()
+    }
+
+    /// Applies a microphone choice mid-session: remembers it and rebuilds the
+    /// engine on the new device — the same fraction-of-a-second rebuild every
+    /// route change already costs. Outside a session it just stores the choice.
+    func switchInput(toUID uid: String?) {
+        preferredUID = uid
+        warnedMissingPreferred = false
+        guard sessionActive else { return }
+        do { try startEngine() } catch {
+            onError?("The microphone couldn't switch devices: \(error.localizedDescription)")
+        }
     }
 
     /// Gives up on the substitute microphone and captures from the system
@@ -171,6 +194,30 @@ final class MicCapturer {
             }
         }
 
+        // A microphone the user picked explicitly wins over every automatic
+        // policy. If it isn't connected right now, automatic selection takes
+        // over — with a notice the first time, not a mystery.
+        substitutedForBluetooth = false
+        var pinnedToPreferred = false
+        if let uid = preferredUID, !uid.isEmpty {
+            if let device = Self.deviceID(forUID: uid), Self.hasInputStreams(device),
+               let unit = input.audioUnit {
+                var chosen = device
+                let status = AudioUnitSetProperty(
+                    unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global,
+                    0, &chosen, UInt32(MemoryLayout<AudioDeviceID>.size))
+                if status == noErr {
+                    pinnedToPreferred = true
+                    log.notice("capturing from the chosen input \(Self.name(of: device) ?? uid, privacy: .public)")
+                } else {
+                    log.warning("couldn't pin capture to the chosen input (err \(status)); using automatic selection")
+                }
+            } else if !warnedMissingPreferred {
+                warnedMissingPreferred = true
+                onNotice?("Your chosen microphone isn't connected — using the automatic choice instead.")
+            }
+        }
+
         // A Bluetooth default input drags the whole headset into the telephony
         // profile the moment capture starts: playback in the user's ears turns
         // low-fi and choppy for the entire recording (first report 2026-07-29 —
@@ -178,8 +225,7 @@ final class MicCapturer {
         // wired mic instead; the headset keeps full-quality playback. The
         // route-change observer rebuilds the engine, so this re-evaluates
         // whenever devices come and go.
-        substitutedForBluetooth = false
-        if avoidBluetoothInput, let current = Self.defaultInputDevice(), Self.isBluetooth(current) {
+        if avoidBluetoothInput, !pinnedToPreferred, let current = Self.defaultInputDevice(), Self.isBluetooth(current) {
             if let wired = Self.preferredWiredInput(), let unit = input.audioUnit {
                 var device = wired.id
                 let status = AudioUnitSetProperty(
@@ -476,6 +522,75 @@ final class MicCapturer {
             onNotice?("The microphone stopped responding — restarting it.")
         } catch {
             onError?("The microphone stopped and couldn't be restarted: \(error.localizedDescription)")
+        }
+    }
+}
+
+// MARK: - Input devices (for the microphone picker)
+
+/// One selectable input, identified by its stable UID — AudioDeviceIDs change
+/// across relaunches and replugs; UIDs don't, so the preference survives both.
+struct AudioInputDevice: Identifiable, Hashable {
+    let id: String       // device UID
+    let name: String
+    let isBluetooth: Bool
+}
+
+extension MicCapturer {
+    /// Every device currently able to record — real inputs only; virtual and
+    /// aggregate devices (like Seal's own system-audio tap) are excluded.
+    static func availableInputs() -> [AudioInputDevice] {
+        allDevices()
+            .filter { hasInputStreams($0) }
+            .filter {
+                let t = transport(of: $0)
+                return t != kAudioDeviceTransportTypeVirtual && t != kAudioDeviceTransportTypeAggregate
+            }
+            .compactMap { device in
+                guard let uid = uid(of: device), let name = name(of: device) else { return nil }
+                return AudioInputDevice(id: uid, name: name, isBluetooth: isBluetooth(device))
+            }
+    }
+
+    static func deviceID(forUID uid: String) -> AudioDeviceID? {
+        allDevices().first { self.uid(of: $0) == uid }
+    }
+
+    static func uid(of device: AudioDeviceID) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceUID,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var uid: CFString?
+        var size = UInt32(MemoryLayout<CFString?>.size)
+        let status = withUnsafeMutablePointer(to: &uid) { pointer in
+            AudioObjectGetPropertyData(device, &address, 0, nil, &size, pointer)
+        }
+        return status == noErr ? uid as String? : nil
+    }
+}
+
+/// Publishes the live list of input devices, updating as they come and go —
+/// so a picker that's already open never shows a stale list.
+final class AudioInputsObserver: ObservableObject {
+    @Published var devices: [AudioInputDevice] = MicCapturer.availableInputs()
+    private var listener: AudioObjectPropertyListenerBlock?
+    private var address = AudioObjectPropertyAddress(
+        mSelector: kAudioHardwarePropertyDevices,
+        mScope: kAudioObjectPropertyScopeGlobal,
+        mElement: kAudioObjectPropertyElementMain)
+
+    init() {
+        let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            DispatchQueue.main.async { self?.devices = MicCapturer.availableInputs() }
+        }
+        listener = block
+        AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &address, .main, block)
+    }
+
+    deinit {
+        if let listener {
+            AudioObjectRemovePropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &address, .main, listener)
         }
     }
 }

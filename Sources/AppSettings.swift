@@ -36,6 +36,15 @@ final class AppSettings: ObservableObject {
     /// Save each meeting's audio locally (enables "Improve transcript"). On by
     /// default; the files stay next to the meeting JSON, ~15 MB per hour.
     @Published var keepAudio: Bool { didSet { d.set(keepAudio, forKey: "keepAudio") } }
+    /// The microphone to record from — a device UID; empty = Automatic
+    /// (Seal avoids Bluetooth mics so headphones keep full-quality playback).
+    @Published var preferredMicUID: String { didSet { d.set(preferredMicUID, forKey: "preferredMicUID") } }
+    /// The chosen device's name, kept so the picker can still show it (as
+    /// "not connected") when the device is unplugged.
+    @Published var preferredMicName: String { didSet { d.set(preferredMicName, forKey: "preferredMicName") } }
+    /// Record what plays on the Mac (the call's other side). On by default;
+    /// a change applies from the next recording.
+    @Published var captureSystemAudio: Bool { didSet { d.set(captureSystemAudio, forKey: "captureSystemAudio") } }
 
     @Published var appearance: AppAppearance { didSet { d.set(appearance.rawValue, forKey: "appearance"); appearance.apply() } }
     /// Offer to record when a call app starts using the microphone. On by default.
@@ -61,6 +70,9 @@ final class AppSettings: ObservableObject {
         cloudModel = d.string(forKey: "cloudModel") ?? "gpt-4o-mini"
         hasOnboarded = d.bool(forKey: "hasOnboarded")
         keepAudio = d.object(forKey: "keepAudio") == nil ? true : d.bool(forKey: "keepAudio")
+        preferredMicUID = d.string(forKey: "preferredMicUID") ?? ""
+        preferredMicName = d.string(forKey: "preferredMicName") ?? ""
+        captureSystemAudio = d.object(forKey: "captureSystemAudio") == nil ? true : d.bool(forKey: "captureSystemAudio")
         appearance = AppAppearance(rawValue: d.string(forKey: "appearance") ?? "") ?? .system
         suggestRecording = d.object(forKey: "suggestRecording") == nil ? true : d.bool(forKey: "suggestRecording")
         autoStartOnMeeting = d.bool(forKey: "autoStartOnMeeting")

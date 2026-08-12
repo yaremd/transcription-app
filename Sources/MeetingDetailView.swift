@@ -39,6 +39,11 @@ struct MeetingDetailView: View {
     @State private var followUpError: String?
     @State private var actionsError: String?
     @State private var newAction = ""
+    /// Action items already checked when this meeting was opened — hidden by
+    /// default so the list shows what's left, while an item checked right now
+    /// stays visible (struck through) until you leave the meeting.
+    @State private var completedAtOpen: Set<UUID> = []
+    @State private var showCompletedActions = false
 
     private var generating: Bool { generatingID == meeting.id }
     private var reshaping: Bool { reshapingID == meeting.id }
@@ -153,6 +158,8 @@ struct MeetingDetailView: View {
             notesOpen = true
             transcriptOpen = true
             actionsOpen = !(meeting.actionItems ?? []).isEmpty
+            completedAtOpen = Set((meeting.actionItems ?? []).filter(\.done).map(\.id))
+            showCompletedActions = false
             followUpOpen = false
             showFullTranscript = false
             copiedTranscript = false
@@ -484,7 +491,7 @@ struct MeetingDetailView: View {
         let b = backend
         let hint = languageHint
         let transcript = meeting.aiTranscript
-        let jotted = meeting.userNotes ?? ""
+        let jotted = meeting.notesForAI
         let chosenTemplateID = templateID
         let template = NotesTemplate.byID(chosenTemplateID)
         Task {
@@ -726,11 +733,7 @@ struct MeetingDetailView: View {
                             Text(Self.noteTimeFormatter.string(from: block.at))
                                 .font(Theme.meta).monospacedDigit()
                                 .foregroundStyle(Theme.accent.opacity(0.7))
-                            Text(block.text)
-                                .font(Theme.body)
-                                .foregroundStyle(.primary)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
+                            notePreviewBody(block)
                             Spacer(minLength: 0)
                         }
                         .contentShape(Rectangle())
@@ -748,6 +751,52 @@ struct MeetingDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .insetPanel(radius: 8)
+    }
+
+    /// One preview line of a jotted note, marker-aware: checkboxes show their
+    /// state, bullets their dot, starred moments their star (see NoteMark).
+    @ViewBuilder
+    private func notePreviewBody(_ block: NoteBlock) -> some View {
+        switch NoteMark.parse(block.text) {
+        case .plain(let s):
+            Text(s)
+                .font(Theme.body)
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+        case .bullet(let s):
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("•").foregroundStyle(.tertiary)
+                Text(s)
+                    .font(Theme.body)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+        case .task(let done, let body):
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: done ? "checkmark.square" : "square")
+                    .font(.system(size: 11))
+                    .foregroundStyle(done ? Theme.green : .secondary)
+                Text(body)
+                    .font(Theme.body)
+                    .strikethrough(done)
+                    .foregroundStyle(done ? .secondary : .primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+        case .highlight(let s):
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.amber)
+                Text(s.isEmpty ? "Marked important" : s)
+                    .font(Theme.body)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+        }
     }
 
     /// The full-height notes ↔ transcript workspace in a resizable sheet, so the
@@ -789,17 +838,61 @@ struct MeetingDetailView: View {
                     .font(Theme.meta)
                     .frame(width: 90)
                     .onSubmit(addTag)
+                if !reusableTags.isEmpty {
+                    Menu {
+                        ForEach(reusableTags.prefix(12), id: \.self) { tag in
+                            Button(tag) { addExistingTag(tag) }
+                        }
+                    } label: {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+                    .help("Add a tag you've used before")
+                }
             }
         }
     }
 
     private func addTag() {
-        let t = newTag.trimmingCharacters(in: .whitespacesAndNewlines)
+        let typed = newTag.trimmingCharacters(in: .whitespacesAndNewlines)
         newTag = ""
-        guard !t.isEmpty,
-              !tags.contains(where: { $0.caseInsensitiveCompare(t) == .orderedSame }) else { return }
-        tags.append(t)
+        guard !typed.isEmpty else { return }
+        // Reuse the library's casing when this tag already exists elsewhere,
+        // so "design" and "Design" never become two tags.
+        let canonical = reusableTags.first { $0.caseInsensitiveCompare(typed) == .orderedSame } ?? typed
+        addExistingTag(canonical)
+    }
+
+    private func addExistingTag(_ tag: String) {
+        guard !tags.contains(where: { $0.caseInsensitiveCompare(tag) == .orderedSame }) else { return }
+        tags.append(tag)
         saveTags()
+    }
+
+    /// Tags used across the library that this meeting doesn't carry yet —
+    /// most-used first, so choosing an existing tag beats retyping it.
+    private var reusableTags: [String] {
+        var counts: [String: Int] = [:]
+        var display: [String: String] = [:]
+        for m in store.meetings {
+            for tag in m.tags ?? [] {
+                let key = tag.lowercased()
+                counts[key, default: 0] += 1
+                if display[key] == nil { display[key] = tag }
+            }
+        }
+        let current = Set(tags.map { $0.lowercased() })
+        return counts.keys
+            .filter { !current.contains($0) }
+            .sorted { a, b in
+                let ca = counts[a] ?? 0, cb = counts[b] ?? 0
+                return ca != cb ? ca > cb : a < b
+            }
+            .compactMap { display[$0] }
     }
 
     private func removeTag(_ tag: String) {
@@ -847,13 +940,19 @@ struct MeetingDetailView: View {
 
             if actionsOpen {
                 let items = meeting.actionItems ?? []
+                // Items finished on an earlier visit stay out of the way; what
+                // you check right now stays on screen, struck through.
+                let previouslyDone = items.filter { $0.done && completedAtOpen.contains($0.id) }
+                let visible = showCompletedActions
+                    ? items
+                    : items.filter { !$0.done || !completedAtOpen.contains($0.id) }
                 if items.isEmpty && !extractingActions {
                     Text("No action items yet. Find them from the transcript, or add one below.")
                         .font(Theme.body)
                         .foregroundStyle(.tertiary)
                 } else {
                     VStack(alignment: .leading, spacing: 6) {
-                        ForEach(items) { item in
+                        ForEach(visible) { item in
                             Toggle(isOn: actionBinding(item)) {
                                 Text(item.text)
                                     .font(Theme.body)
@@ -861,6 +960,17 @@ struct MeetingDetailView: View {
                                     .foregroundStyle(item.done ? .secondary : .primary)
                             }
                             .toggleStyle(.checkbox)
+                        }
+                        if !previouslyDone.isEmpty {
+                            Button(showCompletedActions
+                                   ? "Hide completed"
+                                   : "Show \(previouslyDone.count) completed") {
+                                withAnimation(Self.sectionSpring) { showCompletedActions.toggle() }
+                            }
+                            .buttonStyle(.plain)
+                            .font(Theme.meta)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 2)
                         }
                     }
                 }

@@ -2,9 +2,11 @@ import SwiftUI
 
 /// The one home for everything about the live session: proof it's working
 /// (pulsing dot, elapsed timer, live waveform), the controls (Pause, Stop),
-/// the transcript-panel toggle, language & speed, discard — and the privacy
-/// promise. A floating capsule docked bottom-center, so the most important
-/// controls never move, no matter which panes are open.
+/// language & speed, and the ⋯ menu (transcript panel, discard). A floating
+/// capsule docked bottom-center, so the most important controls never move,
+/// no matter which panes are open. Fully local is the default and needs no
+/// announcing — the privacy badge appears only as a caution when the opt-in
+/// cloud notes model is on.
 struct RecordingControlBar: View {
     @ObservedObject var monitor: AudioMonitor
     @EnvironmentObject private var settings: AppSettings
@@ -31,10 +33,21 @@ struct RecordingControlBar: View {
                              active: monitor.isRunning && !monitor.isPaused)
                     .frame(width: 88, height: 16)
 
+                Button {
+                    monitor.addHighlight()
+                } label: {
+                    Image(systemName: "star")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Star this moment — the notes will cover it (⇧⌘H)")
+
                 Button(monitor.isPaused ? "Resume" : "Pause") {
                     monitor.pauseResume()
                 }
                 .buttonStyle(.linearQuietCompact)
+                .help(monitor.isPaused ? "Resume the recording" : "Pause — nothing is transcribed until you resume")
             }
 
             Button(monitor.isRunning ? "Stop" : "Start Listening") {
@@ -42,16 +55,9 @@ struct RecordingControlBar: View {
             }
             .buttonStyle(startStopStyle)
             .keyboardShortcut(.defaultAction)
+            .help(monitor.isRunning ? "Stop and save this meeting" : "Start listening")
 
             barDivider
-
-            Button(action: toggleTranscript) {
-                Image(systemName: "sidebar.trailing")
-                    .font(.system(size: 11))
-                    .foregroundStyle(transcriptVisible ? Theme.accent : .secondary)
-            }
-            .buttonStyle(.plain)
-            .help(transcriptVisible ? "Hide the transcript" : "Show the transcript")
 
             Button {
                 showSettings.toggle()
@@ -61,28 +67,32 @@ struct RecordingControlBar: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .help("Language & speed")
+            .help("Microphone, language & speed")
             .popover(isPresented: $showSettings, arrowEdge: .top) {
                 SessionSettingsPopover(monitor: monitor)
             }
 
-            if monitor.isRunning {
-                Menu {
+            Menu {
+                Button(transcriptVisible ? "Hide transcript" : "Show transcript",
+                       action: toggleTranscript)
+                if monitor.isRunning {
+                    Divider()
                     Button("Discard recording…", role: .destructive, action: requestDiscard)
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .help("More")
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("More")
 
-            barDivider
-
-            PrivacyBadge(usingCloud: settings.usingCloudNotes, compact: true)
+            if settings.usingCloudNotes {
+                barDivider
+                PrivacyBadge(usingCloud: true, compact: true)
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
@@ -156,13 +166,35 @@ struct LiveWaveform: View {
 
 // MARK: - Session settings
 
-/// Language & speed, one level below the surface. Language applies live to
-/// the next phrases; speed needs the next meeting (it swaps the model).
+/// Microphone, language & speed, one level below the surface. Microphone and
+/// language apply live; speed needs the next meeting (it swaps the model).
 struct SessionSettingsPopover: View {
     @ObservedObject var monitor: AudioMonitor
+    @EnvironmentObject private var settings: AppSettings
+    @StateObject private var inputs = AudioInputsObserver()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                SectionLabel("Microphone")
+                Picker("Microphone", selection: micSelection) {
+                    Text("Automatic").tag("")
+                    ForEach(inputs.devices) { device in
+                        Text(device.name).tag(device.id)
+                    }
+                    if isChosenMissing {
+                        Text("\(settings.preferredMicName) — not connected").tag(settings.preferredMicUID)
+                    }
+                }
+                .labelsHidden()
+                .controlSize(.small)
+                .frame(width: 250)
+                if monitor.isRunning {
+                    Text("A switch applies to this recording immediately.")
+                        .font(Theme.meta)
+                        .foregroundStyle(.tertiary)
+                }
+            }
             VStack(alignment: .leading, spacing: 5) {
                 SectionLabel("Language")
                 Picker("Language", selection: $monitor.language) {
@@ -195,5 +227,23 @@ struct SessionSettingsPopover: View {
             }
         }
         .padding(14)
+    }
+
+    private var isChosenMissing: Bool {
+        !settings.preferredMicUID.isEmpty
+            && !inputs.devices.contains { $0.id == settings.preferredMicUID }
+    }
+
+    /// Selecting stores the preference and applies it to the live session.
+    private var micSelection: Binding<String> {
+        Binding(
+            get: { settings.preferredMicUID },
+            set: { uid in
+                settings.preferredMicUID = uid
+                if let name = inputs.devices.first(where: { $0.id == uid })?.name {
+                    settings.preferredMicName = name
+                }
+                monitor.applyMicrophoneSelection()
+            })
     }
 }
