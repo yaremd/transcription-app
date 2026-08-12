@@ -13,6 +13,45 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 0.19</title>
+      <sparkle:version>19</sparkle:version>
+      <sparkle:shortVersionString>0.19</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 12 Aug 2026 07:11:46 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Pick your microphone — and notes that grew up</h3>
+        <ul>
+          <li><b>Choose the microphone.</b> Settings → Recording now has a
+          microphone picker, and the sliders popover in the recording bar
+          carries the same one — switching applies instantly, even
+          mid-meeting. Automatic stays the default and still avoids Bluetooth
+          mics so your headphones keep full-quality sound; an explicit choice
+          always wins. Call-audio capture can also be turned off, to record
+          only yourself.</li>
+          <li><b>Star the moment.</b> The ★ button in the recording bar and
+          the floating pill — or ⇧⌘H from anywhere — marks what's being said
+          right now as important. The generated notes make a point of
+          covering every starred moment, quoting what was said around it.</li>
+          <li><b>Bullets, checkboxes, folders.</b> Start a note with "- "
+          for a bullet or "[]" for a checkbox — checked boxes cross out and
+          flow into the meeting's Action items. Right-click a meeting to
+          file it into a folder; the tag field now offers tags you've used
+          before.</li>
+          <li><b>Quieter, clearer.</b> The recording bar dropped its badge —
+          on-device is the default and needs no announcing (a small amber
+          note appears only if you opt into cloud notes). Every button has a
+          tooltip, mic notices fade after a few seconds instead of staying
+          forever, action items you finished earlier tuck away behind "Show
+          completed", and the notes &amp; transcript view gained a Copy
+          button.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.19/Seal.dmg"
+        sparkle:edSignature="83h+Zfa0U37bPFYtPFGcjKzB1pHWcgNHDt59HpKre880Hwb6HGCsbGh8SyP57lEh4co8YPmF5ImYh7bkWVsLAA==" length="23005326"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.18</title>
       <sparkle:version>18</sparkle:version>
       <sparkle:shortVersionString>0.18</sparkle:shortVersionString>
