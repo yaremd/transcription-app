@@ -322,8 +322,8 @@ struct UpgradeSheet: View {
         }
     }
 
-    /// Straight to checkout once the storefront is live; the pricing page
-    /// (which also sells Lifetime) until then.
+    /// Straight to the live Freemius checkout; the pricing page (which also
+    /// sells Lifetime) only if the store ids are ever cleared.
     private var buyURL: URL { SealStore.checkoutPro ?? Pricing.pricingURL }
 
     private var actions: some View {

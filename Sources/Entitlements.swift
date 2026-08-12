@@ -133,8 +133,8 @@ enum Pricing {
     static let lifetime = "$149"
     static let renewal = "$29"
     static let trialDays = 14
-    /// The website's pricing section; checkout buttons point here until the
-    /// Polar storefront is live (YAR-95), and Lifetime always sells here.
+    /// The website's pricing section — the fallback if the Freemius store ids
+    /// are ever cleared, and where Lifetime is also explained.
     static let pricingURL = URL(string: "https://sealformac.com/#pricing")!
 }
 

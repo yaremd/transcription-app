@@ -126,7 +126,7 @@ private struct LicenseSettings: View {
                 try await client.deactivate(license)
                 entitlements.clearLicense()
             } catch {
-                // Keep the license: dropping it locally while Polar still
+                // Keep the license: dropping it locally while Freemius still
                 // counts the seat would strand one of the two activations.
                 deactivateError = (error as? LicenseError)?.errorDescription
                     ?? error.localizedDescription
