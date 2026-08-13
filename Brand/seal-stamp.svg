@@ -1,27 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
-  <!-- Wax-stamp lockup: soft scalloped wax + pressed field + embossed mouthless face (icon geometry). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Seal, pressed in wax">
+  <!-- Wax-stamp lockup: soft scalloped wax + pressed field + embossed face.
+       The face is the SMALL cut (no whiskers) — a real wax impression carries
+       only the shapes deep enough to survive the press, and the whiskers are
+       far too fine to emboss. Wax red stays deliberately NOT Theme.red: a red
+       dot means recording is live, wax means sealed and saved. Never swap them. -->
   <g>
-    <circle cx="176.0" cy="135.0" r="10" fill="#C9503C"/>
-    <circle cx="161.0" cy="161.0" r="10" fill="#C9503C"/>
-    <circle cx="135.0" cy="176.0" r="10" fill="#C9503C"/>
-    <circle cx="105.0" cy="176.0" r="10" fill="#C9503C"/>
-    <circle cx="79.0" cy="161.0" r="10" fill="#C9503C"/>
-    <circle cx="64.0" cy="135.0" r="10" fill="#C9503C"/>
-    <circle cx="64.0" cy="105.0" r="10" fill="#C9503C"/>
-    <circle cx="79.0" cy="79.0" r="10" fill="#C9503C"/>
-    <circle cx="105.0" cy="64.0" r="10" fill="#C9503C"/>
-    <circle cx="135.0" cy="64.0" r="10" fill="#C9503C"/>
-    <circle cx="161.0" cy="79.0" r="10" fill="#C9503C"/>
-    <circle cx="176.0" cy="105.0" r="10" fill="#C9503C"/>
+    <circle cx="176" cy="135" r="10" fill="#C9503C"/>
+    <circle cx="161" cy="161" r="10" fill="#C9503C"/>
+    <circle cx="135" cy="176" r="10" fill="#C9503C"/>
+    <circle cx="105" cy="176" r="10" fill="#C9503C"/>
+    <circle cx="79" cy="161" r="10" fill="#C9503C"/>
+    <circle cx="64" cy="135" r="10" fill="#C9503C"/>
+    <circle cx="64" cy="105" r="10" fill="#C9503C"/>
+    <circle cx="79" cy="79" r="10" fill="#C9503C"/>
+    <circle cx="105" cy="64" r="10" fill="#C9503C"/>
+    <circle cx="135" cy="64" r="10" fill="#C9503C"/>
+    <circle cx="161" cy="79" r="10" fill="#C9503C"/>
+    <circle cx="176" cy="105" r="10" fill="#C9503C"/>
     <circle cx="120" cy="120" r="64.8" fill="#C9503C"/>
     <circle cx="120" cy="120" r="52.8" fill="#B03E2E"/>
-    <path fill="#F2E4D8" fill-rule="evenodd" transform="translate(66,66.9) scale(0.45)" d="M44,118 a76,76 0 1 0 152,0 a76,76 0 1 0 -152,0
-      M83,104 a9,9 0 1 1 18,0 a9,9 0 1 1 -18,0
-      M139,104 a9,9 0 1 1 18,0 a9,9 0 1 1 -18,0
-      M111,138 a9,6.5 0 1 1 18,0 a9,6.5 0 1 1 -18,0
-      M93,144 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0
-      M89,152 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0
-      M141,144 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0
-      M145,152 a3,3 0 1 1 6,0 a3,3 0 1 1 -6,0"/>
+    <path fill="#F2E4D8" fill-rule="evenodd" transform="translate(66 66) scale(0.45)"
+          d="M200 120C200 164.18 164.18 200 120 200C75.82 200 40 164.18 40 120C40 75.82 75.82 40 120 40C164.18 40 200 75.82 200 120ZM99 104C99 116.15 89.15 126 77 126C64.85 126 55 116.15 55 104C55 91.85 64.85 82 77 82C89.15 82 99 91.85 99 104ZM185 104C185 116.15 175.15 126 163 126C150.85 126 141 116.15 141 104C141 91.85 150.85 82 163 82C175.15 82 185 91.85 185 104ZM97 141Q97 131 108 131Q115 131 120 138Q125 131 132 131Q143 131 143 141Q143 152 128 160Q120 164.5 112 160Q97 152 97 141Z"/>
   </g>
 </svg>

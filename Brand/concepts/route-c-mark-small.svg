@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Seal — Route C, small-size cut">
+  <!--
+    ROUTE C, SMALL CUT — for 24 px and below. The contour is thickened to 24 and
+    the face reduced to eyes and nose; below about 24 px a 15-unit contour thins
+    to under a pixel and the ring greys out.
+  -->
+  <g fill="currentColor">
+    <path fill="none" stroke="currentColor" stroke-width="24"
+          d="M120 54C156 54 186 84 186 124C186 165 158 187 120 187C82 187 54 165 54 124C54 84 84 54 120 54Z"/>
+    <g transform="translate(120 120) scale(0.78) translate(-120 -120)">
+      <circle cx="79" cy="104" r="21"/>
+      <circle cx="161" cy="104" r="21"/>
+      <path d="M99 141Q99 131 109 131Q116 131 120 138Q124 131 131 131Q141 131 141 141Q141 152 127 160Q120 164 113 160Q99 152 99 141Z"/>
+    </g>
+  </g>
+</svg>

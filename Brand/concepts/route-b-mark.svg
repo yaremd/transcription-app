@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Seal — Route B, the struck impression">
+  <!--
+    ROUTE B — "The struck impression"
+    A solid disc with the face punched clean through, which is literally what a
+    wax seal is. Earless, mouthless. Holes are transparent, so the mark sits on
+    any ground and works as a macOS template glyph. Recolor via `color`.
+
+    Grid (240 viewBox):
+      disc      c(120,120) r80
+      eyes      c(81,104) c(159,104) r18
+      nose      seal nose — two lobes, dipped bridge, rounded point; x100..140, y134..160
+      whiskers  2 a side, drooping, stroke 6, round caps
+    Note: the whisker strokes must be expanded to outlines at handoff so the
+    mark can ship as a single path.
+  -->
+  <defs>
+    <mask id="sealB" maskUnits="userSpaceOnUse" x="0" y="0" width="240" height="240">
+      <circle cx="120" cy="120" r="80" fill="#fff"/>
+      <g fill="#000">
+        <circle cx="81" cy="104" r="18"/>
+        <circle cx="159" cy="104" r="18"/>
+        <path d="M104 142Q104 134 112.5 134Q117 134 120 139Q123 134 127.5 134Q136 134 136 142Q136 150.5 125.5 156.5Q120 159.5 114.5 156.5Q104 150.5 104 142Z"/>
+      </g>
+      <path fill="none" stroke="#000" stroke-width="6" stroke-linecap="round"
+            d="M95 147Q76 150 58 156M97 157Q83 165 72 174M145 147Q164 150 182 156M143 157Q157 165 168 174"/>
+    </mask>
+  </defs>
+  <circle cx="120" cy="120" r="80" fill="currentColor" mask="url(#sealB)"/>
+</svg>

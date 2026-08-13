@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Seal — Route C, the unbroken seal">
+  <!--
+    ROUTE C — "The unbroken seal"
+    One closed contour of constant weight that never breaks: it is the head and
+    the tamper-evident ring at once. Line and mass are the only two values.
+    Earless, mouthless.
+
+    Grid (240 viewBox):
+      contour   closed bezier, centerline x47..193 y47..194, stroke 15
+      features  the Route B face, scaled 0.85 about (120,120) so nothing
+                collides with the contour
+  -->
+  <g fill="currentColor">
+    <path fill="none" stroke="currentColor" stroke-width="15"
+          d="M120 47C161 47 193 80 193 124C193 170 162 194 120 194C78 194 47 170 47 124C47 80 79 47 120 47Z"/>
+    <g transform="translate(120 120) scale(0.85) translate(-120 -120)">
+      <circle cx="81" cy="104" r="18"/>
+      <circle cx="159" cy="104" r="18"/>
+      <path d="M104 142Q104 134 112.5 134Q117 134 120 139Q123 134 127.5 134Q136 134 136 142Q136 150.5 125.5 156.5Q120 159.5 114.5 156.5Q104 150.5 104 142Z"/>
+      <path fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"
+            d="M95 147Q76 150 58 156M97 157Q83 165 72 174M145 147Q164 150 182 156M143 157Q157 165 168 174"/>
+    </g>
+  </g>
+</svg>

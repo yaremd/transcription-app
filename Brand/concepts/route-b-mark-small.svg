@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Seal — Route B, small-size cut">
+  <!--
+    ROUTE B, SMALL CUT — for 20 px and below (menu bar, sidebar, favicon).
+    Whiskers are dropped and the eyes and nose are enlarged, because at 16 px a
+    6-unit stroke is a fifth of a pixel and only muddies the face. One path,
+    fill-rule evenodd, holes transparent.
+
+    Grid: disc c(120,120) r80 · eyes c(77,104) c(163,104) r22 · nose x97..143, y131..164
+  -->
+  <path fill="currentColor" fill-rule="evenodd" d="
+    M40 120a80 80 0 1 0 160 0a80 80 0 1 0-160 0Z
+    M55 104a22 22 0 1 0 44 0a22 22 0 1 0-44 0Z
+    M141 104a22 22 0 1 0 44 0a22 22 0 1 0-44 0Z
+    M97 141Q97 131 108 131Q115 131 120 138Q125 131 132 131Q143 131 143 141Q143 152 128 160Q120 164.5 112 160Q97 152 97 141Z"/>
+</svg>
