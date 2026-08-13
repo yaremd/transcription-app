@@ -39,7 +39,6 @@
 		65A0D8B438A30FA5B6CA2265 /* NotesTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27045D08ADD93EA94112834F /* NotesTemplate.swift */; };
 		66A4DAA5B8980F75EB178C6E /* CalendarContextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 843EEBAC3FC34958DCD2516A /* CalendarContextTests.swift */; };
 		6C73F3A1AF8A0A4B18A98F59 /* TranscriptionStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 931078E75B584BFA3397DFB1 /* TranscriptionStream.swift */; };
-		6E595B5164F587D71EEFECD0 /* Seal.icon in Resources */ = {isa = PBXBuildFile; fileRef = 9FE093EE6CF39D4E08AF5CFE /* Seal.icon */; };
 		73613F40A9CAB96F5A7FCFC4 /* Entitlements.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0962CF81AC38FA4CDD423E0 /* Entitlements.swift */; };
 		73ECF20DB7946F0236C1BFB5 /* EntitlementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD66DC3AA306EA2541FD0465 /* EntitlementTests.swift */; };
 		78E4E20C27F9A10013E81FF9 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = C913E189926AE6B1BBE7C16E /* MLXLLM */; };
@@ -56,6 +55,7 @@
 		929EEAE0C9B16493F4D3F273 /* MeetingDetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2DE5D18F32DD17A765354AF /* MeetingDetectionTests.swift */; };
 		95F79B8EF49D12591364E75D /* NotesGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98D3153FBC531FB658B9F1D3 /* NotesGenerator.swift */; };
 		A4BAFE12B82E6B29465B9F79 /* TranscriptPolisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89711E2232B2DFE1F4165774 /* TranscriptPolisher.swift */; };
+		A68A3AE693913040B7118FC4 /* SealMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88081D95553C82C16260F96 /* SealMark.swift */; };
 		AB041033A6550181854372C4 /* ProblemReportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CA351CC6DA991DE64E3E5D4 /* ProblemReportTests.swift */; };
 		ABC82EDD10AB03153376515B /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4DF2E2221BC76630B23DDF /* AppSettings.swift */; };
 		AFFA5F942485FB3649E72EFF /* DemoMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0D78B90492BC7BD20710ECD /* DemoMode.swift */; };
@@ -132,12 +132,12 @@
 		929411DADA5B682F021CFFFC /* TranscriptQualityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptQualityTests.swift; sourceTree = "<group>"; };
 		931078E75B584BFA3397DFB1 /* TranscriptionStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionStream.swift; sourceTree = "<group>"; };
 		98D3153FBC531FB658B9F1D3 /* NotesGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesGenerator.swift; sourceTree = "<group>"; };
-		9FE093EE6CF39D4E08AF5CFE /* Seal.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = Seal.icon; sourceTree = "<group>"; };
 		A0D78B90492BC7BD20710ECD /* DemoMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoMode.swift; sourceTree = "<group>"; };
 		AC48AAD800A33EE8241D2C27 /* ProGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProGate.swift; sourceTree = "<group>"; };
 		B0962CF81AC38FA4CDD423E0 /* Entitlements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Entitlements.swift; sourceTree = "<group>"; };
 		B2DE5D18F32DD17A765354AF /* MeetingDetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetectionTests.swift; sourceTree = "<group>"; };
 		B4C0E212FE60127FFBA349FE /* MicWatchdogSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicWatchdogSmokeTests.swift; sourceTree = "<group>"; };
+		B88081D95553C82C16260F96 /* SealMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SealMark.swift; sourceTree = "<group>"; };
 		BB244830AC575340FAFC3428 /* ReportProblemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportProblemView.swift; sourceTree = "<group>"; };
 		BE8F90071AC0251E2F3B6EFC /* LocalScribeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalScribeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C8D6D6D87D0F1FDA33A2C808 /* LocalScribeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalScribeApp.swift; sourceTree = "<group>"; };
@@ -188,7 +188,6 @@
 			isa = PBXGroup;
 			children = (
 				ECAA65E938B3B93FA8054BD9 /* Assets.xcassets */,
-				9FE093EE6CF39D4E08AF5CFE /* Seal.icon */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -229,6 +228,7 @@
 				E6A9B29B7667526D939EE4CC /* RecordingView.swift */,
 				BB244830AC575340FAFC3428 /* ReportProblemView.swift */,
 				858FA575BD12FEDC32F46DDC /* RootView.swift */,
+				B88081D95553C82C16260F96 /* SealMark.swift */,
 				582FA5EFBDD7B446610B1023 /* SessionAudioRecorder.swift */,
 				675D3B4978DB6B5C40EBB797 /* SettingsView.swift */,
 				10F566F54E1643AB512E7438 /* SpeakerLabeler.swift */,
@@ -377,7 +377,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				0C071F7AA8E9BCC20C14BE3D /* Assets.xcassets in Resources */,
-				6E595B5164F587D71EEFECD0 /* Seal.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -442,6 +441,7 @@
 				4B555598FAB0DCD7FA556183 /* RecordingView.swift in Sources */,
 				61B1AC892C06D4EA5DB1FCE9 /* ReportProblemView.swift in Sources */,
 				FC8A4FA4129462EDBEC6C6E4 /* RootView.swift in Sources */,
+				A68A3AE693913040B7118FC4 /* SealMark.swift in Sources */,
 				E5ABF27450A934F1FE1D56CA /* SessionAudioRecorder.swift in Sources */,
 				B4437BD448A055ACEC5B8A7A /* SettingsView.swift in Sources */,
 				BFBF5B2124FEBD080D41833E /* SpeakerLabeler.swift in Sources */,
@@ -601,7 +601,7 @@
 		7BBACD5F55A96610160583CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = Seal;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Support/Seal.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -620,7 +620,7 @@
 		A9A79C84E6F431844C9F61C0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = Seal;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Support/Seal.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;

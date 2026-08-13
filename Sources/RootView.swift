@@ -128,7 +128,12 @@ struct RootView: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.sidebar)
+            // `ignoresSafeArea`, so the sidebar's surface runs the full height
+            // of the window — up behind the traffic lights, the way every
+            // native sidebar does. Clipped to the safe area it stopped at the
+            // toolbar, and the toolbar's own fill then read as a bar laid
+            // across the top of the panel.
+            .background { Theme.sidebar.ignoresSafeArea() }
             .searchable(text: $searchText, placement: .sidebar, prompt: "Search meetings")
             .navigationTitle("Seal")
             .frame(minWidth: 240)
@@ -152,7 +157,8 @@ struct RootView: View {
                     }
                 }
             }
-            .background(Theme.background)
+            .clipped()
+            .background { Theme.background.ignoresSafeArea() }
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -178,11 +184,14 @@ struct RootView: View {
         // toggle tracks, which macOS draws with a white foreground we can't
         // override. See Theme.selection.
         .tint(Theme.selection)
-        // Without this the toolbar is a vibrancy material sampling the desktop
-        // behind the window — measured #282936, a violet slab sitting next to
-        // the near-black sidebar. Pin it to the pane it heads instead.
-        .toolbarBackground(Theme.background, for: .windowToolbar)
-        .toolbarBackground(.visible, for: .windowToolbar)
+        // The toolbar draws nothing of its own: each pane's background (above)
+        // reaches up through it, so the strip over the sidebar is sidebar and
+        // the strip over the detail is detail. Left to itself the toolbar is a
+        // vibrancy material sampling the desktop behind the window (measured
+        // #282936, a violet slab); painted one flat colour — v0.23's fix — it
+        // was that colour across BOTH panes, which is the bar the sidebar
+        // appeared to be tucked under. Hidden is the only state with no seam.
+        .toolbarBackground(.hidden, for: .windowToolbar)
         // A first-run banner spanning both panes while the models download:
         // real progress for the notes model, a preparing state for the (opaque)
         // speech model. Collapses to zero height once nothing is downloading.
@@ -469,27 +478,16 @@ struct RootView: View {
     }
 }
 
-/// The calm landing state: nothing selected, no recording — one clear action.
+/// The calm landing state: nothing selected, no recording — one clear action,
+/// and the only screen in the app with room for the mascot to be itself.
 private struct WelcomeView: View {
     @ObservedObject var monitor: AudioMonitor
     let newMeeting: () -> Void
-    @State private var breathe = false
 
     var body: some View {
         VStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(Theme.accent.opacity(0.12))
-                    .frame(width: 64, height: 64)
-                    .scaleEffect(breathe ? 1.12 : 1.0)
-                    .opacity(breathe ? 0.7 : 1.0)
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundStyle(Theme.accent)
-                    .scaleEffect(breathe ? 1.05 : 1.0)
-            }
-            .animation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true), value: breathe)
-            .onAppear { breathe = true }
+            SleepingSeal(width: 240)
+                .padding(.bottom, 10)
             VStack(spacing: 4) {
                 Text("Seal")
                     .font(Theme.pageTitle)

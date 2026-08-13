@@ -7,11 +7,11 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "waveform.badge.mic")
-                .font(.system(size: 26))
-                .foregroundStyle(Theme.accent)
-                .frame(width: 56, height: 56)
-                .surfacePanel(radius: 14)
+            // The brand mark itself, not a system glyph: this is the first
+            // screen of the app, and the mark is what the icon, the site and
+            // the seal on every export all show.
+            SealMascot(size: 60)
+                .padding(.bottom, 2)
 
             VStack(spacing: 6) {
                 Text("Welcome to Seal")
