@@ -85,9 +85,8 @@ targets:
         PRODUCT_NAME: Seal
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-        # Names Support/Seal.icon, not the legacy AppIcon.appiconset. The
-        # appiconset is kept in sync by Brand/gen-appicon.swift so reverting
-        # this one line restores the old pipeline intact.
+        # Names Support/Seal.icon. actool generates the .icns fallback from it,
+        # so there is no longer an AppIcon.appiconset to keep in sync.
         ASSETCATALOG_COMPILER_APPICON_NAME: Seal
         # Hardened Runtime needs the microphone declared for a notarized build to
         # be granted mic access at runtime. Minimal, non-sandboxed (see the file).
