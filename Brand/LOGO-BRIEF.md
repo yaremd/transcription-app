@@ -189,5 +189,5 @@ list are what makes the result rebuildable.
   (`#5E6AD2`) body colour — close it.
 - `seal-mark.svg`, `seal-mark-icon.svg` and `seal-stamp.svg` get recoloured to
   the chosen palette.
-- `Brand/gen-appicon.swift` regenerates the appiconset; the layered-icon export
-  is new work alongside it.
+- The app icon becomes a macOS 26 layered `.icon`; the Big Sur appiconset and
+  its generator retire with it.
