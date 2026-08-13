@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>studio</title>
+<style>
+ :root{--forest:#0A2A21;--lime:#D3F36B;--ink:#0E1512;--mist:#F5F6F1;--line:#E3E7DF;--accent:#14513C}
+ *{box-sizing:border-box}
+ body{margin:0;background:#fff;color:var(--ink);font:13px/1.5 -apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+ .wrap{padding:20px 24px}
+ h1{font-size:16px;margin:0 0 14px}
+ .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+ .v{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+ .v .big{background:var(--forest);height:210px;display:grid;place-items:center}
+ .v .big svg{width:180px;height:180px;color:var(--lime);overflow:visible}
+ .v .strip{background:var(--mist);display:flex;gap:16px;align-items:center;justify-content:center;padding:10px 8px;height:56px}
+ .v .strip svg{color:var(--ink);overflow:visible}
+ .v .lbl{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:8px;text-align:center;border-top:1px solid var(--line);min-height:36px}
+</style></head><body><div class="wrap">
+<h1>Round 3 — finalists</h1>
+<div class="grid" id="g"></div>
+</div>
+<script>
+const N_L  = "M100 141Q100 132 110 132Q116 132 120 138Q124 132 130 132Q140 132 140 141Q140 151 127 158Q120 162 113 158Q100 151 100 141Z";
+const N_M  = "M104 142Q104 134 112.5 134Q117 134 120 139Q123 134 127.5 134Q136 134 136 142Q136 150.5 125.5 156.5Q120 159.5 114.5 156.5Q104 150.5 104 142Z";
+const N_S  = "M107 143Q107 136 114 136Q118 136 120 140Q122 136 126 136Q133 136 133 143Q133 150 124.5 155Q120 157.5 115.5 155Q107 150 107 143Z";
+const N_XL = "M97 141Q97 131 108 131Q115 131 120 138Q125 131 132 131Q143 131 143 141Q143 152 128 160Q120 164.5 112 160Q97 152 97 141Z";
+
+const W_TOUCH = "M99 148Q84 151 70 158M100 157Q88 165 79 175M141 148Q156 151 170 158M140 157Q152 165 161 175";
+const W_GAP2  = "M95 148Q78 151 62 158M97 157Q84 164 74 174M145 148Q162 151 178 158M143 157Q156 164 166 174";
+const W_GAP3  = "M95 145Q78 146 61 150M96 154Q81 159 68 168M99 162Q89 170 82 180M145 145Q162 146 179 150M144 154Q159 159 172 168M141 162Q151 170 158 180";
+const W_LONG  = "M95 147Q76 150 58 156M97 157Q82 166 70 177M145 147Q164 150 182 156M143 157Q158 166 170 177";
+
+const V = [
+ {lbl:'E1 · eyes 16, nose L, touching x2', er:16, ex:84, ey:106, n:N_L, w:W_TOUCH, sw:6},
+ {lbl:'E2 · eyes 18, nose L, touching x2', er:18, ex:81, ey:104, n:N_L, w:W_TOUCH, sw:6},
+ {lbl:'E3 · eyes 19, nose S, touching x2', er:19, ex:79, ey:104, n:N_S, w:W_TOUCH, sw:6},
+ {lbl:'E4 · eyes 18, nose M, gap x2',      er:18, ex:81, ey:104, n:N_M, w:W_GAP2,  sw:6},
+ {lbl:'E5 · eyes 18, nose M, gap x2 long', er:18, ex:81, ey:104, n:N_M, w:W_LONG,  sw:6},
+ {lbl:'E6 · eyes 18, nose M, gap x3',      er:18, ex:81, ey:104, n:N_M, w:W_GAP3,  sw:5.5},
+ {lbl:'E7 · eyes 18, nose XL, gap x2',     er:18, ex:81, ey:104, n:N_XL,w:W_GAP2,  sw:6},
+ {lbl:'E8 · eyes 20, nose M, gap x2',      er:20, ex:78, ey:104, n:N_M, w:W_GAP2,  sw:6},
+ {lbl:'E9 · E5 thinner whiskers',          er:18, ex:81, ey:104, n:N_M, w:W_LONG,  sw:5},
+ {lbl:'E10 · E5 fatter whiskers',          er:18, ex:81, ey:104, n:N_M, w:W_LONG,  sw:7.5},
+ {lbl:'E11 · RING + E5 features',          er:18, ex:81, ey:104, n:N_M, w:W_LONG,  sw:6, ring:1},
+ {lbl:'E12 · 16px cut: bare, eyes 21',     er:21, ex:77, ey:104, n:N_L, w:'',      sw:0},
+];
+const RING = `<path fill="none" stroke="currentColor" stroke-width="15" d="M120 47C161 47 193 80 193 124C193 170 162 194 120 194C78 194 47 170 47 124C47 80 79 47 120 47Z"/>`;
+
+function mk(v, uid){
+  const feats = `<circle cx="${v.ex}" cy="${v.ey}" r="${v.er}"/><circle cx="${240-v.ex}" cy="${v.ey}" r="${v.er}"/><path d="${v.n}"/>`;
+  if (v.ring){
+    const w = v.w ? `<path d="${v.w}" fill="none" stroke="currentColor" stroke-width="${v.sw}" stroke-linecap="round"/>`:'';
+    return `${RING}<g fill="currentColor">${feats}</g>${w}`;
+  }
+  const w = v.w ? `<path d="${v.w}" fill="none" stroke="black" stroke-width="${v.sw}" stroke-linecap="round"/>` : '';
+  return `<defs><mask id="${uid}" maskUnits="userSpaceOnUse" x="0" y="0" width="240" height="240">
+            <circle cx="120" cy="120" r="80" fill="white"/><g fill="black">${feats}</g>${w}
+          </mask></defs>
+          <circle cx="120" cy="120" r="80" fill="currentColor" mask="url(#${uid})"/>`;
+}
+let html='';
+V.forEach((v,i)=>{
+  html += `<div class="v">
+    <div class="big"><svg viewBox="0 0 240 240">${mk(v,'m'+i)}</svg></div>
+    <div class="strip">
+      <svg viewBox="0 0 240 240" style="width:48px;height:48px">${mk(v,'z'+i)}</svg>
+      <svg viewBox="0 0 240 240" style="width:32px;height:32px">${mk(v,'a'+i)}</svg>
+      <svg viewBox="0 0 240 240" style="width:20px;height:20px">${mk(v,'c'+i)}</svg>
+      <svg viewBox="0 0 240 240" style="width:16px;height:16px">${mk(v,'b'+i)}</svg>
+    </div>
+    <div class="lbl">${v.lbl}</div></div>`;
+});
+document.getElementById('g').innerHTML = html;
+</script></body></html>

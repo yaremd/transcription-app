@@ -1,21 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
-  <!-- Seal mascot, full color: the lips-sealed pose (flippers over mouth). Face grid matches seal-mark-icon.svg. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Seal, flippers over its mouth">
+  <!-- Seal mascot, full colour: the lips-sealed pose (flippers over the mouth).
+       Head r80 at (120,120) and eyes r18 at (81,104)/(159,104) match
+       seal-mark-icon.svg exactly. The whiskers are the one deliberate
+       difference: shortened so the muzzle pad can contain them. At the mark's
+       full whisker length the pad has to run edge to edge and the head reads as
+       two stacked bands instead of a face.
+
+       Palette. Body is the website's accent-hover — the lightest green in the
+       family that still holds its shape on a white page, and light enough that
+       ink eyes read against it. Lime was tried as the body and lost: it is
+       nearly invisible on paper, where this mascot mostly lives. -->
   <g>
-    <circle cx="120" cy="118" r="76" fill="#5E6AD2"/>
-    <circle cx="86" cy="66" r="3" fill="#4A55B8"/>
-    <circle cx="120" cy="58" r="3" fill="#4A55B8"/>
-    <circle cx="154" cy="66" r="3" fill="#4A55B8"/>
-    <ellipse cx="120" cy="146" rx="34" ry="23" fill="#DDE0F8"/>
-    <circle cx="92" cy="104" r="9" fill="#23253A"/>
-    <circle cx="148" cy="104" r="9" fill="#23253A"/>
-    <circle cx="94.5" cy="101" r="2.8" fill="#FFFFFF"/>
-    <circle cx="150.5" cy="101" r="2.8" fill="#FFFFFF"/>
-    <ellipse cx="120" cy="138" rx="9" ry="6.5" fill="#23253A"/>
-    <circle cx="96" cy="144" r="1.7" fill="#23253A"/>
-    <circle cx="92" cy="152" r="1.7" fill="#23253A"/>
-    <circle cx="144" cy="144" r="1.7" fill="#23253A"/>
-    <circle cx="148" cy="152" r="1.7" fill="#23253A"/>
-    <ellipse cx="101" cy="166" rx="26" ry="12" fill="#4A55B8" transform="rotate(16 101 166)"/>
-    <ellipse cx="139" cy="166" rx="26" ry="12" fill="#4A55B8" transform="rotate(-16 139 166)"/>
+    <circle cx="120" cy="120" r="80" fill="#1B6B4F"/>
+    <!-- harbour-seal speckles -->
+    <circle cx="84" cy="63" r="3.4" fill="#14513C"/>
+    <circle cx="120" cy="54" r="3.4" fill="#14513C"/>
+    <circle cx="156" cy="63" r="3.4" fill="#14513C"/>
+    <!-- muzzle -->
+    <ellipse cx="120" cy="154" rx="52" ry="32" fill="#EFFAD8"/>
+    <!-- whiskers -->
+    <path fill="none" stroke="#0E1512" stroke-width="5" stroke-linecap="round"
+          d="M96 147Q84 149 72 153M98 156Q88 163 80 170M144 147Q156 149 168 153M142 156Q152 163 160 170"/>
+    <!-- nose -->
+    <path fill="#0E1512"
+          d="M104 142Q104 134 112.5 134Q117 134 120 139Q123 134 127.5 134Q136 134 136 142Q136 150.5 125.5 156.5Q120 159.5 114.5 156.5Q104 150.5 104 142Z"/>
+    <!-- eyes -->
+    <circle cx="81" cy="104" r="18" fill="#0E1512"/>
+    <circle cx="159" cy="104" r="18" fill="#0E1512"/>
+    <!-- catchlights stay under a quarter of the eye; larger reads zany, and
+         rule 3 is calm, not zany -->
+    <circle cx="87" cy="99" r="4.3" fill="#FFFFFF"/>
+    <circle cx="165" cy="99" r="4.3" fill="#FFFFFF"/>
+    <!-- flippers, clasped over where a mouth would be -->
+    <ellipse cx="97" cy="170" rx="27" ry="11.5" fill="#14513C" transform="rotate(15 97 170)"/>
+    <ellipse cx="143" cy="170" rx="27" ry="11.5" fill="#14513C" transform="rotate(-15 143 170)"/>
   </g>
 </svg>

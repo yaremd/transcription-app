@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Seal — logo concepts</title>
+<style>
+  :root{
+    --paper:#FFFFFF; --mist:#F5F6F1; --ink:#0E1512; --body:#4A544E; --line:#E3E7DF;
+    --forest:#0A2A21; --forest-deep:#061C16; --accent:#14513C; --lime:#D3F36B; --lime-soft:#EFFAD8;
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.6 var(--font);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:52px 40px 80px}
+  h1{font-size:30px;letter-spacing:-.022em;margin:0 0 8px}
+  .sub{color:var(--body);margin:0 0 40px;max-width:66ch}
+  h2{font-size:21px;letter-spacing:-.015em;margin:0 0 4px}
+  .lede{color:var(--body);margin:0 0 22px;max-width:66ch;font-size:14.5px}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--body);margin:0 0 10px}
+  section{margin-bottom:56px;padding-top:34px;border-top:1px solid var(--line)}
+  .row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;margin-bottom:24px}
+  .tile{border:1px solid var(--line);border-radius:14px;width:186px;height:186px;display:grid;place-items:center;background:var(--paper)}
+  .tile.dark{background:var(--forest);border-color:transparent}
+  .tile.mist{background:var(--mist);border-color:transparent}
+  .tile svg{width:138px;height:138px;overflow:visible}
+  .cap{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--body);margin-top:10px;text-align:center;width:186px}
+  .appicon{width:186px;height:186px;border-radius:22.4%;display:grid;place-items:center;background:var(--forest)}
+  .appicon svg{width:80.5%;height:80.5%;color:var(--lime)}
+  .ramp{background:var(--mist);border-radius:14px;padding:22px 26px;display:flex;gap:30px;align-items:flex-end}
+  .ramp .cell{text-align:center}
+  .ramp .cell svg{color:var(--ink);overflow:visible;display:block;margin:0 auto}
+  .ramp .n{font-size:10.5px;color:var(--body);margin-top:10px;font-variant-numeric:tabular-nums}
+  .dock{background:linear-gradient(180deg,#cad3c9,#a9b5a8);padding:11px 15px;border-radius:20px;display:flex;gap:13px;align-items:flex-end;border:1px solid rgba(0,0,0,.14)}
+  .dock .app{width:56px;height:56px;border-radius:22.4%;display:grid;place-items:center;font-weight:700;color:#fff;font-size:21px}
+  .lockup{display:flex;align-items:center;gap:15px}
+  .lockup .name{font-size:38px;font-weight:640;letter-spacing:-.03em}
+  .note{background:var(--lime-soft);border-radius:12px;padding:16px 18px;font-size:13.5px;color:#26332B;max-width:76ch;line-height:1.62}
+  .note b{color:var(--ink)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px}
+  .zbox{background:var(--mist);border-radius:14px;padding:26px;display:flex;gap:28px;align-items:center;justify-content:center}
+  .zbox svg{color:var(--ink);overflow:visible}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="b" viewBox="0 0 240 240">
+    <mask id="mb" maskUnits="userSpaceOnUse" x="0" y="0" width="240" height="240">
+      <circle cx="120" cy="120" r="80" fill="#fff"/>
+      <g fill="#000"><circle cx="81" cy="104" r="18"/><circle cx="159" cy="104" r="18"/>
+      <path d="M104 142Q104 134 112.5 134Q117 134 120 139Q123 134 127.5 134Q136 134 136 142Q136 150.5 125.5 156.5Q120 159.5 114.5 156.5Q104 150.5 104 142Z"/></g>
+      <path fill="none" stroke="#000" stroke-width="6" stroke-linecap="round" d="M95 147Q76 150 58 156M97 157Q83 165 72 174M145 147Q164 150 182 156M143 157Q157 165 168 174"/>
+    </mask>
+    <circle cx="120" cy="120" r="80" fill="currentColor" mask="url(#mb)"/>
+  </symbol>
+  <symbol id="bs" viewBox="0 0 240 240">
+    <path fill="currentColor" fill-rule="evenodd" d="M40 120a80 80 0 1 0 160 0a80 80 0 1 0-160 0ZM55 104a22 22 0 1 0 44 0a22 22 0 1 0-44 0ZM141 104a22 22 0 1 0 44 0a22 22 0 1 0-44 0ZM97 141Q97 131 108 131Q115 131 120 138Q125 131 132 131Q143 131 143 141Q143 152 128 160Q120 164.5 112 160Q97 152 97 141Z"/>
+  </symbol>
+  <symbol id="c" viewBox="0 0 240 240">
+    <g fill="currentColor">
+      <path fill="none" stroke="currentColor" stroke-width="15" d="M120 47C161 47 193 80 193 124C193 170 162 194 120 194C78 194 47 170 47 124C47 80 79 47 120 47Z"/>
+      <g transform="translate(120 120) scale(0.85) translate(-120 -120)">
+        <circle cx="81" cy="104" r="18"/><circle cx="159" cy="104" r="18"/>
+        <path d="M104 142Q104 134 112.5 134Q117 134 120 139Q123 134 127.5 134Q136 134 136 142Q136 150.5 125.5 156.5Q120 159.5 114.5 156.5Q104 150.5 104 142Z"/>
+        <path fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" d="M95 147Q76 150 58 156M97 157Q83 165 72 174M145 147Q164 150 182 156M143 157Q157 165 168 174"/>
+      </g>
+    </g>
+  </symbol>
+  <symbol id="cs" viewBox="0 0 240 240">
+    <g fill="currentColor">
+      <path fill="none" stroke="currentColor" stroke-width="24" d="M120 54C156 54 186 84 186 124C186 165 158 187 120 187C82 187 54 165 54 124C54 84 84 54 120 54Z"/>
+      <g transform="translate(120 120) scale(0.78) translate(-120 -120)">
+        <circle cx="79" cy="104" r="21"/><circle cx="161" cy="104" r="21"/>
+        <path d="M99 141Q99 131 109 131Q116 131 120 138Q124 131 131 131Q141 131 141 141Q141 152 127 160Q120 164 113 160Q99 152 99 141Z"/>
+      </g>
+    </g>
+  </symbol>
+</svg>
+
+<div class="wrap">
+  <h1>Seal — two logo routes</h1>
+  <p class="sub">Both earless and mouthless. Both use only forest <code>#0A2A21</code> and lime <code>#D3F36B</code>. Both are built on the same 240-unit grid, so whichever wins can be handed to a studio as exact coordinates rather than a picture. Pick one and push it — don't average them.</p>
+
+  <section style="border-top:none;padding-top:0">
+    <p class="eyebrow">Route B</p>
+    <h2>The struck impression</h2>
+    <p class="lede">A solid disc with the face punched clean through — which is literally what a wax seal is. The holes are transparent, so the same file is the app icon, the menu-bar template glyph and the favicon. Mass, not line: it survives being shrunk, tinted, or printed in one colour.</p>
+
+    <div class="row">
+      <div><div class="appicon"><svg><use href="#b"/></svg></div><div class="cap">App icon</div></div>
+      <div><div class="tile mist"><svg style="color:var(--accent)"><use href="#b"/></svg></div><div class="cap">On mist</div></div>
+      <div><div class="tile dark"><svg style="color:var(--lime)"><use href="#b"/></svg></div><div class="cap">On forest</div></div>
+      <div><div class="tile"><svg style="color:var(--ink)"><use href="#b"/></svg></div><div class="cap">One colour</div></div>
+    </div>
+
+    <p class="eyebrow">Size ramp — the last two are the small cut, whiskers dropped</p>
+    <div class="ramp">
+      <div class="cell"><svg style="width:120px;height:120px"><use href="#b"/></svg><div class="n">120</div></div>
+      <div class="cell"><svg style="width:64px;height:64px"><use href="#b"/></svg><div class="n">64</div></div>
+      <div class="cell"><svg style="width:40px;height:40px"><use href="#b"/></svg><div class="n">40</div></div>
+      <div class="cell"><svg style="width:24px;height:24px"><use href="#b"/></svg><div class="n">24</div></div>
+      <div class="cell"><svg style="width:20px;height:20px"><use href="#bs"/></svg><div class="n">20 sm</div></div>
+      <div class="cell"><svg style="width:16px;height:16px"><use href="#bs"/></svg><div class="n">16 sm</div></div>
+    </div>
+
+    <div class="row" style="margin-top:24px;align-items:center">
+      <div>
+        <div class="dock">
+          <div class="app" style="background:#4A154B">S</div>
+          <div class="app" style="background:#fff;color:#000">N</div>
+          <div class="app appicon" style="width:56px;height:56px"><svg><use href="#b"/></svg></div>
+          <div class="app" style="background:#2D8CFF">Z</div>
+          <div class="app" style="background:#000">X</div>
+        </div>
+      </div>
+      <div class="lockup" style="margin-left:24px">
+        <svg style="width:48px;height:48px;color:var(--accent);overflow:visible"><use href="#b"/></svg>
+        <span class="name">Seal</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Route C</p>
+    <h2>The unbroken seal</h2>
+    <p class="lede">One closed contour of constant weight that never breaks — it is the head and the tamper-evident ring at the same time. Line and mass are the only two values in the whole mark. It reads as a seal of office before it reads as an animal, which is the more institutional of the two answers.</p>
+
+    <div class="row">
+      <div><div class="appicon"><svg><use href="#c"/></svg></div><div class="cap">App icon</div></div>
+      <div><div class="tile mist"><svg style="color:var(--accent)"><use href="#c"/></svg></div><div class="cap">On mist</div></div>
+      <div><div class="tile dark"><svg style="color:var(--lime)"><use href="#c"/></svg></div><div class="cap">On forest</div></div>
+      <div><div class="tile"><svg style="color:var(--ink)"><use href="#c"/></svg></div><div class="cap">One colour</div></div>
+    </div>
+
+    <p class="eyebrow">Size ramp — the last two are the small cut, contour thickened</p>
+    <div class="ramp">
+      <div class="cell"><svg style="width:120px;height:120px"><use href="#c"/></svg><div class="n">120</div></div>
+      <div class="cell"><svg style="width:64px;height:64px"><use href="#c"/></svg><div class="n">64</div></div>
+      <div class="cell"><svg style="width:40px;height:40px"><use href="#c"/></svg><div class="n">40</div></div>
+      <div class="cell"><svg style="width:24px;height:24px"><use href="#cs"/></svg><div class="n">24 sm</div></div>
+      <div class="cell"><svg style="width:20px;height:20px"><use href="#cs"/></svg><div class="n">20 sm</div></div>
+      <div class="cell"><svg style="width:16px;height:16px"><use href="#cs"/></svg><div class="n">16 sm</div></div>
+    </div>
+
+    <div class="row" style="margin-top:24px;align-items:center">
+      <div>
+        <div class="dock">
+          <div class="app" style="background:#4A154B">S</div>
+          <div class="app" style="background:#fff;color:#000">N</div>
+          <div class="app appicon" style="width:56px;height:56px"><svg><use href="#c"/></svg></div>
+          <div class="app" style="background:#2D8CFF">Z</div>
+          <div class="app" style="background:#000">X</div>
+        </div>
+      </div>
+      <div class="lockup" style="margin-left:24px">
+        <svg style="width:48px;height:48px;color:var(--accent);overflow:visible"><use href="#c"/></svg>
+        <span class="name">Seal</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Head to head</p>
+    <h2>Where they actually differ</h2>
+    <div class="grid2">
+      <div>
+        <div class="zbox">
+          <svg style="width:16px;height:16px"><use href="#bs"/></svg>
+          <svg style="width:104px;height:104px"><use href="#b"/></svg>
+        </div>
+        <div class="cap" style="width:auto">Route B — at 16 px, and full size</div>
+      </div>
+      <div>
+        <div class="zbox">
+          <svg style="width:16px;height:16px"><use href="#cs"/></svg>
+          <svg style="width:104px;height:104px"><use href="#c"/></svg>
+        </div>
+        <div class="cap" style="width:auto">Route C — at 16 px, and full size</div>
+      </div>
+    </div>
+    <div class="note"><b>B is mass; C is line.</b> B holds at any size, tints to a single arbitrary colour without losing the face, and never needs a second drawing except to drop the whiskers below 24 px — the durable choice for something that lives in a menu bar all day. C carries the better story and looks more like a seal of office, but a stroked contour thins to nothing at small sizes, so it needs a genuinely separate small cut and it will always be the weaker favicon. If Seal is mostly going to be seen small, that is the decision.</div>
+  </section>
+</div>
+</body>
+</html>
