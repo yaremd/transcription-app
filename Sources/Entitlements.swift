@@ -210,9 +210,19 @@ final class EntitlementService: ObservableObject {
     /// free state over it. Under test, the real file must not even be opened.
     convenience init() {
         let underTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        // Demo runs are isolated for the same reason the test host is, and it
+        // is the same failure if they aren't: a throwaway state file combined
+        // with the real Keychain key is what wiped a valid license once. An
+        // ephemeral key means the Keychain is never read and never minted.
+        let isolated = underTest || DemoMode.isActive
         self.init(fileURL: Self.stateFileURL(underTest: underTest),
-                  macKey: underTest ? SymmetricKey(size: .bits256) : Self.keychainMACKey(),
+                  macKey: isolated ? SymmetricKey(size: .bits256) : Self.keychainMACKey(),
                   now: Date.init)
+        // Screenshots need the Pro surfaces on show. This is the existing
+        // debug override, not a new door into the paid features.
+        if DemoMode.isActive {
+            debugForcedEntitlement = .pro(updatesThrough: Date(timeIntervalSinceNow: 60 * 60 * 24 * 365))
+        }
         Self.shared = self
     }
 
@@ -223,6 +233,9 @@ final class EntitlementService: ObservableObject {
         if underTest {
             return fm.temporaryDirectory
                 .appendingPathComponent("Seal-test-host-entitlement.json")
+        }
+        if let demo = DemoMode.container {
+            return demo.appendingPathComponent("entitlement.json")
         }
         let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? fm.temporaryDirectory

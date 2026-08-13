@@ -65,7 +65,20 @@ enum Theme {
     /// system chrome, and white on lime is unreadable.
     static let selection = dynamic(light: 0x14513C, dark: 0x1E5C46)
 
-    static let green = dynamic(light: 0x2F9E68, dark: 0x53B57F)
+    /// Others / system audio / success. The light value was #2F9E68, which
+    /// sat at 3.38:1 on white and 3.19:1 on `inset` — under AA on every ground
+    /// it is actually drawn on, both as the speaker label and beneath the
+    /// white checkmark in the meeting-detected prompt.
+    ///
+    /// Darkening it is squeezed from the other side now that `accent` is a
+    /// green too: a sweep of the whole green band says every value dark enough
+    /// to clear AA lands ~0.15 OKLab from the accent, in normal vision and
+    /// under both dichromacies. There is no green that gets both, so this
+    /// takes the best contrast available (4.91:1 white, 4.64 inset, 4.60
+    /// sidebar) and leaves disambiguation to the speaker's name, which is
+    /// always drawn beside the colour. Dark appearance has no such squeeze:
+    /// #53B57F is 6.93:1 on `surface` and 0.21 from the lime accent.
+    static let green = dynamic(light: 0x238050, dark: 0x53B57F)
     static let red = dynamic(light: 0xDC3E42, dark: 0xEB5757)
     static let amber = dynamic(light: 0xBF7A18, dark: 0xE2A336)
 

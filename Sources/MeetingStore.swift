@@ -18,6 +18,21 @@ final class MeetingStore: ObservableObject {
 
     init() {
         let fm = FileManager.default
+
+        // Screenshot / QA runs read an isolated container and, critically, skip
+        // the legacy migration below — that migration MOVES the real meetings
+        // folder, which a demo run has no business doing.
+        if let demo = DemoMode.directory("Meetings") {
+            directory = demo
+            encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            load()
+            return
+        }
+
         let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? fm.temporaryDirectory
         let dir = base.appendingPathComponent("Seal/Meetings", isDirectory: true)

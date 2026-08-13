@@ -21,6 +21,8 @@ struct SettingsView: View {
                 .tabItem { Label("License", systemImage: "checkmark.seal") }
         }
         .frame(width: 540, height: 460)
+        // The window behind the panes, once each Form stops painting its own.
+        .background(Theme.background)
         // `selection`, not `accent`: Settings is mostly toggles and pickers,
         // which macOS fills with the tint and draws a white knob on.
         .tint(Theme.selection)
@@ -90,6 +92,11 @@ private struct LicenseSettings: View {
 #endif
         }
         .formStyle(.grouped)
+        // Per-Form, not inherited: a grouped Form paints its own scroll
+        // material (#1F222F, a violet unrelated to the palette), and setting
+        // this on the enclosing TabView does not reach it — measured, the
+        // panes stayed #1F222F until every Form was told individually.
+        .scrollContentBackground(.hidden)
         .onAppear { entitlements.refresh() }
         .sheet(isPresented: $showUpgrade) {
             UpgradeSheet().environmentObject(entitlements)
@@ -273,6 +280,11 @@ private struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
+        // Per-Form, not inherited: a grouped Form paints its own scroll
+        // material (#1F222F, a violet unrelated to the palette), and setting
+        // this on the enclosing TabView does not reach it — measured, the
+        // panes stayed #1F222F until every Form was told individually.
+        .scrollContentBackground(.hidden)
         .sheet(isPresented: $showUpgrade) {
             UpgradeSheet(highlighted: .calendarContext).environmentObject(entitlements)
         }
@@ -322,6 +334,11 @@ private struct VocabularySettings: View {
             }
         }
         .formStyle(.grouped)
+        // Per-Form, not inherited: a grouped Form paints its own scroll
+        // material (#1F222F, a violet unrelated to the palette), and setting
+        // this on the enclosing TabView does not reach it — measured, the
+        // panes stayed #1F222F until every Form was told individually.
+        .scrollContentBackground(.hidden)
     }
 
     private var trimmedNew: String {
@@ -384,6 +401,11 @@ private struct NotesSettings: View {
             }
         }
         .formStyle(.grouped)
+        // Per-Form, not inherited: a grouped Form paints its own scroll
+        // material (#1F222F, a violet unrelated to the palette), and setting
+        // this on the enclosing TabView does not reach it — measured, the
+        // panes stayed #1F222F until every Form was told individually.
+        .scrollContentBackground(.hidden)
         .task { await modelStatus.attach() }
         .sheet(isPresented: $showUpgrade) {
             UpgradeSheet(highlighted: .byoCloudKey).environmentObject(entitlements)
@@ -471,6 +493,11 @@ private struct RecordingSettings: View {
             }
         }
         .formStyle(.grouped)
+        // Per-Form, not inherited: a grouped Form paints its own scroll
+        // material (#1F222F, a violet unrelated to the palette), and setting
+        // this on the enclosing TabView does not reach it — measured, the
+        // panes stayed #1F222F until every Form was told individually.
+        .scrollContentBackground(.hidden)
     }
 
     private var isChosenMissing: Bool {

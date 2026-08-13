@@ -178,6 +178,11 @@ struct RootView: View {
         // toggle tracks, which macOS draws with a white foreground we can't
         // override. See Theme.selection.
         .tint(Theme.selection)
+        // Without this the toolbar is a vibrancy material sampling the desktop
+        // behind the window — measured #282936, a violet slab sitting next to
+        // the near-black sidebar. Pin it to the pane it heads instead.
+        .toolbarBackground(Theme.background, for: .windowToolbar)
+        .toolbarBackground(.visible, for: .windowToolbar)
         // A first-run banner spanning both panes while the models download:
         // real progress for the notes model, a preparing state for the (opaque)
         // speech model. Collapses to zero height once nothing is downloading.

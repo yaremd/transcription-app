@@ -18,10 +18,21 @@ Every token lives in `Sources/Theme.swift`. Use tokens, never raw colors or ad-h
   `.tint(…)`, toggle tracks. The system hard-codes a white foreground on these and we
   can't override it, so this token stays dark enough for white in both appearances.
   Rule of thumb: **we** draw the foreground → `accent`; **macOS** draws it → `selection`.
-- `green` #2F9E68 / #53B57F (Others/system audio, success) · `red` #DC3E42 / #EB5757 (record, destructive) · `amber` #BF7A18 / #E2A336 (warnings, cloud caution)
+- `green` #238050 / #53B57F (Others/system audio, success). The light value clears AA
+  on every ground it's drawn on (4.91:1 white, 4.64 inset, 4.60 sidebar); the old
+  #2F9E68 cleared none of them. It can't go lighter for separation from `accent`:
+  every green dark enough for AA lands ~0.15 OKLab away, so in light appearance the
+  speaker's name carries the disambiguation that colour alone can't.
+- `red` #DC3E42 / #EB5757 (record, destructive) · `amber` #BF7A18 / #E2A336 (warnings, cloud caution)
 - `tagPalette` — 6 dot colors assigned deterministically per tag name via `Theme.tagColor`.
   Deliberately a functional rainbow, not brand colors: the hash maps a tag to an index,
   so changing an entry silently recolors every existing tag that lands on it.
+- Surfaces macOS paints for itself, and how each is reclaimed:
+  a grouped `Form` draws its own scroll material (#1F222F) — every Form in Settings
+  hides it *individually*, since setting that on the enclosing `TabView` does not
+  reach them; the window toolbar is a vibrancy material sampling the desktop (#282936)
+  until `.toolbarBackground(Theme.background, for: .windowToolbar)` pins it. These five
+  Forms and the sidebar `List` are the only `List`/`Form`/`Table` in the app.
 
 ## Type (SF Pro system font only)
 `pageTitle` 20 semibold · `title` 15 semibold · `body` 13 · `bodyMedium` 13 medium · `sub` 12 · `meta` 11 · `metaMedium` 11 medium.
