@@ -1,0 +1,125 @@
+Seal — Source-Available Licence
+Copyright (c) 2026 Dmytro Yaremchuk. All rights reserved.
+
+
+WHY THIS SOURCE IS PUBLIC
+
+Seal's central claim is that your meeting audio, transcripts, and notes never
+leave your Mac. Every app in this category makes a version of that promise,
+and asks you to take it on trust. Publishing the source removes the need to.
+
+You can read exactly what the app does with a recording, confirm that the
+only network calls it makes are the update check, the first-run model
+download, and licence activation, and check that none of them carry meeting
+content. That is the whole reason this repository is open to read.
+
+Seal is not open-source software. This is a source-available licence: the
+code is published for inspection and personal use, not for redistribution.
+The terms below are what govern; this section is only here to explain them.
+
+
+1. DEFINITIONS
+
+   "The Software" means the source code, build configuration, and other
+   material in this repository, excluding Third-Party Components as defined
+   in section 5.
+
+   "You" means the individual or entity exercising the permissions below.
+
+
+2. WHAT YOU MAY DO
+
+   You are granted a non-exclusive, worldwide, royalty-free licence to:
+
+   (a) read, inspect, and audit the Software, for any purpose, including
+       security review, privacy verification, and publishing your findings;
+
+   (b) build the Software from source and run your own build on hardware you
+       own or control, for your own personal or internal business use;
+
+   (c) modify the Software privately, for your own use, including to
+       investigate its behaviour;
+
+   (d) quote excerpts of the Software in reviews, research, articles, bug
+       reports, and educational material, with attribution.
+
+
+3. WHAT YOU MAY NOT DO
+
+   You may not, without prior written permission from the copyright holder:
+
+   (a) redistribute the Software, in source or binary form, whether modified
+       or unmodified;
+
+   (b) publish, sell, sublicense, rent, or host the Software, or offer it as
+       a service;
+
+   (c) distribute derivative works, or incorporate the Software into another
+       product;
+
+   (d) remove or alter copyright notices, licence terms, or attribution;
+
+   (e) use the name "Seal", the Seal mark, or the app icon to identify any
+       product other than this one.
+
+   Nothing in this section restricts anything permitted by applicable law
+   that cannot be waived by contract, including rights of interoperability
+   and lawful reverse engineering.
+
+
+4. PAID FEATURES
+
+   Some features of Seal require a paid licence key. The permissions in
+   section 2 do not grant a right to those features. Building from source
+   does not constitute a purchase, and circumventing licensing in a copy you
+   distribute to others is not permitted under section 3(a).
+
+
+5. THIRD-PARTY COMPONENTS
+
+   Seal depends on separately licensed software, which this licence does not
+   cover and does not modify. Each remains governed by its own terms:
+
+     WhisperKit ................. MIT
+     mlx-swift-lm ............... MIT
+     swift-transformers ......... Apache-2.0
+     FluidAudio ................. Apache-2.0
+     Sparkle .................... see the Sparkle project's licence
+
+   Speech and language model weights are downloaded at runtime from their
+   respective publishers and are governed by their own model licences. They
+   are not distributed as part of the Software.
+
+
+6. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+
+7. LIMITATION OF LIABILITY
+
+   TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE
+   COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY,
+   WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT
+   OF, OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+   Seal records and transcribes conversations. Whether a given recording is
+   lawful depends on where you and the other participants are, and consent
+   requirements vary by jurisdiction. Complying with them is your
+   responsibility, not the Software's.
+
+
+8. TERMINATION
+
+   This licence terminates automatically if you breach section 3. The
+   permissions in section 2(a) — reading, inspecting, and auditing — survive
+   termination, because the transparency this repository exists to provide
+   should not be revocable.
+
+
+9. GRANTS BEYOND THIS LICENCE
+
+   For permission to do anything section 3 prohibits, ask:
+   yaremchukdima@gmail.com
