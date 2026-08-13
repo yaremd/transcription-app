@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#FFFFFF">
+<title>Local AI Meeting Notes on Mac — Offline Transcription | Seal</title>
+<meta name="description" content="How on-device meeting transcription works on a Mac, what 'local' really means, and a five-minute test that tells a genuinely offline app from a cloud one.">
+<link rel="canonical" href="https://sealformac.com/local-meeting-notes-mac/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta property="og:site_name" content="Seal">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="Local AI Meeting Notes on Mac — Offline Transcription">
+<meta property="og:description" content="What 'on-device' actually means, how to test whether an app is telling the truth about it, and the trade-offs worth knowing.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://sealformac.com/local-meeting-notes-mac/">
+<meta property="og:image" content="https://sealformac.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Seal — private meeting notes for macOS, recorded and transcribed entirely on your Mac.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Local AI Meeting Notes on Mac — Offline Transcription">
+<meta name="twitter:description" content="What 'on-device' actually means, how to test whether an app is telling the truth about it, and the trade-offs worth knowing.">
+<meta name="twitter:image" content="https://sealformac.com/og.png">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://sealformac.com/local-meeting-notes-mac/#breadcrumbs",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Seal", "item": "https://sealformac.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Local meeting notes on Mac", "item": "https://sealformac.com/local-meeting-notes-mac/" }
+      ]
+    },
+    {
+      "@type": "Article",
+      "@id": "https://sealformac.com/local-meeting-notes-mac/#article",
+      "headline": "Local AI meeting notes on a Mac: how on-device transcription actually works",
+      "description": "A practical guide to on-device meeting transcription on macOS — what 'local' means at each stage, how to verify a vendor's claim, hardware requirements, and the real trade-offs.",
+      "datePublished": "2026-08-13",
+      "dateModified": "2026-08-13",
+      "inLanguage": "en",
+      "image": "https://sealformac.com/og.png",
+      "author": { "@type": "Organization", "name": "Seal", "url": "https://sealformac.com/" },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Seal",
+        "url": "https://sealformac.com/",
+        "logo": { "@type": "ImageObject", "url": "https://sealformac.com/app-icon.png" }
+      },
+      "mainEntityOfPage": { "@id": "https://sealformac.com/local-meeting-notes-mac/" }
+    },
+    {
+      "@type": "HowTo",
+      "@id": "https://sealformac.com/local-meeting-notes-mac/#howto",
+      "name": "How to check whether a meeting app really transcribes on-device",
+      "description": "A four-step test that distinguishes genuinely local transcription from a cloud service with a native app.",
+      "totalTime": "PT5M",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "position": 1,
+          "name": "Turn off your network",
+          "text": "Disconnect Wi-Fi and unplug Ethernet. A genuinely on-device app has everything it needs already installed."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 2,
+          "name": "Start a recording and speak",
+          "text": "Record yourself talking for a minute. If the live transcript still appears with no connection, the speech model is running on your machine."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 3,
+          "name": "Stop and generate notes",
+          "text": "Ask the app to write up the meeting. If the summary is produced while still offline, note generation is local too — this is the stage most 'local-first' apps still send away."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 4,
+          "name": "Check whether an account was needed",
+          "text": "If you had to sign in before any of this worked, your notes are being synced somewhere, whatever the processing story is."
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://sealformac.com/local-meeting-notes-mac/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does on-device transcription mean?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It means the speech-recognition model itself runs on your computer's own processor, so the audio is never transmitted anywhere. This is different from a native desktop app that captures audio locally and then uploads it for transcription — that app is local at capture and remote at every stage that matters."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is local transcription as accurate as cloud transcription?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "For clear meeting audio the gap has largely closed. Modern on-device speech models running on Apple silicon produce transcripts comparable to cloud services for ordinary conversation. Cloud services still tend to hold an advantage on heavy accents, poor microphones, and very noisy rooms, because they can run far larger models."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need an Apple-silicon Mac for local AI meeting notes?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "For live transcription, an Intel Mac can cope. For on-device note generation you need Apple silicon, because a language model needs the unified memory and Neural Engine to run at a usable speed. Seal requires macOS 14 or later, and its AI notes require an Apple-silicon Mac."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does on-device transcription drain the battery?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It uses more power than streaming audio to a server, because your own chip is doing the work. On Apple silicon the speech model is efficient enough that a normal meeting is unremarkable; the heavier moment is the note generation at the end, which lasts seconds rather than the length of the call."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can a local meeting notes app record Zoom, Teams, and Google Meet?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. A native Mac app can capture system audio alongside your microphone, which means it hears both sides of any call regardless of platform — Zoom, Teams, Meet, Slack huddles, or a phone call on speaker. It does not need to integrate with the meeting platform at all, because it is listening to the Mac rather than to the service."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap bar">
+    <a class="brand" href="/" aria-label="Seal — home">
+      <img src="/app-icon.png" width="30" height="30" alt="">
+      Seal
+    </a>
+    <nav class="links" aria-label="Site">
+      <a href="/#features">Features</a>
+      <a href="/privacy/">Privacy</a>
+      <a href="/#compare">Compare</a>
+      <a href="/#pricing">Pricing</a>
+    </nav>
+    <a class="btn small" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download free</a>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/">Seal</a><span>/</span>Local meeting notes on Mac
+    </nav>
+
+    <div class="page-hero">
+      <h1>Local AI meeting notes on a Mac, <span class="hl">explained properly</span></h1>
+      <p class="sub">"On-device" is the most abused phrase in this category. Here's what it means at each stage of a meeting, how to test whether an app is telling you the truth, and what the trade-offs actually are.</p>
+    </div>
+
+    <div class="prose">
+      <div class="verdict">
+        <b>The short answer</b>
+        <p>A meeting passes through four stages — capture, transcription, note generation, storage. Almost every "local-first" app is local at capture and remote at the rest. Genuinely on-device means the speech model and the language model both run on your Mac's own chip, with no account and nothing transmitted. You can verify it in about five minutes by turning off your Wi-Fi.</p>
+      </div>
+
+      <h2>The four stages, and where apps quietly hand off</h2>
+      <p>When a meeting-notes app describes itself as local, private, or on-device, it is usually true of at least one thing it does. The useful question is which one.</p>
+      <ol>
+        <li><strong>Capture.</strong> Reading your microphone and the call's audio. Any native desktop app does this on your machine — this is the stage that "bot-free" describes, and it's the easiest to get right.</li>
+        <li><strong>Transcription.</strong> Turning speech into text. This is the expensive stage, and the one most often outsourced to a speech API. If audio leaves your machine at all, it leaves here.</li>
+        <li><strong>Note generation.</strong> Turning the transcript into a write-up. Running a capable language model locally is harder than running a speech model, so this is the stage that even genuinely local apps most often send to a cloud provider.</li>
+        <li><strong>Storage.</strong> Where the transcript and notes live afterwards. An app can process everything locally and still sync the results to a server so you can read them on your phone.</li>
+      </ol>
+      <p>"Bot-free" is a claim about stage one. "On-device" should be a claim about all four. The distance between those two claims is where nearly all of the marketing in this category lives.</p>
+
+      <h2>How to test any app in five minutes</h2>
+      <p>You don't have to take a vendor's word for it, including ours.</p>
+      <ol>
+        <li><strong>Turn off your network.</strong> Wi-Fi off, Ethernet unplugged. A genuinely on-device app already has everything it needs on disk.</li>
+        <li><strong>Record yourself talking for a minute.</strong> If the live transcript still appears, the speech model is running on your Mac. If it stalls, it never was.</li>
+        <li><strong>Ask it to write the notes.</strong> Still offline. If the summary appears, note generation is local too. This is the step most apps fail.</li>
+        <li><strong>Ask whether you needed an account.</strong> If you had to sign in before any of this worked, something is being synced somewhere, whatever the processing story is.</li>
+      </ol>
+      <div class="callout">
+        <p><b>Why the offline test is decisive.</b> Encryption in transit is often offered as the answer to "is my meeting private". It isn't the same answer. Encryption protects audio from a stranger on the network while it travels; it says nothing about what happens when it arrives, who the processors are, how long the copy persists, or which jurisdiction it sits in. An app that works with the network off has no such questions to answer, because nothing arrives anywhere.</p>
+      </div>
+
+      <h2>What makes this possible on a Mac now</h2>
+      <p>Local meeting transcription stopped being a compromise fairly recently, and the reason is hardware. Apple silicon gives a laptop a Neural Engine and unified memory, which means a speech model like Whisper can transcribe faster than people talk without the fans coming on, and a small language model can hold a whole transcript in memory and write a summary in seconds.</p>
+      <p>Five years ago, doing this locally meant a noticeably worse transcript and a long wait. Today, for clear meeting audio, the transcript quality is close enough that the architecture is the interesting difference rather than the accuracy.</p>
+
+      <h3>Where cloud still wins on raw accuracy</h3>
+      <p>Being honest about this matters more than winning the paragraph. Cloud services run much larger models than fit on a laptop, and that shows up in the hard cases: heavy accents, several people talking over each other, a bad conference-room microphone, a noisy café. If your meetings are consistently difficult audio, a cloud service will likely give you a cleaner transcript. If your meetings are ordinary calls with decent microphones, you are unlikely to notice the difference.</p>
+
+      <h2>What you need, and what it costs you</h2>
+      <ul>
+        <li><strong>Apple silicon</strong> for on-device note generation. An M-series chip has the memory bandwidth a language model needs; an Intel Mac does not, and apps that pretend otherwise are quietly using the cloud.</li>
+        <li><strong>A few gigabytes of disk</strong> for the models, downloaded once.</li>
+        <li><strong>Battery.</strong> Your own chip is doing work a server would otherwise do. The speech model during a call is modest; the note generation at the end is heavier but lasts seconds.</li>
+        <li><strong>Storage discipline.</strong> Audio and transcripts live on your disk, so they are yours to back up — and yours to lose if you don't. A local app puts you in charge of both halves of that.</li>
+        <li><strong>No web access.</strong> Notes on your Mac are on that Mac. There is no phone app reading them from a server, because there is no server.</li>
+      </ul>
+
+      <h2>Who this architecture is actually for</h2>
+      <p>Local meeting notes are a preference for most people and a requirement for some. The requirement cases are worth naming, because they're where the difference stops being philosophical:</p>
+      <ul>
+        <li><strong>Lawyers</strong> whose client conversations are privileged, where introducing a third-party processor is a question you have to be able to answer.</li>
+        <li><strong>Therapists and clinicians</strong> handling session content, where the simplest compliance story is that no outside party ever receives the material.</li>
+        <li><strong>Founders and investors</strong> discussing unannounced fundraises, acquisitions, or numbers.</li>
+        <li><strong>Journalists</strong> protecting a source's identity.</li>
+        <li><strong>HR and internal investigations</strong>, where a leaked transcript is the whole problem.</li>
+        <li><strong>Anyone under an NDA</strong> that names the parties permitted to process the information — a list that usually does not include a transcription vendor you picked yourself.</li>
+      </ul>
+      <div class="callout">
+        <p><b>A note on compliance language.</b> Running on-device removes the outside processor from the picture, which is a genuinely strong position — but a regulatory obligation like HIPAA or GDPR attaches to you and your organisation, not to an app. Seal is a tool that keeps data on your machine; whether your particular use meets your particular obligations is a judgement for you and your advisers. We would rather say that plainly than sell you a compliance badge.</p>
+      </div>
+
+      <h2>How Seal does it</h2>
+      <p>Seal is built to pass the test described above. Whisper runs on your Mac for transcription; a language model runs on your Mac to write the notes and title the meeting; the results are files on your disk. There is no account, and there is no Seal server to send a meeting to — not one you're opted out of, one that doesn't exist.</p>
+      <p>It hears both your microphone and the call's audio, so it works with Zoom, Teams, Meet, Slack huddles, or a phone call on speaker without integrating with any of them — it's listening to the Mac, not to the service. When a meeting app starts using your microphone, Seal offers to record and stops when the call ends.</p>
+      <p>The core is free with no meeting limits: unlimited recording, live transcription, on-device notes, full history, search, and Markdown and PDF export. Pro is a one-time $49.</p>
+
+      <h2>Questions people ask</h2>
+      <div class="faq">
+        <details>
+          <summary>What does on-device transcription mean?</summary>
+          <p>It means the speech-recognition model itself runs on your computer's own processor, so the audio is never transmitted anywhere. This is different from a native desktop app that captures audio locally and then uploads it for transcription — that app is local at capture and remote at every stage that matters.</p>
+        </details>
+        <details>
+          <summary>Is local transcription as accurate as cloud transcription?</summary>
+          <p>For clear meeting audio the gap has largely closed. Modern on-device speech models running on Apple silicon produce transcripts comparable to cloud services for ordinary conversation. Cloud services still tend to hold an advantage on heavy accents, poor microphones, and very noisy rooms, because they can run far larger models.</p>
+        </details>
+        <details>
+          <summary>Do I need an Apple-silicon Mac for local AI meeting notes?</summary>
+          <p>For live transcription, an Intel Mac can cope. For on-device note generation you need Apple silicon, because a language model needs the unified memory and Neural Engine to run at a usable speed. Seal requires macOS 14 or later, and its AI notes require an Apple-silicon Mac.</p>
+        </details>
+        <details>
+          <summary>Does on-device transcription drain the battery?</summary>
+          <p>It uses more power than streaming audio to a server, because your own chip is doing the work. On Apple silicon the speech model is efficient enough that a normal meeting is unremarkable; the heavier moment is the note generation at the end, which lasts seconds rather than the length of the call.</p>
+        </details>
+        <details>
+          <summary>Can a local meeting notes app record Zoom, Teams, and Google Meet?</summary>
+          <p>Yes. A native Mac app can capture system audio alongside your microphone, which means it hears both sides of any call regardless of platform — Zoom, Teams, Meet, Slack huddles, or a phone call on speaker. It does not need to integrate with the meeting platform at all, because it is listening to the Mac rather than to the service.</p>
+        </details>
+      </div>
+
+      <h2>Keep reading</h2>
+      <div class="readnext">
+        <a href="/granola-alternative/">
+          <b>Granola alternative</b>
+          <span>Bot-free, but the audio still leaves. Where it goes.</span>
+        </a>
+        <a href="/otter-ai-alternative/">
+          <b>Otter.ai alternative</b>
+          <span>The bot in the call, and the cloud behind it.</span>
+        </a>
+        <a href="/meeting-notes-without-bots/">
+          <b>Meeting notes without bots</b>
+          <span>Why an uninvited participant is the wrong default.</span>
+        </a>
+        <a href="/privacy/">
+          <b>How Seal stays private</b>
+          <span>The architecture, stated plainly.</span>
+        </a>
+      </div>
+
+      <div class="endcta">
+        <h2>Run the offline test yourself</h2>
+        <p>Download Seal, turn off your Wi-Fi, and record a meeting. The transcript appears anyway — that's the whole argument.</p>
+        <div class="cta">
+          <a class="btn" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac <span class="tag">— free</span></a>
+          <a class="btn ghost" href="/#pricing">See pricing</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="footband">
+  <div class="wrap">
+    <div class="footgrid">
+      <div>
+        <div class="fbrand">
+          <img src="/app-icon.png" width="26" height="26" alt="">
+          Seal
+        </div>
+        <p>Private meeting notes for macOS. Recording, transcription, and notes run entirely on your Mac.</p>
+      </div>
+      <div class="fcols">
+        <div class="fcol">
+          <b>Product</b>
+          <a href="/#features">Features</a>
+          <a href="/#compare">Compare</a>
+          <a href="/#pricing">Pricing</a>
+        </div>
+        <div class="fcol">
+          <b>Compare</b>
+          <a href="/granola-alternative/">vs Granola</a>
+          <a href="/otter-ai-alternative/">vs Otter.ai</a>
+          <a href="/meeting-notes-without-bots/">Without bots</a>
+          <a href="/local-meeting-notes-mac/">Local notes on Mac</a>
+        </div>
+        <div class="fcol">
+          <b>Get Seal</b>
+          <a href="/privacy/">How it stays private</a>
+          <a href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac</a>
+          <a href="https://checkout.freemius.com/product/36930/plan/61232/">Buy Seal Pro</a>
+        </div>
+      </div>
+    </div>
+    <p class="legal">Seal · Private meeting notes for macOS. Requires macOS 14 or later; on-device AI notes need an Apple-silicon Mac.</p>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#FFFFFF">
+<title>AI Meeting Notes Without a Bot Joining the Call | Seal</title>
+<meta name="description" content="Record and transcribe Zoom, Teams, and Google Meet on a Mac with no note-taker bot in the participant list — and why that's the better default.">
+<link rel="canonical" href="https://sealformac.com/meeting-notes-without-bots/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta property="og:site_name" content="Seal">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="AI Meeting Notes Without a Bot Joining the Call">
+<meta property="og:description" content="Record and transcribe Zoom, Teams, and Meet on a Mac with nothing in the participant list.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://sealformac.com/meeting-notes-without-bots/">
+<meta property="og:image" content="https://sealformac.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Seal — private meeting notes for macOS, recorded and transcribed entirely on your Mac.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AI Meeting Notes Without a Bot Joining the Call">
+<meta name="twitter:description" content="Record and transcribe Zoom, Teams, and Meet on a Mac with nothing in the participant list.">
+<meta name="twitter:image" content="https://sealformac.com/og.png">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://sealformac.com/meeting-notes-without-bots/#breadcrumbs",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Seal", "item": "https://sealformac.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Meeting notes without bots", "item": "https://sealformac.com/meeting-notes-without-bots/" }
+      ]
+    },
+    {
+      "@type": "Article",
+      "@id": "https://sealformac.com/meeting-notes-without-bots/#article",
+      "headline": "AI meeting notes without a bot joining the call",
+      "description": "Why note-taker bots create consent, access, and reliability problems, and how recording from your own Mac avoids all three.",
+      "datePublished": "2026-08-13",
+      "dateModified": "2026-08-13",
+      "inLanguage": "en",
+      "image": "https://sealformac.com/og.png",
+      "author": { "@type": "Organization", "name": "Seal", "url": "https://sealformac.com/" },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Seal",
+        "url": "https://sealformac.com/",
+        "logo": { "@type": "ImageObject", "url": "https://sealformac.com/app-icon.png" }
+      },
+      "mainEntityOfPage": { "@id": "https://sealformac.com/meeting-notes-without-bots/" }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://sealformac.com/meeting-notes-without-bots/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do I take AI meeting notes without a bot joining?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Use a native desktop app that captures your Mac's own audio instead of a service that dials into the meeting. The app records your microphone and the call's output directly from the operating system, so nothing appears in the participant list and the meeting platform is not involved at all. Seal works this way on macOS."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I record a Zoom meeting without the host knowing?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Technically a system-audio recorder does not notify the host, but that is a question about law and courtesy rather than software. Recording consent rules vary by jurisdiction — some require every party to agree — and in most workplaces telling people you are taking notes is simply the decent thing to do. Removing the bot removes the awkward interruption, not the obligation to be straight with people."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why do note-taker bots get blocked from meetings?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A bot joins as an external participant, so it hits whatever guards the meeting: waiting rooms, domain restrictions, admin policies that bar unknown apps, or a host who simply declines to admit it. Many companies now block third-party note-takers outright. An app recording from your own machine is not a participant, so none of those gates apply."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does a bot-free note-taker work with Zoom, Teams, and Google Meet?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, and with anything else that makes sound — Slack huddles, a browser call, a phone on speaker. Because the app captures the Mac's audio rather than integrating with a meeting service, the platform makes no difference."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is bot-free the same as private?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No, and this is the most common confusion in the category. Bot-free describes how the audio is captured. Most bot-free tools still upload that audio to a transcription service and store your notes in their cloud. Ask separately where transcription happens and where the notes are kept."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap bar">
+    <a class="brand" href="/" aria-label="Seal — home">
+      <img src="/app-icon.png" width="30" height="30" alt="">
+      Seal
+    </a>
+    <nav class="links" aria-label="Site">
+      <a href="/#features">Features</a>
+      <a href="/privacy/">Privacy</a>
+      <a href="/#compare">Compare</a>
+      <a href="/#pricing">Pricing</a>
+    </nav>
+    <a class="btn small" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download free</a>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/">Seal</a><span>/</span>Meeting notes without bots
+    </nav>
+
+    <div class="page-hero">
+      <h1>Meeting notes with <span class="hl">nothing in the participant list</span></h1>
+      <p class="sub">Record and transcribe Zoom, Teams, or Meet from your own Mac. No bot to admit, no bot to explain, no bot to be blocked by an admin policy.</p>
+    </div>
+
+    <div class="prose">
+      <div class="verdict">
+        <b>The short answer</b>
+        <p>A note-taker bot is a guest that dials into your meeting. A native Mac app just listens to your computer's own audio. The second approach has no participant to admit, works on every platform without integrating with any of them, and can't be blocked by the host's settings. Seal takes the second approach — and keeps the transcription on your Mac too.</p>
+      </div>
+
+      <h2>Three problems with a bot, only one of which is about privacy</h2>
+      <h3>It makes you explain yourself</h3>
+      <p>"Otter Assistant has joined the meeting." Now everyone is looking at it. Somebody asks what it is. On a sales call it reads as surveillance; on a first conversation with a candidate it sets a strange tone; with a client it can prompt a conversation about data handling you weren't planning to have three minutes into the call. The tool has made itself the subject.</p>
+      <p>None of this is an argument against telling people you're taking notes — you should. It's an argument against a tool that announces itself at the worst possible moment and in the most alarming possible form.</p>
+
+      <h3>It can be stopped at the door</h3>
+      <p>A bot is an external participant, so everything that guards a meeting applies to it: waiting rooms, domain restrictions, admin policies barring unknown third-party apps, or simply a host who doesn't admit it. Plenty of companies now block outside note-takers as policy. When that happens you find out at the start of the meeting — the moment you can least afford to be fiddling with tooling. And a bot only shows up if the meeting is on your calendar and the invite was parsed correctly, which is why the ad-hoc call, the huddle that turned into something, and the number dialled on a phone all go unrecorded.</p>
+
+      <h3>It sends your meeting somewhere by definition</h3>
+      <p>A bot is a piece of software running on a vendor's server that has been invited into your call. There is no version of that where the audio stays with you — the architecture requires the meeting to be streamed to them. Everything downstream, the transcript and the notes and how long they're retained, is on their infrastructure too.</p>
+
+      <h2>What recording from your own Mac does instead</h2>
+      <p>macOS can give an app the system's audio output alongside your microphone. That's the whole mechanism. The app hears both halves of the conversation the same way your speakers and your headset do, without ever talking to Zoom, Teams, or Meet.</p>
+      <p>The consequences are worth spelling out, because they follow from that one change:</p>
+      <ul>
+        <li><strong>Nothing appears in the participant list</strong>, on any platform, ever.</li>
+        <li><strong>Platform doesn't matter.</strong> Zoom, Teams, Meet, Slack huddles, a browser call, a phone on speaker — if the Mac can play it, the app can hear it.</li>
+        <li><strong>No calendar integration is required</strong>, so ad-hoc calls work as well as scheduled ones.</li>
+        <li><strong>Admin policies about third-party apps in meetings don't apply</strong>, because there is no third party in the meeting.</li>
+        <li><strong>It still works when the meeting isn't a meeting</strong> — a corridor conversation, an interview, a voice memo to yourself.</li>
+      </ul>
+
+      <div class="callout">
+        <p><b>Bot-free is not the same as private.</b> This is the distinction the category blurs most often. "No bot" describes how audio is <em>captured</em>. Several bot-free tools still stream that audio to a transcription provider and store your finished notes in their cloud. If privacy is what you're after rather than etiquette, ask two more questions: where does transcription happen, and where do the notes live afterwards? <a href="/local-meeting-notes-mac/">The offline test</a> settles both in about five minutes.</p>
+      </div>
+
+      <h2>Being decent about it</h2>
+      <p>Removing the bot removes an interruption. It does not remove the obligation to be straight with people, and we'd rather say so on our own marketing page than let it go unsaid.</p>
+      <p>Recording-consent law varies: some jurisdictions require only one party to consent, others require everyone. That's a real legal question and it depends on where you and the other people are sitting. Separately from the law, most working relationships are better served by a sentence at the top of the call — "I'm taking AI notes, shout if you'd rather I didn't" — than by anyone discovering it later. A quiet tool makes that sentence easier to say, because you get to choose the moment instead of a bot choosing it for you.</p>
+
+      <h2>How Seal handles it</h2>
+      <p>When Zoom, Meet, or Teams starts using your microphone, Seal notices and offers to record. You accept or you don't — nothing is captured without your say-so — and it stops by itself when the call ends. It hears you and the call, transcribes live, and writes the notes when you stop.</p>
+      <p>Because Seal also runs the transcription and the note generation on your Mac, it answers the deeper question at the same time as the etiquette one. There's no bot in the call and no copy on a server: no account, no sync, no vendor holding your meeting history. The recording, the transcript, and the notes are files on your disk.</p>
+
+      <h2>Questions people ask</h2>
+      <div class="faq">
+        <details>
+          <summary>How do I take AI meeting notes without a bot joining?</summary>
+          <p>Use a native desktop app that captures your Mac's own audio instead of a service that dials into the meeting. The app records your microphone and the call's output directly from the operating system, so nothing appears in the participant list and the meeting platform is not involved at all. Seal works this way on macOS.</p>
+        </details>
+        <details>
+          <summary>Can I record a Zoom meeting without the host knowing?</summary>
+          <p>Technically a system-audio recorder does not notify the host, but that is a question about law and courtesy rather than software. Recording consent rules vary by jurisdiction — some require every party to agree — and in most workplaces telling people you are taking notes is simply the decent thing to do. Removing the bot removes the awkward interruption, not the obligation to be straight with people.</p>
+        </details>
+        <details>
+          <summary>Why do note-taker bots get blocked from meetings?</summary>
+          <p>A bot joins as an external participant, so it hits whatever guards the meeting: waiting rooms, domain restrictions, admin policies that bar unknown apps, or a host who simply declines to admit it. Many companies now block third-party note-takers outright. An app recording from your own machine is not a participant, so none of those gates apply.</p>
+        </details>
+        <details>
+          <summary>Does a bot-free note-taker work with Zoom, Teams, and Google Meet?</summary>
+          <p>Yes, and with anything else that makes sound — Slack huddles, a browser call, a phone on speaker. Because the app captures the Mac's audio rather than integrating with a meeting service, the platform makes no difference.</p>
+        </details>
+        <details>
+          <summary>Is bot-free the same as private?</summary>
+          <p>No, and this is the most common confusion in the category. Bot-free describes how the audio is captured. Most bot-free tools still upload that audio to a transcription service and store your notes in their cloud. Ask separately where transcription happens and where the notes are kept.</p>
+        </details>
+      </div>
+
+      <h2>Keep reading</h2>
+      <div class="readnext">
+        <a href="/otter-ai-alternative/">
+          <b>Otter.ai alternative</b>
+          <span>The bot in the call, and the cloud behind it.</span>
+        </a>
+        <a href="/granola-alternative/">
+          <b>Granola alternative</b>
+          <span>Bot-free, but the audio still leaves. Where it goes.</span>
+        </a>
+        <a href="/local-meeting-notes-mac/">
+          <b>Local AI meeting notes on Mac</b>
+          <span>How on-device transcription actually works.</span>
+        </a>
+        <a href="/privacy/">
+          <b>How Seal stays private</b>
+          <span>The architecture, stated plainly.</span>
+        </a>
+      </div>
+
+      <div class="endcta">
+        <h2>Nothing joins your call</h2>
+        <p>Free to download, unlimited meetings, no account. Works on every platform because it integrates with none of them.</p>
+        <div class="cta">
+          <a class="btn" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac <span class="tag">— free</span></a>
+          <a class="btn ghost" href="/#pricing">See pricing</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="footband">
+  <div class="wrap">
+    <div class="footgrid">
+      <div>
+        <div class="fbrand">
+          <img src="/app-icon.png" width="26" height="26" alt="">
+          Seal
+        </div>
+        <p>Private meeting notes for macOS. Recording, transcription, and notes run entirely on your Mac.</p>
+      </div>
+      <div class="fcols">
+        <div class="fcol">
+          <b>Product</b>
+          <a href="/#features">Features</a>
+          <a href="/#compare">Compare</a>
+          <a href="/#pricing">Pricing</a>
+        </div>
+        <div class="fcol">
+          <b>Compare</b>
+          <a href="/granola-alternative/">vs Granola</a>
+          <a href="/otter-ai-alternative/">vs Otter.ai</a>
+          <a href="/meeting-notes-without-bots/">Without bots</a>
+          <a href="/local-meeting-notes-mac/">Local notes on Mac</a>
+        </div>
+        <div class="fcol">
+          <b>Get Seal</b>
+          <a href="/privacy/">How it stays private</a>
+          <a href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac</a>
+          <a href="https://checkout.freemius.com/product/36930/plan/61232/">Buy Seal Pro</a>
+        </div>
+      </div>
+    </div>
+    <p class="legal">Seal · Private meeting notes for macOS. Requires macOS 14 or later; on-device AI notes need an Apple-silicon Mac. Nothing here is legal advice; recording-consent rules vary by jurisdiction.</p>
+  </div>
+</div>
+
+</body>
+</html>
