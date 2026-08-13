@@ -22,8 +22,8 @@ packages:
     from: "0.1.0"
 settings:
   base:
-    MARKETING_VERSION: "0.23"
-    CURRENT_PROJECT_VERSION: "23"
+    MARKETING_VERSION: "0.24"
+    CURRENT_PROJECT_VERSION: "24"
     SWIFT_VERSION: "5.0"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: "S4M9R72TXR"
