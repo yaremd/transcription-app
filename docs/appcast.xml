@@ -13,6 +13,35 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 0.24</title>
+      <sparkle:version>24</sparkle:version>
+      <sparkle:shortVersionString>0.24</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Thu, 13 Aug 2026 15:06:26 +0000</pubDate>
+      <description><![CDATA[
+        <h3>The seal turns up</h3>
+        <p>Seal has a face now, and it shows up where it has something to
+        say. The empty screen is a sleeping seal. Start a meeting and, in the
+        stretch after Start and before anyone speaks, it's sitting in the
+        transcript panel with its ears up. A meeting you took no notes in
+        shows it holding a fistful of them. Nothing moves once it has settled
+        in.</p>
+        <p>The app icon is the seal too, above 32 px — at Finder-list and
+        Spotlight sizes it hands back to the mark, which still reads there.</p>
+        <h3>Two things that were quietly wrong</h3>
+        <p>The sidebar looked tucked under a bar: macOS gives a split view one
+        toolbar strip across both panes, so the flat colour 0.23 painted it was
+        the detail pane's colour sitting over the sidebar. Each pane's own
+        surface now runs to the top of the window. And Settings' header was a
+        different colour from its panes — AppKit's own material, showing
+        through above the tabs.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.24/Seal.dmg"
+        sparkle:edSignature="YoiJ7I+AZSvaLx06xYcJQXw/vMXlCvgbRHO66Gbh2roZhMjoAEwhMp8VsOYPY4ur8kTW9GQaVt1ts4MsV1SrDA==" length="23208089"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.23</title>
       <sparkle:version>23</sparkle:version>
       <sparkle:shortVersionString>0.23</sparkle:shortVersionString>
