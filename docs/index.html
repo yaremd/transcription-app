@@ -193,19 +193,25 @@
 <main>
 
   <!-- ============ HERO ============ -->
+  <!-- ============ HERO + PRODUCT (one section, white fading into the band) ============ -->
+  <div class="heroband">
   <div class="wrap hero" id="download">
-    <h1>Meeting notes that <span class="hl">never leave</span> your&nbsp;Mac</h1>
-    <p class="sub">Seal records, transcribes, and writes up your meetings — all of it locally. No cloud, no bots in your calls, no account.</p>
-    <div class="cta">
-      <a class="btn" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac <span class="tag">— free</span></a>
-      <a class="btn ghost" href="#pricing">See pricing</a>
+    <div class="hero-copy">
+      <h1>Meeting notes that <span class="hl">never leave</span> your&nbsp;Mac</h1>
+      <p class="sub">Seal records, transcribes, and writes up your meetings — all of it locally. No cloud, no bots in your calls, no account.</p>
+      <div class="cta">
+        <a class="btn" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac <span class="tag">— free</span></a>
+        <a class="btn ghost" href="#pricing">See pricing</a>
+      </div>
+      <div class="trustrow" aria-label="Highlights">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg> 100% on-device</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg> No account required</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg> Works offline</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg> macOS 14+, Apple silicon</span>
+      </div>
     </div>
-    <div class="trustrow" aria-label="Highlights">
-      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg> 100% on-device</span>
-      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg> No account required</span>
-      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg> Works offline</span>
-      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg> macOS 14+, Apple silicon</span>
-    </div>
+    <img class="hero-seal" src="/seal-hero.png" width="410" height="391" fetchpriority="high"
+         alt="Seal, the app's mascot: a small spotted seal pup sitting up, facing you.">
   </div>
 
   <!-- ============ PRODUCT ============ -->
@@ -272,6 +278,8 @@
       </div>
     </div>
   </div>
+
+  </div><!-- /.heroband -->
 
   <!-- ============ STATEMENT ============ -->
   <div class="wrap statement">
@@ -401,13 +409,15 @@
   <div class="darkwrap">
     <section class="dark" id="privacy" style="padding-top: 84px;">
       <div class="wrap">
+        <div class="privacy-head">
         <div class="shead-c">
           <span class="eyebrow on-dark">Private by design</span>
           <h2>Private by architecture, not by promise</h2>
           <p class="lede">Seal doesn't have a server to send your meetings to. There's no account to create and nothing to opt out of. If you ever turn on a cloud model yourself, only the transcript text is sent — never your audio — and transcription always stays on your Mac. <a href="/privacy/" style="color: var(--lime);">Every connection the app makes, listed →</a></p>
         </div>
-        <img class="shield-seal" src="/seal-shield.png" width="330" height="276" loading="lazy"
-             alt="Seal, the app's mascot, holding a metal shield engraved “Sealed by design” with the Seal mark stamped in its centre.">
+        <img class="notes-seal" src="/seal-notes.png" width="310" height="202" loading="lazy"
+             alt="Seal, the app's mascot, holding a handful of meeting notes.">
+        </div><!-- /.privacy-head -->
         <div class="flow" role="group" aria-label="Where your audio goes: your voice and the call's audio go to your Mac, are transcribed and summarized there, and are saved as a sealed note on your Mac. There are no servers — nothing leaves.">
           <div class="fnode">
             <div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg> Your voice</div>
@@ -605,7 +615,8 @@
             <a class="btn" style="border-color: rgba(255,255,255,.35);" href="#pricing">Get Seal Pro</a>
           </div>
         </div>
-        <svg class="stampimg" viewBox="48 48 144 144" aria-hidden="true"><g><circle cx="176.0" cy="135.0" r="10" fill="#C9503C"/><circle cx="161.0" cy="161.0" r="10" fill="#C9503C"/><circle cx="135.0" cy="176.0" r="10" fill="#C9503C"/><circle cx="105.0" cy="176.0" r="10" fill="#C9503C"/><circle cx="79.0" cy="161.0" r="10" fill="#C9503C"/><circle cx="64.0" cy="135.0" r="10" fill="#C9503C"/><circle cx="64.0" cy="105.0" r="10" fill="#C9503C"/><circle cx="79.0" cy="79.0" r="10" fill="#C9503C"/><circle cx="105.0" cy="64.0" r="10" fill="#C9503C"/><circle cx="135.0" cy="64.0" r="10" fill="#C9503C"/><circle cx="161.0" cy="79.0" r="10" fill="#C9503C"/><circle cx="176.0" cy="105.0" r="10" fill="#C9503C"/><circle cx="120" cy="120" r="64.8" fill="#C9503C"/><circle cx="120" cy="120" r="52.8" fill="#B03E2E"/><path fill="#F2E4D8" fill-rule="evenodd" transform="translate(66,66) scale(0.45)" d="M200 120C200 164.18 164.18 200 120 200C75.82 200 40 164.18 40 120C40 75.82 75.82 40 120 40C164.18 40 200 75.82 200 120ZM99 104C99 116.15 89.15 126 77 126C64.85 126 55 116.15 55 104C55 91.85 64.85 82 77 82C89.15 82 99 91.85 99 104ZM185 104C185 116.15 175.15 126 163 126C150.85 126 141 116.15 141 104C141 91.85 150.85 82 163 82C175.15 82 185 91.85 185 104ZM97 141Q97 131 108 131Q115 131 120 138Q125 131 132 131Q143 131 143 141Q143 152 128 160Q120 164.5 112 160Q97 152 97 141Z"/></g></svg>
+        <img class="shieldimg" src="/seal-shield.png" width="300" height="251" loading="lazy"
+             alt="Seal, the app's mascot, holding a metal shield engraved “Sealed by design” with the Seal mark stamped in its centre.">
       </div>
       <div class="footgrid">
         <div>

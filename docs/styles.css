@@ -82,7 +82,31 @@
   nav.links a:hover { color: var(--ink); background: var(--mist); }
 
   /* ---------- Hero ---------- */
-  .hero { padding: 76px 0 56px; }
+  /* Hero and the app stage are one section now: white at the headline, easing
+     into the band's mist by the time the screenshot sits on it. The band keeps
+     its own solid fill, so the gradient only has to cover the copy above it. */
+  .heroband { background: linear-gradient(180deg, var(--paper) 0%, var(--paper) 26%, var(--mist) 62%, var(--mist) 100%); }
+  /* The band's own fill is dropped rather than kept: painted solid it sat on
+     top of the gradient and put back the hard edge the gradient exists to
+     remove. The hairline under it stays — that one separates two sections. */
+  .heroband .band { border-top: 0; background: transparent; }
+  .hero {
+    padding: 76px 0 56px;
+    /* Both tracks are bounded: an `auto` right-hand column takes the image's
+       own width as its minimum, so between 900px and about 1200px the seal
+       pushed its tail off the right edge of the viewport. */
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+    align-items: center; gap: 40px;
+  }
+  .hero-copy { min-width: 0; }
+  .hero-seal { width: 100%; max-width: 410px; height: auto; justify-self: end; }
+  /* In the middle band the headline is already wrapping to three lines, so the
+     seal gives ground before the copy does. */
+  @media (max-width: 1200px) { .hero { grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 32px; } }
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; gap: 8px; }
+    .hero-seal { justify-self: center; width: min(260px, 62vw); order: -1; }
+  }
   .hero h1 {
     font-size: clamp(40px, 6.4vw, 72px); line-height: 1.02; margin: 0 0 22px;
     max-width: 15ch; letter-spacing: -0.030em; text-wrap: balance;
@@ -277,11 +301,18 @@
   .dark .lede { color: #B5C4BC; }
   .dark .shead-c { text-align: center; max-width: 680px; margin: 0 auto 48px; }
   .dark .shead-c .lede { margin: 16px auto 0; font-size: 16.5px; }
-  /* The mascot with the shield, between this section's heading and its
-     diagram. Sized in vw as well as px so it shrinks with a narrow window
-     instead of pushing the flow off the fold. */
-  .shield-seal { display: block; width: min(330px, 58vw); height: auto; margin: -10px auto 30px; }
-  @media (max-width: 640px) { .shield-seal { margin: -4px auto 22px; } }
+  /* This section's heading takes an illustration beside it: the seal holding
+     the notes, which is what the whole flow below is about keeping on your
+     Mac. Two columns while there's room, stacked and centred when there isn't. */
+  .privacy-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 36px; margin-bottom: 48px; }
+  .dark .privacy-head .shead-c { text-align: left; margin: 0; max-width: 620px; }
+  .dark .privacy-head .shead-c .lede { margin-left: 0; margin-right: 0; }
+  .notes-seal { width: clamp(180px, 25vw, 310px); height: auto; }
+  @media (max-width: 900px) {
+    .privacy-head { grid-template-columns: 1fr; justify-items: center; gap: 18px; margin-bottom: 36px; }
+    .dark .privacy-head .shead-c { text-align: center; }
+    .notes-seal { width: min(250px, 60vw); }
+  }
   .flow { display: flex; align-items: stretch; justify-content: center; gap: 14px; }
   .fnode { display: flex; flex-direction: column; gap: 10px; justify-content: center; }
   .chip {
@@ -391,7 +422,12 @@
   .footband .top { display: flex; align-items: center; justify-content: space-between; gap: 32px; flex-wrap: wrap; margin-bottom: 70px; }
   .footband h2 { font-size: clamp(32px, 4.6vw, 52px); max-width: 16ch; }
   .footband .top p { color: #B5C4BC; margin: 14px 0 0; font-size: 16px; max-width: 460px; }
-  .footband .stampimg { width: 84px; height: 84px; transform: rotate(-8deg); filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .5)); flex: none; }
+  /* The seal with the shield closes the page, in place of the wax stamp that
+     used to sit here — the stamp still appears once, inside the flow diagram
+     above, where it means "your note, sealed". Bigger than the stamp was,
+     because it is a character rather than a mark. */
+  .footband .shieldimg { width: clamp(180px, 24vw, 300px); height: auto; flex: none; filter: drop-shadow(0 10px 26px rgba(0, 0, 0, .45)); }
+  @media (max-width: 900px) { .footband .shieldimg { width: min(230px, 56vw); } }
   .footband .ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
   .footgrid { display: flex; justify-content: space-between; gap: 40px; flex-wrap: wrap; border-top: 1px solid rgba(255, 255, 255, .14); padding-top: 36px; }
   .footgrid .fbrand { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 18px; }
