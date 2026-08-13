@@ -454,11 +454,19 @@ write("""
 
 """, "Brand/seal-lockup.svg")
 
-// 5. Open Graph card, 1200x630. Same composition the site already shipped —
-//    lockup, the hero line with its lime highlight, a credentials line, and the
-//    wax stamp bottom right. Only the two marks are new.
+// 5. Open Graph card, 1200x630. The page's own hero in the same order: lockup,
+//    the headline with its lime highlight, the credentials line — and the pup
+//    sitting on the right, where the page puts it. It takes over the bottom
+//    right from the wax stamp, which still has a job on the page (the sealed
+//    note in the flow diagram) and doesn't need this one too. The type is a
+//    size down from the page's so the mascot has a column to sit in.
 let INK    = NSColor(srgbRed: 0x0E/255, green: 0x15/255, blue: 0x12/255, alpha: 1)
 let MUTED  = NSColor(srgbRed: 0x4A/255, green: 0x54/255, blue: 0x4E/255, alpha: 1)
+
+guard let ogSealImage = NSImage(contentsOfFile: "Brand/mascot-sitting.png"),
+      let ogSeal = ogSealImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+    fatalError("Brand/mascot-sitting.png missing — it is the keyed sitting render")
+}
 
 write(render(width: 1200, height: 630) { ctx in
     ctx.setFillColor(NSColor.white.cgColor)
@@ -480,17 +488,17 @@ write(render(width: 1200, height: 630) { ctx in
          size: 31, weight: .bold, tracking: -0.9, color: INK)
 
     // hero
-    let hero: CGFloat = 86
+    let hero: CGFloat = 74
     let track = -hero * 0.032
-    draw(ctx, "Meeting notes that", x: margin, baseline: 252,
+    draw(ctx, "Meeting notes that", x: margin, baseline: 292,
          size: hero, weight: .bold, tracking: track, color: INK)
 
-    let base2: CGFloat = 348
-    let pad: CGFloat = 15
+    let base2: CGFloat = 376
+    let pad: CGFloat = 13
     let hiW = textPath("never leave", size: hero, weight: .bold, tracking: track).width
     ctx.setFillColor(LIME.cgColor)
-    ctx.addPath(CGPath(roundedRect: CGRect(x: margin, y: base2 - 72,
-                                           width: hiW + pad * 2, height: 89),
+    ctx.addPath(CGPath(roundedRect: CGRect(x: margin, y: base2 - 62,
+                                           width: hiW + pad * 2, height: 77),
                        cornerWidth: 7, cornerHeight: 7, transform: nil))
     ctx.fillPath()
     draw(ctx, "never leave", x: margin + pad, baseline: base2,
@@ -501,12 +509,23 @@ write(render(width: 1200, height: 630) { ctx in
     // credentials
     let credSize: CGFloat = 27
     let lead = "100% on-device  ·  macOS  ·  "
-    let leadW = draw(ctx, lead, x: margin, baseline: 420,
+    let leadW = draw(ctx, lead, x: margin, baseline: 452,
                      size: credSize, weight: .semibold, tracking: -0.3, color: MUTED)
-    draw(ctx, "sealformac.com", x: margin + leadW, baseline: 420,
+    draw(ctx, "sealformac.com", x: margin + leadW, baseline: 452,
          size: credSize, weight: .bold, tracking: -0.3, color: FOREST)
 
-    drawStamp(ctx, cx: 1082, cy: 512, grid: 186)
+    // The mascot, bottom-aligned with the credentials line so the card has one
+    // baseline running through it. Drawn through a local flip because this
+    // context is set up for SVG coordinates.
+    let sealW: CGFloat = 330
+    let sealH = sealW * CGFloat(ogSeal.height) / CGFloat(ogSeal.width)
+    let sealRect = CGRect(x: 1200 - margin - sealW + 12, y: 492 - sealH, width: sealW, height: sealH)
+    ctx.saveGState()
+    ctx.translateBy(x: 0, y: 630)
+    ctx.scaleBy(x: 1, y: -1)
+    ctx.draw(ogSeal, in: CGRect(x: sealRect.minX, y: 630 - sealRect.maxY,
+                                width: sealRect.width, height: sealRect.height))
+    ctx.restoreGState()
 }, "Brand/out/web/og.png")
 
 print("done")
