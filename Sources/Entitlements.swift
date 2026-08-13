@@ -219,10 +219,15 @@ final class EntitlementService: ObservableObject {
                   macKey: isolated ? SymmetricKey(size: .bits256) : Self.keychainMACKey(),
                   now: Date.init)
         // Screenshots need the Pro surfaces on show. This is the existing
-        // debug override, not a new door into the paid features.
+        // debug override, not a new door into the paid features — and it has
+        // to be compiled out of Release for the same reason the override
+        // itself is: the property does not exist there. Unguarded, this line
+        // broke the Release build outright, which no debug build could show.
+#if DEBUG
         if DemoMode.isActive {
             debugForcedEntitlement = .pro(updatesThrough: Date(timeIntervalSinceNow: 60 * 60 * 24 * 365))
         }
+#endif
         Self.shared = self
     }
 
