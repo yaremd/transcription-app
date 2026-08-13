@@ -742,10 +742,13 @@ struct MeetingDetailView: View {
                     .help("Open the transcript at this moment")
                 }
             } else {
-                Text("No notes were taken during this meeting. Open the workspace to add notes anchored to the transcript.")
-                    .font(Theme.sub)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .center, spacing: 14) {
+                    NotesSeal(width: 108)
+                    Text("No notes were taken during this meeting. Open the workspace to add notes anchored to the transcript.")
+                        .font(Theme.sub)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

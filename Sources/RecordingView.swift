@@ -408,6 +408,13 @@ private struct GuidedListeningEmptyState: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            // Ears up, waiting for the first word — it leaves with this state,
+            // the moment there's a transcript to read instead. Above the
+            // meters rather than beside them: this panel is 340pt wide, and
+            // side by side left the meters and their line of copy squeezed.
+            ListeningSeal(width: 116)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.bottom, 2)
             meterRow(label: "You · microphone", tint: Theme.accent, level: mic)
             if systemAudioOn {
                 meterRow(label: "Others · call audio", tint: Theme.green, level: system)

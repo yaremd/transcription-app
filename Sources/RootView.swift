@@ -486,8 +486,8 @@ private struct WelcomeView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            SealMascot(size: 88)
-                .padding(.bottom, 8)
+            SleepingSeal(width: 240)
+                .padding(.bottom, 10)
             VStack(spacing: 4) {
                 Text("Seal")
                     .font(Theme.pageTitle)

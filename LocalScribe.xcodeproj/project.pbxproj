@@ -39,7 +39,6 @@
 		65A0D8B438A30FA5B6CA2265 /* NotesTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27045D08ADD93EA94112834F /* NotesTemplate.swift */; };
 		66A4DAA5B8980F75EB178C6E /* CalendarContextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 843EEBAC3FC34958DCD2516A /* CalendarContextTests.swift */; };
 		6C73F3A1AF8A0A4B18A98F59 /* TranscriptionStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 931078E75B584BFA3397DFB1 /* TranscriptionStream.swift */; };
-		6E595B5164F587D71EEFECD0 /* Seal.icon in Resources */ = {isa = PBXBuildFile; fileRef = 9FE093EE6CF39D4E08AF5CFE /* Seal.icon */; };
 		73613F40A9CAB96F5A7FCFC4 /* Entitlements.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0962CF81AC38FA4CDD423E0 /* Entitlements.swift */; };
 		73ECF20DB7946F0236C1BFB5 /* EntitlementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD66DC3AA306EA2541FD0465 /* EntitlementTests.swift */; };
 		78E4E20C27F9A10013E81FF9 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = C913E189926AE6B1BBE7C16E /* MLXLLM */; };
@@ -133,7 +132,6 @@
 		929411DADA5B682F021CFFFC /* TranscriptQualityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptQualityTests.swift; sourceTree = "<group>"; };
 		931078E75B584BFA3397DFB1 /* TranscriptionStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionStream.swift; sourceTree = "<group>"; };
 		98D3153FBC531FB658B9F1D3 /* NotesGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesGenerator.swift; sourceTree = "<group>"; };
-		9FE093EE6CF39D4E08AF5CFE /* Seal.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = Seal.icon; sourceTree = "<group>"; };
 		A0D78B90492BC7BD20710ECD /* DemoMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoMode.swift; sourceTree = "<group>"; };
 		AC48AAD800A33EE8241D2C27 /* ProGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProGate.swift; sourceTree = "<group>"; };
 		B0962CF81AC38FA4CDD423E0 /* Entitlements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Entitlements.swift; sourceTree = "<group>"; };
@@ -190,7 +188,6 @@
 			isa = PBXGroup;
 			children = (
 				ECAA65E938B3B93FA8054BD9 /* Assets.xcassets */,
-				9FE093EE6CF39D4E08AF5CFE /* Seal.icon */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -380,7 +377,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				0C071F7AA8E9BCC20C14BE3D /* Assets.xcassets in Resources */,
-				6E595B5164F587D71EEFECD0 /* Seal.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -605,7 +601,7 @@
 		7BBACD5F55A96610160583CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = Seal;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Support/Seal.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -624,7 +620,7 @@
 		A9A79C84E6F431844C9F61C0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = Seal;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Support/Seal.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;

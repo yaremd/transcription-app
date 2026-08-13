@@ -82,6 +82,79 @@ struct SealMark: Shape {
     }()
 }
 
+/// The mascot asleep — the empty screen's occupant. Nothing has been recorded,
+/// so the seal is having a nap; the screen reads as at rest rather than as a
+/// hole where content should be.
+///
+/// Still, like [[SealMascot]]: it settles in when the screen appears and then
+/// stays put. A soft ellipse underneath gives it something to lie on, which is
+/// also what keeps a cream-coloured animal from dissolving into the near-white
+/// light appearance.
+struct SleepingSeal: View {
+    var width: CGFloat = 240
+
+    /// The render's own proportions, stated rather than inferred. A width-only
+    /// frame let the height resolve from whatever the parent happened to
+    /// propose, and the image was drawn taller than the box it was measured
+    /// into — the belly and the folded flippers came off against a hard edge.
+    private static let aspect: CGFloat = 520.0 / 244.0
+
+    @State private var settled = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Ellipse()
+                .fill(Theme.accent.opacity(0.10))
+                .frame(width: width * 0.82, height: width * 0.1)
+                .blur(radius: width * 0.045)
+                .offset(y: -width * 0.02)
+            Image("SealSleeping")
+                .resizable()
+                .scaledToFit()
+                .frame(width: width, height: width / Self.aspect)
+        }
+            .scaleEffect(settled ? 1 : 0.96)
+            .opacity(settled ? 1 : 0)
+            .animation(.spring(response: 0.55, dampingFraction: 0.78), value: settled)
+            .onAppear { settled = true }
+            .accessibilityHidden(true)
+    }
+}
+
+/// The mascot with its ears up, for the moment a recording has started and
+/// nothing has been said yet: it is listening, and so is the app. Small and
+/// still — this one shares a screen with live level meters, and two things
+/// moving at once is one thing too many.
+struct ListeningSeal: View {
+    var width: CGFloat = 96
+    private static let aspect: CGFloat = 300.0 / 175.0
+
+    var body: some View {
+        Image("SealListening")
+            .resizable()
+            .scaledToFit()
+            .frame(width: width, height: width / Self.aspect)
+            .accessibilityHidden(true)
+    }
+}
+
+/// The mascot holding a fistful of notes — for the panel that says there are
+/// none. An empty state that shows the thing it's missing reads as an
+/// invitation rather than as a gap.
+struct NotesSeal: View {
+    var width: CGFloat = 120
+    private static let aspect: CGFloat = 380.0 / 248.0
+
+    var body: some View {
+        Image("SealNotes")
+            .resizable()
+            .scaledToFit()
+            .frame(width: width, height: width / Self.aspect)
+            .accessibilityHidden(true)
+    }
+}
+
 /// The mascot: the mark, sitting still, over a soft accent halo.
 ///
 /// Nothing here loops. A mascot that moves the whole time you're on the screen
