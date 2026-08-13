@@ -201,25 +201,61 @@ final class EntitlementService: ObservableObject {
 
     /// App-wide instance. Tests use the designated initializer with a temp
     /// directory, a fixed key, and a controllable clock.
+    ///
+    /// The test HOST is the trap this guards against (2026-08-12, the lesson
+    /// that wiped the founder's own license): the app hosts the unit tests,
+    /// so this initializer runs at test startup too — and under test the
+    /// Keychain deliberately reads empty, which minted a fresh integrity key,
+    /// made the real, valid license file look tampered, and persisted a clean
+    /// free state over it. Under test, the real file must not even be opened.
     convenience init() {
+        let underTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        self.init(fileURL: Self.stateFileURL(underTest: underTest),
+                  macKey: underTest ? SymmetricKey(size: .bits256) : Self.keychainMACKey(),
+                  now: Date.init)
+        Self.shared = self
+    }
+
+    /// Where the app-wide instance keeps its state: the real Application
+    /// Support file for the app, an isolated throwaway for the test host.
+    static func stateFileURL(underTest: Bool) -> URL {
         let fm = FileManager.default
+        if underTest {
+            return fm.temporaryDirectory
+                .appendingPathComponent("Seal-test-host-entitlement.json")
+        }
         let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? fm.temporaryDirectory
         let dir = base.appendingPathComponent("Seal", isDirectory: true)
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        self.init(fileURL: dir.appendingPathComponent("entitlement.json"),
-                  macKey: Self.keychainMACKey(),
-                  now: Date.init)
-        Self.shared = self
+        return dir.appendingPathComponent("entitlement.json")
     }
+
+    /// Whether this instance may write the state file. Armed when the file
+    /// loaded cleanly or simply didn't exist yet; DISARMED when a file was
+    /// present but failed verification — a service that couldn't read the
+    /// state has no business replacing it (the second half of the 2026-08-12
+    /// lesson: the wipe needed both a wrong key AND an eager persist). An
+    /// explicit user action — starting the trial, activating, deactivating —
+    /// re-arms it, because at that point the user is genuinely writing new
+    /// state.
+    private var persistArmed: Bool
 
     init(fileURL: URL, macKey: SymmetricKey, now: @escaping () -> Date) {
         self.fileURL = fileURL
         self.macKey = macKey
         self.now = now
-        self.state = Persisted(trialStarted: nil, lastObserved: now(), license: nil)
-        if let loaded = Self.load(from: fileURL, key: macKey, decoder: decoder) {
-            state = loaded
+        let fresh = Persisted(trialStarted: nil, lastObserved: now(), license: nil)
+        switch Self.load(from: fileURL, key: macKey, decoder: decoder) {
+        case .loaded(let stored):
+            persistArmed = true
+            state = stored
+        case .absent:
+            persistArmed = true
+            state = fresh
+        case .failedVerification:
+            persistArmed = false
+            state = fresh
         }
         refresh()
     }
@@ -256,6 +292,7 @@ final class EntitlementService: ObservableObject {
 
     func startTrial() {
         guard trialAvailable else { return }
+        persistArmed = true
         state.trialStarted = effectiveNow()
         refresh()
     }
@@ -267,12 +304,14 @@ final class EntitlementService: ObservableObject {
     /// Records a successful activation (the network part lives in
     /// `LicenseClient` — by the time this is called, Polar has said yes).
     func apply(license: LicenseRecord) {
+        persistArmed = true
         state.license = license
         refresh()
     }
 
     /// Deactivation: back to free (or nothing — the trial does not revive).
     func clearLicense() {
+        persistArmed = true
         state.license = nil
         refresh()
     }
@@ -323,6 +362,7 @@ final class EntitlementService: ObservableObject {
     // MARK: - Persistence
 
     private func persist() {
+        guard persistArmed else { return }
         do {
             let payload = try encoder.encode(state)
             let mac = Data(HMAC<SHA256>.authenticationCode(for: payload, using: macKey))
@@ -333,17 +373,25 @@ final class EntitlementService: ObservableObject {
         }
     }
 
-    private static func load(from url: URL, key: SymmetricKey, decoder: JSONDecoder) -> Persisted? {
-        guard let data = try? Data(contentsOf: url) else { return nil }
+    private enum LoadResult {
+        case loaded(Persisted)
+        case absent
+        case failedVerification
+    }
+
+    private static func load(from url: URL, key: SymmetricKey, decoder: JSONDecoder) -> LoadResult {
+        guard let data = try? Data(contentsOf: url) else { return .absent }
         guard let envelope = try? decoder.decode(Envelope.self, from: data),
               HMAC<SHA256>.isValidAuthenticationCode(envelope.mac, authenticating: envelope.payload, using: key),
               let state = try? decoder.decode(Persisted.self, from: envelope.payload) else {
-            // Corrupt or edited by hand: behave like a fresh install. Never a
-            // crash, and meetings are unaffected (they live elsewhere).
-            NSLog("Entitlements: stored state failed verification — continuing as free")
-            return nil
+            // Corrupt, edited by hand — or read with the wrong key. Behave
+            // like a fresh install in memory, but leave the FILE alone: it
+            // may be someone's real license seen through the wrong key, and
+            // overwriting it is how a paying user gets silently unlicensed.
+            NSLog("Entitlements: stored state failed verification — continuing as free, file preserved")
+            return .failedVerification
         }
-        return state
+        return .loaded(state)
     }
 
     /// The HMAC key lives in the Keychain (generated once per Mac). Under
