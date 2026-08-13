@@ -69,27 +69,34 @@ worded that way.
 
 ## Part 2 — Do these five things this week
 
-These are worth more than everything above, and I can't do them for you.
+These are worth more than everything above. Item 1 is done; 2–5 are yours —
+they need accounts and human judgement I can't supply.
 
-### 1. Google Search Console (30 min, highest priority)
+### 1. ~~Google Search Console~~ — DONE 13 Aug 2026
 
-Nothing else matters until Google knows the pages exist.
+Completed. For the record:
 
-1. Go to <https://search.google.com/search-console>, sign in.
-2. Add property → **Domain** → enter `sealformac.com`.
-3. It gives you a TXT record. Add it in **Vercel** (that's where your DNS
-   lives), then click Verify.
-4. Left sidebar → **Sitemaps** → enter `sitemap.xml` → Submit.
-5. Use **URL Inspection** on each of the six URLs → "Request indexing".
+- **Property**: URL-prefix on `https://sealformac.com`, verified by HTML
+  meta tag. The tag lives in the `<head>` of all six pages — **don't remove
+  it**, or the property silently unverifies.
+- **Sitemap**: `sitemap.xml` submitted and reads *Success*, 6 pages
+  discovered. It showed "Couldn't fetch" for the first few minutes, which is
+  Google registering the sitemap before actually fetching it — not an error.
+- **Indexing requested** on all six URLs; each returned "added to priority
+  crawl queue". At the time of request, Google had discovered the homepage
+  and `/granola-alternative/` via the sitemap and had not yet seen the other
+  four.
 
-Then leave it. Check back in two weeks — the Performance tab will show which
-queries you're actually appearing for, which is the real input to round two.
+Nothing more to do here. Check the **Performance** tab in about two weeks —
+which queries you're actually appearing for is the real input to round two.
+Ignore low numbers before then; the pages were submitted the day they shipped.
 
-### 2. Bing Webmaster Tools (10 min)
+### 2. Bing Webmaster Tools (10 min) — still to do
 
-<https://www.bing.com/webmasters> — you can import directly from Search
-Console. Worth doing because **ChatGPT's web search is powered by Bing's
-index**, so this is the fastest route into AI answers.
+<https://www.bing.com/webmasters> — you can now import directly from Search
+Console in a couple of clicks, since that property exists. Worth doing because
+**ChatGPT's web search is powered by Bing's index**, so this is the fastest
+route into AI answers.
 
 ### 3. AlternativeTo (20 min, unusually high value here)
 
