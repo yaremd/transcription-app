@@ -1,5 +1,10 @@
 import AppKit
 
+// NOT PART OF THE BUILD any more. Support/Seal.icon is the app icon, and actool
+// generates the .icns from it. This is kept only as the way back to the pre-26
+// pipeline: run it against Brand/out/appicon-source-1024.png and point
+// ASSETCATALOG_COMPILER_APPICON_NAME at AppIcon again.
+//
 // Renders the macOS AppIcon set from a full-bleed square source image.
 // The source is drawn into the Big Sur icon grid: art occupies 824/1024 of the
 // canvas, clipped to an Apple-style squircle, margins transparent.

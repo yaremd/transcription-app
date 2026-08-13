@@ -45,8 +45,6 @@ Everything below with "generated" beside it comes out of
 script, never the SVGs.
 
     swift Brand/gen-seal-mark.swift                                # from the repo root
-    swift Brand/gen-appicon.swift Brand/out/appicon-source-1024.png \
-          Support/Assets.xcassets/AppIcon.appiconset
 
 | File | What it is |
 | --- | --- |
@@ -68,10 +66,11 @@ compiles the layered icon for macOS 26 and emits a `Seal.icns` fallback for 14
 and 15 in the same pass, so the deployment target does not move. Verified by a
 full build: `Seal.app` ships `CFBundleIconName = Seal` with both.
 
-`Support/Assets.xcassets/AppIcon.appiconset` is kept in sync but is no longer
-what ships — reverting that one line in `project.yml` restores the old pipeline
-intact. Delete the appiconset once the layered icon has been confirmed on a
-real Mac.
+The legacy `AppIcon.appiconset` is **gone** — `actool` generates the `.icns`
+from `Seal.icon`, so carrying a second hand-built icon set only invited the two
+to drift. If the pre-26 pipeline is ever needed back, `Brand/gen-appicon.swift`
+still rebuilds it from `Brand/out/appicon-source-1024.png`, and
+`ASSETCATALOG_COMPILER_APPICON_NAME` goes back to `AppIcon`.
 
 Two knowns:
 
