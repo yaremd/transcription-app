@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="google-site-verification" content="s8Xl_KUmEKinPH7iwqQckrdbbJVcafCTPzd3Ud_tSOQ">
+<title>Privacy — What Seal Sends, and What It Never Sends</title>
+<meta name="description" content="Seal keeps your audio, transcripts, and notes on your Mac. This page lists every network connection the app makes, why it makes it, and how to turn each one off.">
+<link rel="canonical" href="https://sealformac.com/privacy/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta property="og:site_name" content="Seal">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="Privacy — What Seal Sends, and What It Never Sends">
+<meta property="og:description" content="Every network connection the app makes, why it makes it, and how to switch each one off. Your meetings are not on the list.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://sealformac.com/privacy/">
+<meta property="og:image" content="https://sealformac.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Seal — private meeting notes for macOS, recorded and transcribed entirely on your Mac.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Privacy — What Seal Sends, and What It Never Sends">
+<meta name="twitter:description" content="Every network connection the app makes, why it makes it, and how to switch each one off.">
+<meta name="twitter:image" content="https://sealformac.com/og.png">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://sealformac.com/privacy/#breadcrumbs",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Seal", "item": "https://sealformac.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Privacy", "item": "https://sealformac.com/privacy/" }
+      ]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://sealformac.com/privacy/#webpage",
+      "name": "Privacy — What Seal sends, and what it never sends",
+      "description": "A full account of Seal's network behaviour: meeting content never leaves the Mac; the app contacts the network only for update checks, first-run model downloads, and one-time licence activation.",
+      "datePublished": "2026-08-13",
+      "dateModified": "2026-08-13",
+      "inLanguage": "en",
+      "publisher": {
+        "@type": "Organization",
+        "name": "Seal",
+        "url": "https://sealformac.com/",
+        "logo": { "@type": "ImageObject", "url": "https://sealformac.com/app-icon.png" }
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://sealformac.com/privacy/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does Seal upload my meeting audio?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Audio is recorded and transcribed on your Mac and is never transmitted. There is no Seal server that could receive it — not one you are opted out of, one that does not exist."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Seal collect analytics or telemetry?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "None. The app contains no analytics SDK, no crash reporter that phones home, and no usage tracking of any kind. Because there is no account, there is also no profile to attach anything to."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What network connections does Seal make?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Three, none of which carry meeting content: a check for app updates against the public appcast on sealformac.com; a one-time download of the speech and language models from Hugging Face on first run; and, if you buy Pro, a single licence activation against Freemius. A fourth exists only if you deliberately turn on cloud notes with your own API key, in which case transcript text — never audio — is sent to that provider."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I use Seal completely offline?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, once the models have downloaded on first run. After that, recording, transcription, note generation, and search all work with no network connection at all — on a plane, in a SCIF, or with the Wi-Fi switched off as a test."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Where are my recordings and notes stored?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "As files in Seal's application-support folder on your Mac, covered by your own disk encryption and your own backups. You can export any note to Markdown or PDF at any time, on any plan, including the free one."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Seal HIPAA or GDPR compliant?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Compliance obligations attach to you and your organisation, not to a piece of software, so no honest app can hand you a badge. What Seal does is remove the third-party processor from the picture entirely: because meeting content never leaves your Mac, there is no vendor receiving it and no data-processing agreement to negotiate over that content. Whether your particular use meets your particular obligations is a judgement for you and your advisers."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap bar">
+    <a class="brand" href="/" aria-label="Seal — home">
+      <img src="/app-icon.png" width="30" height="30" alt="">
+      Seal
+    </a>
+    <nav class="links" aria-label="Site">
+      <a href="/#features">Features</a>
+      <a href="/privacy/">Privacy</a>
+      <a href="/#compare">Compare</a>
+      <a href="/#pricing">Pricing</a>
+    </nav>
+    <a class="btn small" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download free</a>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/">Seal</a><span>/</span>Privacy
+    </nav>
+
+    <div class="page-hero">
+      <h1>What Seal sends, and what it <span class="hl">never</span> sends</h1>
+      <p class="sub">Most privacy pages are written to reassure. This one is written to be checked — every connection the app makes is listed below, including the boring ones.</p>
+      <p class="meta">Applies to Seal 0.21 for macOS. Last updated 13 August 2026.</p>
+    </div>
+
+    <div class="prose">
+      <div class="verdict">
+        <b>The short answer</b>
+        <p>Your meeting audio, transcripts, and notes never leave your Mac. The app is not telemetry-free "by policy" — it has no analytics code in it and no account to attach data to. It does touch the network for three unremarkable things: update checks, a one-time model download, and licence activation if you buy Pro. None of them carry your meetings.</p>
+      </div>
+
+      <h2>The part that matters</h2>
+      <p>Recording, transcription, and note generation all happen on your Mac. Whisper runs locally to turn speech into text; a language model runs locally to write the notes and name the meeting. The audio file, the transcript, and the notes are written to your disk and stay there.</p>
+      <p>There is no Seal account, no sync, and no Seal server that holds meeting data. That last point is the one worth dwelling on: this isn't a setting you've been opted out of, or a retention window that happens to be short. The receiving end doesn't exist. That's also why we can't hand your transcript to anyone who asks for it — there's nothing to hand over.</p>
+
+      <h2>Every connection the app makes</h2>
+      <p>An app that claims "nothing ever leaves" and then quietly checks for updates has told you something untrue about a small thing, which is a bad reason to distrust it about a large one. So here is the whole list.</p>
+
+      <div class="cmp-scroll">
+        <table class="cmp" style="--col-a: 'What is sent'; --col-b: 'When, and how to stop it'">
+          <caption>Seal's complete outbound network behaviour, as of version 0.21.</caption>
+          <thead>
+            <tr>
+              <th scope="col" aria-label="Connection"></th>
+              <th scope="col" class="sealcol">What is sent</th>
+              <th scope="col">When, and how to stop it</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Update check</th>
+              <td class="sealcol">Nothing about you — it fetches a public XML file listing versions</td>
+              <td>Periodically. Turn off automatic update checks in Settings.</td>
+            </tr>
+            <tr>
+              <th scope="row">Model download</th>
+              <td class="sealcol">A request to Hugging Face for the speech and language model weights</td>
+              <td>Once, on first run. Nothing is uploaded; after this the app is fully offline-capable.</td>
+            </tr>
+            <tr>
+              <th scope="row">Licence activation</th>
+              <td class="sealcol">Your licence key and a machine identifier, to Freemius</td>
+              <td>Only if you buy Pro, and only when you activate or deactivate a Mac. Seal does not re-check afterwards.</td>
+            </tr>
+            <tr>
+              <th scope="row">Purchase</th>
+              <td class="sealcol">Handled entirely by Freemius in your browser — we never see card details</td>
+              <td>Only if you choose to buy. Freemius is the merchant of record.</td>
+            </tr>
+            <tr>
+              <th scope="row">Cloud notes <em>(off by default)</em></th>
+              <td class="sealcol">Transcript text only — never audio — to a provider you configure with your own API key</td>
+              <td>Only if you switch it on yourself. Transcription always stays on-device regardless.</td>
+            </tr>
+            <tr>
+              <th scope="row">Problem report</th>
+              <td class="sealcol">Only what you can see and edit before sending</td>
+              <td>Only when you deliberately submit one. Nothing is sent automatically.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <p><b>You can verify all of this.</b> Point Little Snitch, LuLu, or macOS's own network tools at Seal and watch it during a meeting. You should see nothing while recording, transcribing, or generating notes. If you ever see otherwise, we want to know — that would be a bug, and a serious one.</p>
+      </div>
+
+      <h2>What we don't have</h2>
+      <ul>
+        <li><strong>No analytics or telemetry.</strong> No SDK, no event tracking, no "anonymous usage statistics" toggle — because there's nothing behind the toggle.</li>
+        <li><strong>No account.</strong> Nothing to sign up for, so no email list you're on by default and no profile to correlate anything against.</li>
+        <li><strong>No training on your data.</strong> The models ship as they are and never see your content, because your content never reaches us.</li>
+        <li><strong>No remote kill switch.</strong> The app can't be disabled from outside; a licence is checked when you activate it, not continuously.</li>
+        <li><strong>No cloud backup.</strong> Which cuts both ways — see below.</li>
+      </ul>
+
+      <h2>The honest downsides of this design</h2>
+      <p>Keeping everything local removes a class of risk and adds a different one. You should know both before you rely on it.</p>
+      <ul>
+        <li><strong>You are the backup.</strong> If your Mac is lost or the disk fails and you have no Time Machine or other backup, the recordings are gone. Nobody has a copy to restore.</li>
+        <li><strong>Your notes are on that Mac.</strong> There's no web app or phone app reading them from a server, because there's no server.</li>
+        <li><strong>Local files are as safe as the machine.</strong> Turn on FileVault. An unencrypted laptop is a worse custodian of a sensitive transcript than a well-run cloud.</li>
+        <li><strong>Sharing is manual.</strong> Export to Markdown or PDF and send it yourself. There is no share link.</li>
+      </ul>
+
+      <h2>The website</h2>
+      <p>sealformac.com is a set of static pages on GitHub Pages. There is no analytics script, no tag manager, no advertising pixel, and no cookie banner — because there are no cookies to consent to. GitHub serves the files and, like any web host, sees standard request logs. The download link points at GitHub Releases; the buy buttons hand you to Freemius, which has its own privacy policy covering the purchase.</p>
+
+      <h2>Compliance, said carefully</h2>
+      <p>People arrive here asking whether Seal is HIPAA compliant, or GDPR compliant, and they deserve a straight answer rather than a badge.</p>
+      <p>Compliance obligations attach to you and your organisation, not to software. No app can make you compliant, and any app that implies otherwise is selling you something. What Seal does is narrower and, we'd argue, more useful: because meeting content never leaves your Mac, there is no third-party processor receiving it. There is no vendor to sign a data-processing agreement with over that content, no sub-processor list to audit, and no cross-border transfer to justify — because the data doesn't go anywhere. Your Mac is where the data lives, and it's already inside whatever perimeter you operate.</p>
+      <p>That is a strong position to argue from. It is not a certificate, and we won't dress it up as one. Whether your particular use meets your particular obligations is a judgement for you and your advisers.</p>
+
+      <h2>Questions people ask</h2>
+      <div class="faq">
+        <details>
+          <summary>Does Seal upload my meeting audio?</summary>
+          <p>No. Audio is recorded and transcribed on your Mac and is never transmitted. There is no Seal server that could receive it — not one you are opted out of, one that does not exist.</p>
+        </details>
+        <details>
+          <summary>Does Seal collect analytics or telemetry?</summary>
+          <p>None. The app contains no analytics SDK, no crash reporter that phones home, and no usage tracking of any kind. Because there is no account, there is also no profile to attach anything to.</p>
+        </details>
+        <details>
+          <summary>What network connections does Seal make?</summary>
+          <p>Three, none of which carry meeting content: a check for app updates against the public appcast on sealformac.com; a one-time download of the speech and language models from Hugging Face on first run; and, if you buy Pro, a single licence activation against Freemius. A fourth exists only if you deliberately turn on cloud notes with your own API key, in which case transcript text — never audio — is sent to that provider.</p>
+        </details>
+        <details>
+          <summary>Can I use Seal completely offline?</summary>
+          <p>Yes, once the models have downloaded on first run. After that, recording, transcription, note generation, and search all work with no network connection at all — on a plane, in a SCIF, or with the Wi-Fi switched off as a test.</p>
+        </details>
+        <details>
+          <summary>Where are my recordings and notes stored?</summary>
+          <p>As files in Seal's application-support folder on your Mac, covered by your own disk encryption and your own backups. You can export any note to Markdown or PDF at any time, on any plan, including the free one.</p>
+        </details>
+        <details>
+          <summary>Is Seal HIPAA or GDPR compliant?</summary>
+          <p>Compliance obligations attach to you and your organisation, not to a piece of software, so no honest app can hand you a badge. What Seal does is remove the third-party processor from the picture entirely: because meeting content never leaves your Mac, there is no vendor receiving it and no data-processing agreement to negotiate over that content. Whether your particular use meets your particular obligations is a judgement for you and your advisers.</p>
+        </details>
+      </div>
+
+      <h2>Keep reading</h2>
+      <div class="readnext">
+        <a href="/local-meeting-notes-mac/">
+          <b>Local AI meeting notes on Mac</b>
+          <span>How on-device transcription actually works.</span>
+        </a>
+        <a href="/meeting-notes-without-bots/">
+          <b>Meeting notes without bots</b>
+          <span>Why an uninvited participant is the wrong default.</span>
+        </a>
+        <a href="/granola-alternative/">
+          <b>Granola alternative</b>
+          <span>Bot-free, but the audio still leaves. Where it goes.</span>
+        </a>
+        <a href="/otter-ai-alternative/">
+          <b>Otter.ai alternative</b>
+          <span>The bot in the call, and the cloud behind it.</span>
+        </a>
+      </div>
+
+      <div class="endcta">
+        <h2>Check it yourself</h2>
+        <p>Download Seal, switch off the Wi-Fi, and record a meeting. Everything still works — that's the design, not a feature.</p>
+        <div class="cta">
+          <a class="btn" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac <span class="tag">— free</span></a>
+          <a class="btn ghost" href="/#pricing">See pricing</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="footband">
+  <div class="wrap">
+    <div class="footgrid">
+      <div>
+        <div class="fbrand">
+          <img src="/app-icon.png" width="26" height="26" alt="">
+          Seal
+        </div>
+        <p>Private meeting notes for macOS. Recording, transcription, and notes run entirely on your Mac.</p>
+      </div>
+      <div class="fcols">
+        <div class="fcol">
+          <b>Product</b>
+          <a href="/#features">Features</a>
+          <a href="/#compare">Compare</a>
+          <a href="/#pricing">Pricing</a>
+        </div>
+        <div class="fcol">
+          <b>Compare</b>
+          <a href="/granola-alternative/">vs Granola</a>
+          <a href="/otter-ai-alternative/">vs Otter.ai</a>
+          <a href="/meeting-notes-without-bots/">Without bots</a>
+          <a href="/local-meeting-notes-mac/">Local notes on Mac</a>
+        </div>
+        <div class="fcol">
+          <b>Get Seal</b>
+          <a href="/privacy/">How it stays private</a>
+          <a href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac</a>
+          <a href="https://checkout.freemius.com/product/36930/plan/61232/">Buy Seal Pro</a>
+        </div>
+      </div>
+    </div>
+    <p class="legal">Seal · Private meeting notes for macOS. Requires macOS 14 or later; on-device AI notes need an Apple-silicon Mac.</p>
+  </div>
+</div>
+
+</body>
+</html>

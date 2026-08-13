@@ -13,6 +13,57 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 0.23</title>
+      <sparkle:version>23</sparkle:version>
+      <sparkle:shortVersionString>0.23</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Thu, 13 Aug 2026 12:01:24 +0000</pubDate>
+      <description><![CDATA[
+        <h3>A fix for one stubborn spot of the old colour</h3>
+        <p>0.22 changed Seal's accent to forest and lime, but the selected
+        row in the sidebar stayed indigo — the one surface macOS draws for
+        itself, from a place the rest of the theme doesn't reach. It's green
+        now, in both Light and Dark.</p>
+        <p>That's the whole release. Nothing else changed.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.23/Seal.dmg"
+        sparkle:edSignature="gTA0NWkQ75PBgc5J4APzZ2q7DuqtrEPr+tHKeMoucv32w3bG3HOsWe/aWRDH/62JeB0HQv1kxtbabtmH+bGPAw==" length="23067956"
+        type="application/octet-stream" />
+    </item>
+    <item>
+      <title>Version 0.22</title>
+      <sparkle:version>22</sparkle:version>
+      <sparkle:shortVersionString>0.22</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Thu, 13 Aug 2026 11:32:39 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Seal changes colour, and your licence stops being fragile</h3>
+        <ul>
+          <li><b>The accent is forest and lime now</b> — the same palette as
+          sealformac.com, replacing the old indigo. It inverts with your
+          appearance rather than just lightening: deep forest in Light, lime
+          in Dark. That keeps the <i>You</i> and <i>Others</i> speaker labels
+          apart by brightness alone, so they stay readable with red-green
+          colour blindness.</li>
+          <li><b>Your licence can no longer be overwritten by a bad read.</b>
+          If Seal opened your licence file and couldn't verify it — a moved
+          Keychain, a restored backup, a new Mac — it used to fall back to
+          free <i>and save that over the file</i>, which made a recoverable
+          moment permanent. Now it reads, shrugs, and leaves the file exactly
+          where it is. Nothing is written to your licence unless you activate,
+          deactivate, or start a trial.</li>
+        </ul>
+        <p>No changes to recording, transcription, or notes in this one. As
+        always: no subscription required, no account, nothing leaves your
+        Mac.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v0.22/Seal.dmg"
+        sparkle:edSignature="wqM02HwXmnbpq6Axrr3fsNi56MC0DfbIMh5rBWzgVgw56ZNYQDKOCNqFkGfMIGDdMYUu/mPhqk/kiJ5s/vlbAw==" length="23068374"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.21</title>
       <sparkle:version>21</sparkle:version>
       <sparkle:shortVersionString>0.21</sparkle:shortVersionString>

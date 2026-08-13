@@ -1,0 +1,48 @@
+# sealformac.com
+# Everything here is a public marketing page. Nothing is private, so
+# nothing is disallowed — including the AI crawlers. People increasingly
+# ask an assistant for "a private meeting notes app for Mac" rather than
+# a search engine, and a blocked crawler cannot recommend us.
+
+User-agent: *
+Allow: /
+
+# Search
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+# Answer engines
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+Sitemap: https://sealformac.com/sitemap.xml
