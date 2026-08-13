@@ -56,6 +56,7 @@
 		929EEAE0C9B16493F4D3F273 /* MeetingDetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2DE5D18F32DD17A765354AF /* MeetingDetectionTests.swift */; };
 		95F79B8EF49D12591364E75D /* NotesGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98D3153FBC531FB658B9F1D3 /* NotesGenerator.swift */; };
 		A4BAFE12B82E6B29465B9F79 /* TranscriptPolisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89711E2232B2DFE1F4165774 /* TranscriptPolisher.swift */; };
+		A68A3AE693913040B7118FC4 /* SealMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88081D95553C82C16260F96 /* SealMark.swift */; };
 		AB041033A6550181854372C4 /* ProblemReportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CA351CC6DA991DE64E3E5D4 /* ProblemReportTests.swift */; };
 		ABC82EDD10AB03153376515B /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4DF2E2221BC76630B23DDF /* AppSettings.swift */; };
 		AFFA5F942485FB3649E72EFF /* DemoMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0D78B90492BC7BD20710ECD /* DemoMode.swift */; };
@@ -138,6 +139,7 @@
 		B0962CF81AC38FA4CDD423E0 /* Entitlements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Entitlements.swift; sourceTree = "<group>"; };
 		B2DE5D18F32DD17A765354AF /* MeetingDetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetectionTests.swift; sourceTree = "<group>"; };
 		B4C0E212FE60127FFBA349FE /* MicWatchdogSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicWatchdogSmokeTests.swift; sourceTree = "<group>"; };
+		B88081D95553C82C16260F96 /* SealMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SealMark.swift; sourceTree = "<group>"; };
 		BB244830AC575340FAFC3428 /* ReportProblemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportProblemView.swift; sourceTree = "<group>"; };
 		BE8F90071AC0251E2F3B6EFC /* LocalScribeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalScribeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C8D6D6D87D0F1FDA33A2C808 /* LocalScribeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalScribeApp.swift; sourceTree = "<group>"; };
@@ -229,6 +231,7 @@
 				E6A9B29B7667526D939EE4CC /* RecordingView.swift */,
 				BB244830AC575340FAFC3428 /* ReportProblemView.swift */,
 				858FA575BD12FEDC32F46DDC /* RootView.swift */,
+				B88081D95553C82C16260F96 /* SealMark.swift */,
 				582FA5EFBDD7B446610B1023 /* SessionAudioRecorder.swift */,
 				675D3B4978DB6B5C40EBB797 /* SettingsView.swift */,
 				10F566F54E1643AB512E7438 /* SpeakerLabeler.swift */,
@@ -442,6 +445,7 @@
 				4B555598FAB0DCD7FA556183 /* RecordingView.swift in Sources */,
 				61B1AC892C06D4EA5DB1FCE9 /* ReportProblemView.swift in Sources */,
 				FC8A4FA4129462EDBEC6C6E4 /* RootView.swift in Sources */,
+				A68A3AE693913040B7118FC4 /* SealMark.swift in Sources */,
 				E5ABF27450A934F1FE1D56CA /* SessionAudioRecorder.swift in Sources */,
 				B4437BD448A055ACEC5B8A7A /* SettingsView.swift in Sources */,
 				BFBF5B2124FEBD080D41833E /* SpeakerLabeler.swift in Sources */,

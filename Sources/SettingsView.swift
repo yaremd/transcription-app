@@ -23,6 +23,11 @@ struct SettingsView: View {
         .frame(width: 540, height: 460)
         // The window behind the panes, once each Form stops painting its own.
         .background(Theme.background)
+        // …and the titlebar strip the tabs sit in, which is a separate surface
+        // AppKit fills with its own material — measured #1F222F, the same
+        // violet slab the Forms used to paint, hanging over near-black panes.
+        .toolbarBackground(Theme.background, for: .windowToolbar)
+        .toolbarBackground(.visible, for: .windowToolbar)
         // `selection`, not `accent`: Settings is mostly toggles and pickers,
         // which macOS fills with the tint and draws a white knob on.
         .tint(Theme.selection)
