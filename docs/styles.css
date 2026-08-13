@@ -277,6 +277,11 @@
   .dark .lede { color: #B5C4BC; }
   .dark .shead-c { text-align: center; max-width: 680px; margin: 0 auto 48px; }
   .dark .shead-c .lede { margin: 16px auto 0; font-size: 16.5px; }
+  /* The mascot with the shield, between this section's heading and its
+     diagram. Sized in vw as well as px so it shrinks with a narrow window
+     instead of pushing the flow off the fold. */
+  .shield-seal { display: block; width: min(330px, 58vw); height: auto; margin: -10px auto 30px; }
+  @media (max-width: 640px) { .shield-seal { margin: -4px auto 22px; } }
   .flow { display: flex; align-items: stretch; justify-content: center; gap: 14px; }
   .fnode { display: flex; flex-direction: column; gap: 10px; justify-content: center; }
   .chip {
