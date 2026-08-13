@@ -66,11 +66,11 @@ compiles the layered icon for macOS 26 and emits a `Seal.icns` fallback for 14
 and 15 in the same pass, so the deployment target does not move. Verified by a
 full build: `Seal.app` ships `CFBundleIconName = Seal` with both.
 
-The legacy `AppIcon.appiconset` is **gone** — `actool` generates the `.icns`
-from `Seal.icon`, so carrying a second hand-built icon set only invited the two
-to drift. If the pre-26 pipeline is ever needed back, `Brand/gen-appicon.swift`
-still rebuilds it from `Brand/out/appicon-source-1024.png`, and
-`ASSETCATALOG_COMPILER_APPICON_NAME` goes back to `AppIcon`.
+The legacy `AppIcon.appiconset` and its generator are both **gone** — `actool`
+builds the `.icns` from `Seal.icon`, so carrying a second hand-made icon set
+only invited the two to drift. There is one icon source now and no second
+pipeline to keep in step. If the pre-26 route is ever genuinely needed, it is
+in git history at `e12152c`.
 
 Two knowns:
 

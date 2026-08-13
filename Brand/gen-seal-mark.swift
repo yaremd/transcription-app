@@ -12,7 +12,7 @@ import CoreText
 //   Brand/seal-mark-icon-small.svg       small cut for 20 px and below
 //   Brand/seal-lockup.svg                mark + outlined "Seal" wordmark
 //   Support/Seal.icon/Assets/face.svg    layer art for the macOS 26 layered icon
-//   Brand/out/appicon-source-1024.png    full-bleed source for gen-appicon.swift
+//   Brand/out/appicon-source-1024.png    full-bleed 1024 render, for press kits
 //   Brand/out/web/*.png                  favicon / touch icon / nav icon
 //
 // Everything is authored on a 240-unit grid in SVG coordinates (y increases
@@ -303,8 +303,11 @@ write("""
 
 """, "Support/Seal.icon/Assets/face.svg")
 
-// 2. Full-bleed source for the legacy Big Sur appiconset. gen-appicon.swift
-//    clips this to the squircle at 824/1024, so the disc is sized against that.
+// 2. Full-bleed 1024 render. Nothing in the build consumes it — the app icon
+//    comes from Support/Seal.icon — but a square, unmasked, full-resolution
+//    icon is what press kits, directories and store listings keep asking for.
+//    The disc is sized against the Big Sur squircle (824/1024) so it still
+//    looks right if anything ever crops it to one.
 write(render(size: 1024) { ctx in
     drawIcon(ctx, canvas: 1024, discPx: 442, small: false,
              ground: FOREST, face: LIME, cornerRadius: nil)
