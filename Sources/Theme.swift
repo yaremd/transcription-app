@@ -53,6 +53,16 @@ enum Theme {
     /// toggle tracks — where the system hard-codes a white foreground we
     /// can't override. Always dark enough to carry white, in both
     /// appearances, so a lime accent never strands a white toggle knob.
+    ///
+    /// **Keep `Support/Assets.xcassets/AccentColor.colorset` equal to these
+    /// two values.** Info.plist names that asset as `NSAccentColorName`, and
+    /// when the user's system accent is "multicolour" (the default) AppKit
+    /// resolves sidebar List selection from the ASSET, not from any SwiftUI
+    /// `.tint(…)` — so a stale asset survives every change made here. That is
+    /// exactly what shipped in v0.22: Theme went forest, the asset stayed
+    /// Linear indigo, and the sidebar selection alone stayed purple. Match
+    /// `selection`, never `accent` — the asset also drives white-on-accent
+    /// system chrome, and white on lime is unreadable.
     static let selection = dynamic(light: 0x14513C, dark: 0x1E5C46)
 
     static let green = dynamic(light: 0x2F9E68, dark: 0x53B57F)
