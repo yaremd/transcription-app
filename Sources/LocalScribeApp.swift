@@ -248,7 +248,7 @@ private struct FloatingPillView: View {
                         .frame(width: 22, height: 22)
                     Image(systemName: "mic.fill")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onAccent)
                 }
                 .contentShape(Circle())
             }

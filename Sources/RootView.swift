@@ -167,11 +167,17 @@ struct RootView: View {
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.capsule)
                 .tint(monitor.isRunning ? Theme.red : Theme.accent)
+                // `.borderedProminent` hard-codes a white label, which is
+                // unreadable on the lime dark-appearance accent.
+                .foregroundStyle(monitor.isRunning ? Color.white : Theme.onAccent)
                 .keyboardShortcut("n", modifiers: .command)
                 .help(monitor.isRunning ? "Back to the live meeting" : "New meeting — starts listening right away (⌘N)")
             }
         }
-        .tint(Theme.accent)
+        // `selection`, not `accent`: this tint reaches List row selection and
+        // toggle tracks, which macOS draws with a white foreground we can't
+        // override. See Theme.selection.
+        .tint(Theme.selection)
         // A first-run banner spanning both panes while the models download:
         // real progress for the notes model, a preparing state for the (opaque)
         // speech model. Collapses to zero height once nothing is downloading.

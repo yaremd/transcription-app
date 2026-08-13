@@ -21,7 +21,9 @@ struct SettingsView: View {
                 .tabItem { Label("License", systemImage: "checkmark.seal") }
         }
         .frame(width: 540, height: 460)
-        .tint(Theme.accent)
+        // `selection`, not `accent`: Settings is mostly toggles and pickers,
+        // which macOS fills with the tint and draws a white knob on.
+        .tint(Theme.selection)
         .environmentObject(entitlements)
     }
 }

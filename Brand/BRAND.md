@@ -46,7 +46,19 @@ rest for empty states, curled-asleep-on-notes for guarding imagery.
 
 ## Color
 
-- Body indigo `#5E6AD2` (= Theme.accent light; use `#6E79D6` on dark surfaces).
+> **Open decision — the marks have not been recolored yet.** `Theme.accent` moved
+> from indigo to forest/lime (see DESIGN.md), so the body indigo below no longer
+> tracks it. The flat marks are the only affected files: `seal-mark.svg` (one
+> `#5E6AD2` fill, plus `#4A55B8` shading and `#23253A` ink) and
+> `seal-mark-icon.svg` (a single `#5E6AD2` that is recolored at the call site
+> anyway). Deciding the mascot's palette is a brand call, not a token swap —
+> a forest body risks reading as a different animal, and the muzzle/shading
+> ramp has to be rebuilt around whatever hue wins.
+>
+> `seal-icon-source.jpg` — the founder-chosen app icon artwork — is **not** in
+> scope here and should not be regenerated to chase the accent.
+
+- Body indigo `#5E6AD2` (no longer equal to `Theme.accent`; see above).
 - Details: muzzle `#DDE0F8`, shading/flippers `#4A55B8`, ink `#23253A`.
 - Wax `#C9503C`, pressed field `#B03E2E`, embossed cream `#F2E4D8`, paper `#F6F1E7`.
 - Wax red is deliberately NOT Theme.red (`#DC3E42`): red dot means recording live,

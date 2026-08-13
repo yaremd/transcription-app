@@ -2,21 +2,24 @@ import SwiftUI
 import AppKit
 
 /// Seal's design language: quiet surfaces, hairline borders, compact
-/// typography, and a single restrained indigo accent. Every color adapts to
-/// light and dark appearance on its own — nothing here needs a colorScheme
-/// check at the call site.
+/// typography, and a single restrained forest/lime accent shared with the
+/// website. Every color adapts to light and dark appearance on its own —
+/// nothing here needs a colorScheme check at the call site.
 enum Theme {
 
     // MARK: - Surfaces
+    //
+    // Neutrals carry a faint green bias so they sit under the forest accent
+    // rather than fighting it — the same warm-neutral trick the site uses.
 
     /// App and detail-pane background.
-    static let background = dynamic(light: 0xFCFCFD, dark: 0x0D0E11)
+    static let background = dynamic(light: 0xFCFDFB, dark: 0x0C0F0E)
     /// Sidebar, one small step apart from the content pane.
-    static let sidebar = dynamic(light: 0xF7F7F9, dark: 0x101115)
+    static let sidebar = dynamic(light: 0xF6F8F4, dark: 0x0F1211)
     /// Raised surfaces: sheets, tiles, buttons at rest.
-    static let surface = dynamic(light: 0xFFFFFF, dark: 0x17181C)
+    static let surface = dynamic(light: 0xFFFFFF, dark: 0x161A18)
     /// Sunken wells: the transcript area, editors, result blocks.
-    static let inset = dynamic(light: 0xF7F8FA, dark: 0x101216)
+    static let inset = dynamic(light: 0xF7F9F6, dark: 0x0F1312)
 
     // MARK: - Lines
 
@@ -31,8 +34,27 @@ enum Theme {
 
     // MARK: - Color
 
-    /// The one saturated color in the app.
-    static let accent = dynamic(light: 0x5E6AD2, dark: 0x6E79D6)
+    /// The one saturated color in the app, shared with the website: deep
+    /// forest on light, lime on dark. It inverts rather than lightening
+    /// because the middle of the green range collides with `green` below —
+    /// a mid-green accent is indistinguishable from the "Others" speaker
+    /// label under red-green color blindness. Staying at the extremes keeps
+    /// the two apart on luminance alone.
+    ///
+    /// Anything filled with `accent` must draw its content in `onAccent`.
+    /// Never `.white` — that vanishes on lime.
+    static let accent = dynamic(light: 0x14513C, dark: 0xD3F36B)
+
+    /// Foreground for content sitting on an `accent` fill. Flips with the
+    /// appearance because the accent itself does.
+    static let onAccent = dynamic(light: 0xFFFFFF, dark: 0x0E1512)
+
+    /// Tint for surfaces macOS draws itself — List selection, `.tint(…)`,
+    /// toggle tracks — where the system hard-codes a white foreground we
+    /// can't override. Always dark enough to carry white, in both
+    /// appearances, so a lime accent never strands a white toggle knob.
+    static let selection = dynamic(light: 0x14513C, dark: 0x1E5C46)
+
     static let green = dynamic(light: 0x2F9E68, dark: 0x53B57F)
     static let red = dynamic(light: 0xDC3E42, dark: 0xEB5757)
     static let amber = dynamic(light: 0xBF7A18, dark: 0xE2A336)
@@ -176,18 +198,24 @@ struct LinearButtonStyle: ButtonStyle {
     var kind: Kind = .quiet
     /// Fill color for `primary` (defaults to the accent).
     var tint: Color = Theme.accent
+    /// Foreground drawn on that fill. Defaults to `onAccent`, which flips to
+    /// ink in dark appearance where the accent is lime; a caller supplying
+    /// its own dark `tint:` passes `.white` instead.
+    var onTint: Color = Theme.onAccent
     var compact = false
     /// Fully rounded (pill) ends instead of the 6pt radius.
     var capsule = false
 
     func makeBody(configuration: Configuration) -> some View {
-        Styled(configuration: configuration, kind: kind, tint: tint, compact: compact, capsule: capsule)
+        Styled(configuration: configuration, kind: kind, tint: tint,
+               onTint: onTint, compact: compact, capsule: capsule)
     }
 
     private struct Styled: View {
         let configuration: Configuration
         let kind: Kind
         let tint: Color
+        let onTint: Color
         let compact: Bool
         let capsule: Bool
         @State private var hovering = false
@@ -217,7 +245,7 @@ struct LinearButtonStyle: ButtonStyle {
 
         private var foreground: Color {
             switch kind {
-            case .primary: return .white
+            case .primary: return onTint
             case .quiet: return .primary
             case .destructive: return Theme.red
             }
@@ -240,7 +268,11 @@ extension ButtonStyle where Self == LinearButtonStyle {
     static var linearDestructive: LinearButtonStyle { .init(kind: .destructive) }
     static var linearQuietCompact: LinearButtonStyle { .init(kind: .quiet, compact: true) }
     static var linearDestructiveCompact: LinearButtonStyle { .init(kind: .destructive, compact: true) }
-    static func linearPrimary(tint: Color) -> LinearButtonStyle { .init(kind: .primary, tint: tint) }
+    /// A caller-supplied tint is a saturated semantic color (red, green),
+    /// dark enough for white in both appearances.
+    static func linearPrimary(tint: Color) -> LinearButtonStyle {
+        .init(kind: .primary, tint: tint, onTint: .white)
+    }
     static var linearPrimaryCompact: LinearButtonStyle { .init(kind: .primary, compact: true) }
 }
 

@@ -1131,7 +1131,7 @@ struct MeetingDetailView: View {
                 Text(chat.isEmpty ? "Ask this meeting" : "Ask · \(chat.filter { $0.role == .user }.count)")
                     .font(Theme.bodyMedium)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onAccent)
             .padding(.horizontal, 15)
             .padding(.vertical, 10)
             .background(Capsule().fill(Theme.accent))

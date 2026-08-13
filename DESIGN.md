@@ -3,12 +3,25 @@
 Every token lives in `Sources/Theme.swift`. Use tokens, never raw colors or ad-hoc fonts. All colors auto-adapt to light/dark inside `Theme.dynamic` — no `colorScheme` checks at call sites.
 
 ## Colors (light / dark)
-- `background` #FCFCFD / #0D0E11 · `sidebar` #F7F7F9 / #101115
-- `surface` #FFFFFF / #17181C (raised) · `inset` #F7F8FA / #101216 (sunken wells)
+- `background` #FCFDFB / #0C0F0E · `sidebar` #F6F8F4 / #0F1211
+- `surface` #FFFFFF / #161A18 (raised) · `inset` #F7F9F6 / #0F1312 (sunken wells)
+  Neutrals carry a faint green bias so they sit under the accent instead of fighting it.
 - `border` 9–10% ink · `divider` 6–7% · `track` 7–9% · `hover` 4.5–6%
-- `accent` indigo #5E6AD2 / #6E79D6 — the one saturated color (You/mic, selection, primary actions)
+- `accent` forest #14513C / lime #D3F36B — the one saturated color (You/mic, primary
+  actions), shared with the website. It **inverts** across appearances rather than
+  lightening: the middle of the green range is indistinguishable from `green` under
+  red-green color blindness, so the accent stays at the extremes where luminance alone
+  separates them (ΔE 0.24 simulated, vs 0.21 for the old indigo).
+- `onAccent` #FFFFFF / #0E1512 — **always** use this on an accent fill, never `.white`,
+  which disappears on lime (1.25:1).
+- `selection` #14513C / #1E5C46 — for surfaces macOS draws itself: List row selection,
+  `.tint(…)`, toggle tracks. The system hard-codes a white foreground on these and we
+  can't override it, so this token stays dark enough for white in both appearances.
+  Rule of thumb: **we** draw the foreground → `accent`; **macOS** draws it → `selection`.
 - `green` #2F9E68 / #53B57F (Others/system audio, success) · `red` #DC3E42 / #EB5757 (record, destructive) · `amber` #BF7A18 / #E2A336 (warnings, cloud caution)
-- `tagPalette` — 6 dot colors assigned deterministically per tag name via `Theme.tagColor`
+- `tagPalette` — 6 dot colors assigned deterministically per tag name via `Theme.tagColor`.
+  Deliberately a functional rainbow, not brand colors: the hash maps a tag to an index,
+  so changing an entry silently recolors every existing tag that lands on it.
 
 ## Type (SF Pro system font only)
 `pageTitle` 20 semibold · `title` 15 semibold · `body` 13 · `bodyMedium` 13 medium · `sub` 12 · `meta` 11 · `metaMedium` 11 medium.
