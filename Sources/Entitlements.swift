@@ -51,7 +51,7 @@ enum ProFeature: String, CaseIterable, Identifiable {
         case .actionTracking: return "Action items tracked across meetings"
         case .polishPass: return "Re-transcribe at maximum accuracy"
         case .customTemplates: return "Notes in your format (built-ins stay free)"
-        case .advancedExport: return "Word, subtitles, Obsidian / Notion"
+        case .advancedExport: return "Word documents and SRT/VTT subtitles"
         case .calendarContext: return "Titles and attendees from your calendar"
         case .byoCloudKey: return "Frontier-model notes, your own key"
         case .semanticMemory: return "Search meetings by meaning"
