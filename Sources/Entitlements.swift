@@ -320,11 +320,45 @@ final class EntitlementService: ObservableObject {
     var license: LicenseRecord? { state.license }
 
     /// Records a successful activation (the network part lives in
-    /// `LicenseClient` — by the time this is called, Polar has said yes).
+    /// `LicenseClient` — by the time this is called, Freemius has said yes).
     func apply(license: LicenseRecord) {
         persistArmed = true
-        state.license = license
+        state.license = Self.reconciled(incoming: license, stored: state.license)
         refresh()
+    }
+
+    /// Keeps a re-activation from moving the purchase date forward (YAR-106).
+    ///
+    /// `FreemiusLicenseClient.record(fromActivation:)` falls back to `Date()`
+    /// when the response carries no creation date, and the live *re*-activation
+    /// response does exactly that — observed 2026-08-12, where a licence issued
+    /// on Aug 11 came back stamped Aug 12 and its update window moved out a day
+    /// with it. Left alone that is a standing loophole: deactivate and
+    /// re-activate once a year and the year of updates renews itself forever.
+    ///
+    /// A purchase happens once. If we already recorded when, a *later* date
+    /// arriving from the same key is the fallback firing rather than news, so
+    /// the stored date wins and the window is recomputed from it. An earlier or
+    /// equal date is real data and is taken as-is.
+    ///
+    /// The window is never shortened either — whatever the user already had is
+    /// the floor, so a renewal that legitimately extended it survives a later
+    /// re-activation. The one case this is deliberately strict about is a
+    /// renewal whose response *also* omits the date: that window will not
+    /// extend, and it needs handling by hand. That is the safe direction to
+    /// err while renewals do not exist yet (they begin summer 2027), and it is
+    /// visible as a support question rather than silent as revenue.
+    static func reconciled(incoming: LicenseRecord, stored: LicenseRecord?) -> LicenseRecord {
+        guard let stored, stored.key == incoming.key,
+              incoming.purchased > stored.purchased else { return incoming }
+
+        var fixed = incoming
+        fixed.purchased = stored.purchased
+        if incoming.tier != .lifetime {
+            let fromTruePurchase = Calendar.current.date(byAdding: .year, value: 1, to: stored.purchased)
+            fixed.updatesThrough = [fromTruePurchase, stored.updatesThrough].compactMap { $0 }.max()
+        }
+        return fixed
     }
 
     /// Deactivation: back to free (or nothing — the trial does not revive).
