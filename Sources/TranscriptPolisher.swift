@@ -24,7 +24,7 @@ actor TranscriptPolisher {
         var lastError: Error?
         for name in Self.modelCandidates {
             do {
-                pipe = try await WhisperKit(WhisperKitConfig(model: name, prewarm: true))
+                pipe = try await WhisperKit(WhisperModelStore.config(model: name, prewarm: true))
                 break
             } catch {
                 lastError = error

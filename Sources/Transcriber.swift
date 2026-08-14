@@ -124,7 +124,7 @@ actor Transcriber {
         var lastError: Error?
         for name in candidates {
             do {
-                let loaded = try await WhisperKit(WhisperKitConfig(model: name, prewarm: true))
+                let loaded = try await WhisperKit(WhisperModelStore.config(model: name, prewarm: true))
                 pipe = loaded
                 loadedModel = name
                 // Warm the Russian-marker suppress list while we're already in

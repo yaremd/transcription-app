@@ -30,6 +30,12 @@ struct LocalScribeApp: App {
     }
 
     init() {
+        // Before anything can ask for a speech model: earlier builds let
+        // WhisperKit default its cache into ~/Documents, where iCloud Drive
+        // syncs it. Moving it is cheap when there is nothing to move, and it
+        // has to happen before the first load or the models download twice.
+        if !Self.isRunningTests { WhisperModelStore.migrateLegacyCacheIfNeeded() }
+
         // Entitlements come first: the update policy consults them, and the
         // updater may check the appcast as soon as it starts.
         let entitlements = EntitlementService()
