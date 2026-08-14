@@ -59,13 +59,39 @@ enum WhisperModelStore {
         return complete ? folder : nil
     }
 
-    /// Mirrors `ModelUtilities.detectModelURL`: a bundle counts as present as
-    /// either a compiled `.mlmodelc` or an `.mlpackage` source bundle.
+    /// Mirrors `ModelUtilities.detectModelURL` in *where* it looks — a compiled
+    /// `.mlmodelc` or an `.mlpackage` source bundle — but asks a harder question
+    /// than "does the path exist".
+    ///
+    /// A `.mlmodelc` is a directory, and an interrupted download creates it,
+    /// writes the small descriptors, and only then pulls the parameters. Caught
+    /// mid-flight on 2026-08-14: an `AudioEncoder.mlmodelc` of **440 KB** with
+    /// `analytics/`, `coremldata.bin` and `model.mlmodel` present and no
+    /// `weights/` — against 1.2 GB for the finished article. Existence alone
+    /// therefore calls a 13 MB fragment of a 1.5 GB model "cached", hands it to
+    /// WhisperKit as a `modelFolder`, and produces exactly the permanent
+    /// local-load failure this check exists to prevent.
+    ///
+    /// `weights/` is the discriminator: present in every complete variant on
+    /// disk, from base.en (40 MB) to large-v3 (1.2 GB), and absent from the
+    /// half-written one. Requiring it costs a directory read and turns that
+    /// dead end back into a resumable download.
     private static func contains(bundle name: String, in folder: URL) -> Bool {
-        let fm = FileManager.default
-        let compiled = folder.appendingPathComponent("\(name).mlmodelc")
-        let package = folder.appendingPathComponent("\(name).mlpackage/Data/com.apple.CoreML/model.mlmodel")
-        return fm.fileExists(atPath: compiled.path) || fm.fileExists(atPath: package.path)
+        let compiled = folder.appendingPathComponent("\(name).mlmodelc", isDirectory: true)
+        if hasWeights(compiled) { return true }
+        // `.mlpackage` keeps the same split one level deeper.
+        let package = folder.appendingPathComponent("\(name).mlpackage/Data/com.apple.CoreML", isDirectory: true)
+        return hasWeights(package)
+            && FileManager.default.fileExists(atPath: package.appendingPathComponent("model.mlmodel").path)
+    }
+
+    /// Whether a compiled model bundle actually carries its parameters.
+    private static func hasWeights(_ bundle: URL) -> Bool {
+        let weights = bundle.appendingPathComponent("weights", isDirectory: true)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: weights.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else { return false }
+        return !children(of: weights).isEmpty
     }
 
     /// The config every WhisperKit load in this app goes through.
@@ -98,11 +124,16 @@ enum WhisperModelStore {
     /// the Application Support cache, once.
     ///
     /// Without this every existing user silently re-downloads several GB, and
-    /// the folder we are embarrassed about stays on their disk anyway. Moves
-    /// are per-repo and skip anything already present at the destination, so a
-    /// partial previous migration resumes rather than clobbering. Any failure
-    /// (cross-volume, permissions, a file in use) is logged and left alone —
-    /// the model simply re-downloads, which is slow but never broken.
+    /// the folder we are embarrassed about stays on their disk anyway. Any
+    /// failure (cross-volume, permissions, a file in use) is logged and left
+    /// alone — the model simply re-downloads, which is slow but never broken.
+    ///
+    /// The move merges rather than moving whole repos. Skipping a repo whose
+    /// destination directory exists sounds safe and is not: a single
+    /// half-downloaded variant at the destination is enough to make the
+    /// directory exist, and the entire real cache then stays in ~/Documents
+    /// forever. Found exactly that way on 2026-08-14, where 54 MB of aborted
+    /// download would have stranded 9.2 GB. See `merge`.
     static func migrateLegacyCacheIfNeeded(defaults: UserDefaults = .standard,
                                            legacyRoot: URL? = nil,
                                            base: URL? = nil) {
@@ -119,24 +150,14 @@ enum WhisperModelStore {
         let newModels = (base ?? downloadBase).appendingPathComponent("models", isDirectory: true)
         var movedAnything = false
 
-        // `models/<owner>/<repo>` — move at repo granularity so an existing
-        // owner directory in the destination (mlx-community already lives
-        // there) is merged into rather than fought over.
         for owner in children(of: legacyModels) {
             let destOwner = newModels.appendingPathComponent(owner.lastPathComponent, isDirectory: true)
             for repo in children(of: owner) {
                 let dest = destOwner.appendingPathComponent(repo.lastPathComponent, isDirectory: true)
-                guard !fm.fileExists(atPath: dest.path) else { continue }   // already migrated
-                do {
-                    try fm.createDirectory(at: destOwner, withIntermediateDirectories: true)
-                    try fm.moveItem(at: repo, to: dest)
-                    movedAnything = true
-                    log.notice("moved \(repo.lastPathComponent, privacy: .public) out of ~/Documents")
-                } catch {
-                    log.error("couldn't move \(repo.lastPathComponent, privacy: .public) out of ~/Documents: \(error.localizedDescription, privacy: .public)")
-                }
+                if merge(repo, into: dest) { movedAnything = true }
+                pruneIfEmpty(repo)    // whatever merged away leaves an empty shell
             }
-            pruneIfEmpty(owner)   // the owner dir is empty once its repos have gone
+            pruneIfEmpty(owner)       // and the owner dir once its repos have gone
         }
 
         // Tidy up bottom-up, and only what we emptied. A leftover file means
@@ -148,10 +169,84 @@ enum WhisperModelStore {
         if movedAnything { log.notice("speech models now live in Application Support") }
     }
 
+    /// Moves `source` to `destination`, merging where something is already
+    /// there. Returns whether anything actually moved.
+    ///
+    /// Nothing at the destination is the common case and takes the fast path:
+    /// one rename, instant on the same volume whatever the size. Otherwise the
+    /// two are merged child by child, and on a genuine conflict the
+    /// destination is kept — with one exception, which is the point of the
+    /// exercise. A model folder that is *incomplete* loses to a complete one
+    /// coming the other way: an aborted download has no business outranking
+    /// the model the user actually has, and it is precisely what would be
+    /// sitting at the destination after a first run that was interrupted.
+    @discardableResult
+    private static func merge(_ source: URL, into destination: URL) -> Bool {
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: destination.path) {
+            do {
+                try fm.createDirectory(at: destination.deletingLastPathComponent(),
+                                       withIntermediateDirectories: true)
+                try fm.moveItem(at: source, to: destination)
+                log.notice("moved \(source.lastPathComponent, privacy: .public) out of ~/Documents")
+                return true
+            } catch {
+                log.error("couldn't move \(source.lastPathComponent, privacy: .public) out of ~/Documents: \(error.localizedDescription, privacy: .public)")
+                return false
+            }
+        }
+
+        if looksLikeModelFolder(source), !isCompleteModelFolder(destination), isCompleteModelFolder(source) {
+            do {
+                try fm.removeItem(at: destination)          // the half-written one
+                try fm.moveItem(at: source, to: destination)
+                log.notice("replaced a half-downloaded \(source.lastPathComponent, privacy: .public) with the complete one")
+                return true
+            } catch {
+                log.error("couldn't replace half-downloaded \(source.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                return false
+            }
+        }
+
+        guard isDirectory(source), isDirectory(destination) else { return false }
+        var moved = false
+        for child in children(of: source) {
+            if merge(child, into: destination.appendingPathComponent(child.lastPathComponent)) { moved = true }
+        }
+        // A directory whose children all moved out is spent. Pruning here
+        // rather than only at repo level matters because the prune chain is
+        // bottom-up: one surviving empty directory anywhere down the tree —
+        // `.cache/huggingface/download` is the one that turned up — keeps every
+        // directory above it non-empty, and `~/Documents/huggingface` stays on
+        // screen having been emptied of everything that justified it.
+        pruneIfEmpty(source)
+        return moved
+    }
+
+    private static func looksLikeModelFolder(_ url: URL) -> Bool {
+        url.lastPathComponent.hasPrefix("openai_whisper-")
+    }
+
+    private static func isCompleteModelFolder(_ url: URL) -> Bool {
+        requiredBundles.allSatisfy { contains(bundle: $0, in: url) }
+    }
+
+    private static func isDirectory(_ url: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+            && isDirectory.boolValue
+    }
+
+    /// Hidden entries are deliberately included. `HubApi` keeps its download
+    /// bookkeeping in a `.cache` directory beside the models — 170 MB of it on
+    /// the machine this was tested on — and skipping it had two consequences,
+    /// both wrong: the bookkeeping was orphaned from the models it describes,
+    /// and because it stayed put, `pruneIfEmpty` found `~/Documents/huggingface`
+    /// non-empty and left the whole folder sitting there. The migration moved
+    /// 9 GB and still failed at the part the user would actually notice.
     private static func children(of directory: URL) -> [URL] {
         (try? FileManager.default.contentsOfDirectory(
-            at: directory, includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles])) ?? []
+            at: directory, includingPropertiesForKeys: nil)) ?? []
     }
 
     private static func pruneIfEmpty(_ directory: URL) {
