@@ -63,7 +63,7 @@
       "operatingSystem": "macOS 14.0 or later",
       "applicationCategory": "BusinessApplication",
       "applicationSubCategory": "Meeting transcription and AI note-taking",
-      "softwareVersion": "0.21",
+      "softwareVersion": "0.24",
       "description": "Private meeting notes for macOS. Recording, transcription, and AI notes run entirely on your Mac — no cloud, no bots, no account. Works offline.",
       "url": "https://sealformac.com/",
       "downloadUrl": "https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg",
@@ -186,7 +186,7 @@
       <a href="#compare">Compare</a>
       <a href="#pricing">Pricing</a>
     </nav>
-    <a class="btn small" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download free</a>
+    <a data-placement="nav" class="btn small" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download free</a>
   </div>
 </header>
 
@@ -200,7 +200,7 @@
       <h1>Meeting notes that <span class="hl">never leave</span> your&nbsp;Mac</h1>
       <p class="sub">Seal records, transcribes, and writes up your meetings — all of it locally. No cloud, no bots in your calls, no account.</p>
       <div class="cta">
-        <a class="btn" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac <span class="tag">— free</span></a>
+        <a data-placement="hero" class="btn" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac <span class="tag">— free</span></a>
         <a class="btn ghost" href="#pricing">See pricing</a>
       </div>
       <div class="trustrow" aria-label="Highlights">
@@ -535,7 +535,7 @@
             <li>Free updates, no account, no time limits</li>
           </ul>
           <div class="foot">
-            <a class="btn ghost" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg" style="width: 100%;">Download free</a>
+            <a data-placement="pricing-free-card" class="btn ghost" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg" style="width: 100%;">Download free</a>
           </div>
         </div>
         <div class="plan pro">
@@ -556,8 +556,8 @@
             <li>Cloud notes with your own API key, if you choose</li>
           </ul>
           <div class="foot">
-            <a class="btn lime" href="https://checkout.freemius.com/product/36930/plan/61232/">Buy Seal Pro — $49</a>
-            <a class="lifetime" href="https://checkout.freemius.com/product/36930/plan/61233/">or $149 once — lifetime updates →</a>
+            <a data-placement="pricing-pro-card" class="btn lime" href="https://checkout.freemius.com/product/36930/plan/61232/">Buy Seal Pro — $49</a>
+            <a data-placement="pricing-lifetime-link" class="lifetime" href="https://checkout.freemius.com/product/36930/plan/61233/">or $149 once — lifetime updates →</a>
             <p class="note">Every download includes a 14-day Pro trial — start it inside the app. No card, no account. 30-day money-back guarantee. Your license key arrives by email; one license covers two Macs, checked once — Seal never phones home.</p>
           </div>
         </div>
@@ -611,13 +611,34 @@
           <h2>What's said here stays here.</h2>
           <p>Free to download. Free to use forever. Sealed by design.</p>
           <div class="ctas">
-            <a class="btn lime" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac <span class="tag">— free</span></a>
+            <a data-placement="closing-cta" class="btn lime" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac <span class="tag">— free</span></a>
             <a class="btn" style="border-color: rgba(255,255,255,.35);" href="#pricing">Get Seal Pro</a>
           </div>
         </div>
         <img class="shieldimg" src="/seal-shield.png" width="300" height="251" loading="lazy"
              alt="Seal, the app's mascot, holding a metal shield engraved “Sealed by design” with the Seal mark stamped in its centre.">
       </div>
+
+      <!-- Release-notes list. Sits after the download CTA on purpose: it is the
+           next thing you see once you've decided, never a gate in front of the
+           download. Hidden until NEWSLETTER_ENDPOINT is set, so a half-configured
+           form can never ship. -->
+      <section class="notify" id="notify" hidden aria-labelledby="notify-h">
+        <div class="notify-copy">
+          <h2 id="notify-h">Know when Seal updates</h2>
+          <p>One short email when a new version ships — what changed, nothing else.
+             This list belongs to the website, not the app: Seal itself still never
+             asks who you are.</p>
+        </div>
+        <form class="notify-form" method="post" novalidate>
+          <label class="sr-only" for="notify-email">Email address</label>
+          <input id="notify-email" name="email" type="email" autocomplete="email"
+                 placeholder="you@example.com" required>
+          <button class="btn lime" type="submit">Keep me posted</button>
+          <p class="notify-status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
       <div class="footgrid">
         <div>
           <div class="fbrand">
@@ -648,8 +669,8 @@
           </div>
           <div class="fcol">
             <b>Get Seal</b>
-            <a href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac</a>
-            <a href="https://checkout.freemius.com/product/36930/plan/61232/">Buy Seal Pro</a>
+            <a data-placement="footer-link" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac</a>
+            <a data-placement="footer-link" href="https://checkout.freemius.com/product/36930/plan/61232/">Buy Seal Pro</a>
           </div>
         </div>
       </div>
@@ -695,6 +716,136 @@
 
   tabs.classList.add('js');
   select(buttons[0], false);
+}());
+</script>
+
+<script>
+// ---------------------------------------------------------------------------
+// Website measurement. The APP ships no telemetry of any kind and that does not
+// change; this file is the marketing page, and knowing whether a launch worked
+// is the difference between a decision and a guess.
+//
+// Deliberately configured against PostHog's defaults:
+//   persistence: 'memory'              no cookies or localStorage, so no consent
+//                                      banner is required — nothing is stored
+//   person_profiles: 'identified_only' events stay anonymous
+//   autocapture: false                 only the two events chosen below
+//   session_recording masked           replays never capture typed or on-page text
+//
+// TODO: set POSTHOG_KEY once the project exists (Settings → Project → API key;
+// use the EU host below to keep visitor data in the EU). While it is empty the
+// snippet never loads and the page makes no third-party request at all.
+var POSTHOG_KEY = '';
+var POSTHOG_HOST = 'https://eu.i.posthog.com';
+
+// TODO: set to the form-post URL of a list provider (Buttondown, ConvertKit,
+// Formspree, …). While it is empty the signup block stays hidden, so a form
+// that would silently drop addresses can never reach the site.
+var NEWSLETTER_ENDPOINT = '';
+
+if (POSTHOG_KEY) {
+  !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+
+  posthog.init(POSTHOG_KEY, {
+    api_host: POSTHOG_HOST,
+    persistence: 'memory',
+    person_profiles: 'identified_only',
+    autocapture: false,
+    capture_pageview: true,
+    session_recording: { maskAllInputs: true, maskTextSelectors: '*' }
+  });
+}
+
+function sealTrack(event, props) {
+  if (window.posthog && POSTHOG_KEY) posthog.capture(event, props || {});
+}
+</script>
+
+<script>
+(function () {
+  // Which CTA earns the download. Every button links straight to the DMG, so
+  // the click is only ever reported — never intercepted, never delayed.
+  //
+  // Placement comes from an explicit data-placement attribute rather than the
+  // nearest section: the closing CTA and the footer link both live in the
+  // footer band and would otherwise report as one number, which is exactly the
+  // comparison worth having.
+  function placementOf(el) {
+    if (el.getAttribute('data-placement')) return el.getAttribute('data-placement');
+    var section = el.closest('section[id], .footband, header');
+    return (section && (section.id || section.className.split(' ')[0])) || 'unknown';
+  }
+
+  var DMG = 'releases/latest/download';
+  Array.prototype.forEach.call(document.querySelectorAll('a[href*="' + DMG + '"]'), function (el) {
+    el.addEventListener('click', function () {
+      sealTrack('download_clicked', { platform: 'macos', placement: placementOf(el) });
+    });
+  });
+
+  // Same for the purchase links, so traffic can be told apart from intent.
+  Array.prototype.forEach.call(document.querySelectorAll('a[href*="checkout.freemius.com"]'), function (el) {
+    el.addEventListener('click', function () {
+      sealTrack('checkout_opened', {
+        plan: /61233/.test(el.href) ? 'lifetime' : 'pro',
+        placement: placementOf(el)
+      });
+    });
+  });
+}());
+</script>
+
+<script>
+(function () {
+  var block = document.getElementById('notify');
+  if (!block || !NEWSLETTER_ENDPOINT) return;   // unconfigured: stays hidden
+
+  var form = block.querySelector('.notify-form');
+  var input = block.querySelector('input[type="email"]');
+  var button = block.querySelector('button');
+  var status = block.querySelector('.notify-status');
+  form.action = NEWSLETTER_ENDPOINT;
+  block.hidden = false;
+
+  function say(message, kind) {
+    status.textContent = message;
+    status.className = 'notify-status' + (kind ? ' ' + kind : '');
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var email = input.value.trim();
+    // Enough to catch a typo; the provider does the real validation. Anything
+    // stricter starts rejecting addresses that are perfectly legal.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      say('That address doesn’t look right — mind checking it?', 'bad');
+      input.focus();
+      return;
+    }
+
+    button.disabled = true;
+    input.disabled = true;
+    say('Sending…');
+
+    // `no-cors` because most list providers don't send CORS headers on their
+    // embed endpoints: the POST is delivered, but the response is opaque, so a
+    // resolved promise is the only signal available. A provider that does send
+    // them could be switched to a normal request and report real errors.
+    fetch(NEWSLETTER_ENDPOINT, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ email: email }).toString()
+    }).then(function () {
+      form.reset();
+      say('You’re on the list. One email per release, and you can leave from any of them.', 'ok');
+      sealTrack('email_subscribed', {});
+    }).catch(function () {
+      button.disabled = false;
+      input.disabled = false;
+      say('That didn’t send — check your connection and try again.', 'bad');
+    });
+  });
 }());
 </script>
 </body>
