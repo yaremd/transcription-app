@@ -1,7 +1,8 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// The Pro export formats (YAR-104): Word's OOXML and SRT/VTT subtitles.
+/// The Pro export formats (YAR-104): Word's OOXML, SRT/VTT subtitles, and
+/// Obsidian-flavoured Markdown.
 /// Everything is generated in-process — a .docx is a zip of three XML parts,
 /// and this writes both the XML and the zip by hand rather than pull in a
 /// dependency for what amounts to headers and a checksum. Like every export,
@@ -171,6 +172,139 @@ enum AdvancedExporter {
         let secs = totalMillis / 1000 % 60
         let millis = totalMillis % 1000
         return String(format: "%02d:%02d:%02d%@%03d", hours, minutes, secs, comma ? "," : ".", millis)
+    }
+
+    // MARK: - Obsidian Markdown (.md)
+
+    /// Markdown for a vault rather than for a reader. Three things separate it
+    /// from the plain export: YAML frontmatter so the meeting becomes queryable
+    /// properties, `[[wikilinks]]` on named people so every meeting with Maya
+    /// backlinks to Maya, and action items as real checkboxes so they show up
+    /// in Obsidian's task views. No H1 — the filename is the note's title, and
+    /// repeating it is the thing vault users complain about.
+    static func exportObsidian(_ m: Meeting) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = filename(m) + ".md"
+        panel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .plainText]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        try? obsidianMarkdown(m).data(using: .utf8)?.write(to: url)
+    }
+
+    static func obsidianMarkdown(_ m: Meeting) -> String {
+        var s = "---\n"
+        s += "title: \(yamlQuoted(m.title.isEmpty ? "Meeting" : m.title))\n"
+        s += "date: \(isoDate(m.date))\n"
+        s += "time: \(yamlQuoted(isoTime(m.date)))\n"
+        s += "duration_minutes: \(max(0, Int((m.duration / 60).rounded())))\n"
+        if !m.language.isEmpty { s += "language: \(yamlQuoted(m.language))\n" }
+
+        // Quoted, because an unquoted [[Name]] parses as a nested YAML
+        // sequence rather than a link. Obsidian resolves the quoted form.
+        let people = attendees(m)
+        if !people.isEmpty {
+            s += "attendees:\n"
+            for name in people { s += "  - \(yamlQuoted("[[\(wikilinkSafe(name))]]"))\n" }
+        }
+
+        var tags = ["meeting"]
+        tags += (m.tags ?? []).compactMap(obsidianTag)
+        if let folder = m.folder.flatMap(obsidianTag) { tags.append(folder) }
+        var seenTags = Set<String>()
+        s += "tags:\n"
+        for tag in tags where seenTags.insert(tag).inserted { s += "  - \(tag)\n" }
+        s += "---\n\n"
+
+        if m.hasNotes { s += "## Notes\n\n\(m.notes)\n\n" }
+
+        let items = m.actionItems ?? []
+        if !items.isEmpty {
+            s += "## Action items\n\n"
+            for item in items { s += "- [\(item.done ? "x" : " ")] \(item.text)\n" }
+            s += "\n"
+        }
+
+        s += "## Transcript\n\n"
+        for line in m.lines {
+            let text = line.text.trimmingCharacters(in: .whitespaces)
+            guard !text.isEmpty else { continue }
+            let label = m.displayLabel(for: line)
+            let who = isRealName(label) ? "[[\(wikilinkSafe(label))]]" : label
+            s += "**\(who):** \(text)\n\n"
+        }
+        return s
+    }
+
+    /// Calendar attendees when we have them; otherwise whoever actually spoke
+    /// and has a real name. "You" and an unnamed "Others" are not people a
+    /// vault wants a note for.
+    static func attendees(_ m: Meeting) -> [String] {
+        if let invited = m.calendarAttendees?.compactMap(cleanName), !invited.isEmpty {
+            return dedupePreservingOrder(invited)
+        }
+        return dedupePreservingOrder(
+            m.lines.map { m.displayLabel(for: $0) }.filter(isRealName).compactMap(cleanName)
+        )
+    }
+
+    /// True for a name worth linking. The raw fallback labels are roles, not
+    /// people, and "Speaker 2" is a placeholder the user hasn't named yet.
+    private static func isRealName(_ label: String) -> Bool {
+        let trimmed = label.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, trimmed != "You", trimmed != "Others" else { return false }
+        return !trimmed.hasPrefix("Speaker ")
+    }
+
+    private static func cleanName(_ name: String) -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func dedupePreservingOrder(_ names: [String]) -> [String] {
+        var seen = Set<String>()
+        return names.filter { seen.insert($0).inserted }
+    }
+
+    /// Characters that would end a wikilink early or split it into an alias.
+    private static func wikilinkSafe(_ name: String) -> String {
+        name.replacingOccurrences(of: "[", with: "(")
+            .replacingOccurrences(of: "]", with: ")")
+            .replacingOccurrences(of: "|", with: "-")
+            .replacingOccurrences(of: "#", with: "")
+            .replacingOccurrences(of: "^", with: "")
+    }
+
+    /// An Obsidian tag can't hold whitespace or a leading #, and a tag that is
+    /// only digits is not a tag at all — those are dropped rather than mangled.
+    private static func obsidianTag(_ raw: String) -> String? {
+        let collapsed = raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "#", with: "")
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: "-")
+        guard !collapsed.isEmpty, collapsed.contains(where: { !$0.isNumber }) else { return nil }
+        return collapsed
+    }
+
+    /// Double-quoted YAML: only the backslash and the quote need escaping
+    /// inside one, which keeps colons, dashes and em-dashes in titles safe.
+    static func yamlQuoted(_ value: String) -> String {
+        "\"" + value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: " ")
+        + "\""
+    }
+
+    /// Fixed-format, POSIX locale. `Date.formatted` follows the user's locale,
+    /// which on a Ukrainian Mac writes a date Obsidian won't read as a date.
+    static func isoDate(_ date: Date) -> String { fixed("yyyy-MM-dd", date) }
+    static func isoTime(_ date: Date) -> String { fixed("HH:mm", date) }
+
+    private static func fixed(_ format: String, _ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = format
+        return formatter.string(from: date)
     }
 
     private static func filename(_ m: Meeting) -> String {
