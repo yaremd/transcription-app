@@ -119,6 +119,14 @@
       "mainEntity": [
         {
           "@type": "Question",
+          "name": "What do I need to run it, and how big is the download?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "macOS 14 or later, and an Apple-silicon Mac for the on-device notes. The app itself is small, but the models it runs are not: the first time you record, Seal fetches a speech model, and the first time you make notes it fetches a language model — together roughly 3–6 GB, once. Macs with 12 GB of memory or more get the larger, better notes model; smaller Macs get a lighter one automatically. After that first download, nothing needs the network again."
+          }
+        },
+        {
+          "@type": "Question",
           "name": "How does the free trial work?",
           "acceptedAnswer": {
             "@type": "Answer",
@@ -574,6 +582,10 @@
         <details>
           <summary>Does Seal send my meetings to the cloud?</summary>
           <p>No. Recording, transcription, and note generation all run on your Mac, and Seal has no server to send meetings to. There is no account and nothing to opt out of. If you choose to turn on a cloud model with your own API key, only transcript text is sent — never your audio — and transcription always stays on-device.</p>
+        </details>
+        <details>
+          <summary>What do I need to run it, and how big is the download?</summary>
+          <p>macOS 14 or later, and an Apple-silicon Mac for the on-device notes. The app itself is small, but the models it runs are not: the first time you record, Seal fetches a speech model, and the first time you make notes it fetches a language model — together roughly 3–6&nbsp;GB, once. Macs with 12&nbsp;GB of memory or more get the larger, better notes model; smaller Macs get a lighter one automatically. After that first download, nothing needs the network again.</p>
         </details>
         <details>
           <summary>How does the free trial work?</summary>
