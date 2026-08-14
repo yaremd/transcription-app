@@ -287,3 +287,111 @@ final class EntitlementTests: XCTestCase {
         XCTAssertEqual(uid, FreemiusLicenseClient.machineUID(), "must be stable per machine")
     }
 }
+
+// MARK: - Re-activation must not renew the update window (YAR-106)
+
+extension EntitlementTests {
+
+    private func proRecord(key: String = "SEAL-KEY",
+                           purchased: Date,
+                           activationID: String = "install-1",
+                           tier: LicenseRecord.Tier = .pro) -> LicenseRecord {
+        LicenseRecord(key: key, activationID: activationID, tier: tier, purchased: purchased,
+                      updatesThrough: tier == .lifetime ? nil
+                        : Calendar.current.date(byAdding: .year, value: 1, to: purchased))
+    }
+
+    /// The loophole, in the shape it was observed on 2026-08-12: a licence
+    /// bought on day 0, re-activated a year later, coming back stamped with
+    /// the activation date because the response carried no creation date.
+    /// Without reconciliation that buys another free year, every year.
+    func testReActivationDoesNotPushTheWindowOut() {
+        let bought = Date(timeIntervalSince1970: 1_800_000_000)
+        let stored = proRecord(purchased: bought)
+        // What the Date() fallback produces on a re-activation a year later.
+        let reActivation = proRecord(purchased: bought.addingTimeInterval(365 * 86_400),
+                                     activationID: "install-2")
+
+        let result = EntitlementService.reconciled(incoming: reActivation, stored: stored)
+
+        XCTAssertEqual(result.purchased, bought, "the purchase moment cannot move forward")
+        XCTAssertEqual(result.updatesThrough, stored.updatesThrough,
+                       "a re-activation must not renew the year of updates")
+        XCTAssertEqual(result.activationID, "install-2",
+                       "the new install id is real news and must still be taken")
+    }
+
+    /// The date is only distrusted when it moves the *wrong* way. A response
+    /// that carries the true creation date is believed.
+    func testEarlierPurchaseDateIsTakenAsRealData() {
+        let stored = proRecord(purchased: Date(timeIntervalSince1970: 1_800_000_000))
+        let corrected = proRecord(purchased: Date(timeIntervalSince1970: 1_700_000_000))
+
+        let result = EntitlementService.reconciled(incoming: corrected, stored: stored)
+
+        XCTAssertEqual(result.purchased, corrected.purchased)
+        XCTAssertEqual(result.updatesThrough, corrected.updatesThrough)
+    }
+
+    /// A window the user already has is a floor: a renewal that legitimately
+    /// extended it is not clawed back by a later re-activation.
+    func testAnExtendedWindowSurvivesAReActivation() {
+        let bought = Date(timeIntervalSince1970: 1_800_000_000)
+        var renewed = proRecord(purchased: bought)
+        renewed.updatesThrough = Calendar.current.date(byAdding: .year, value: 2, to: bought)
+
+        let reActivation = proRecord(purchased: bought.addingTimeInterval(400 * 86_400))
+        let result = EntitlementService.reconciled(incoming: reActivation, stored: renewed)
+
+        XCTAssertEqual(result.updatesThrough, renewed.updatesThrough,
+                       "the renewed window is the floor, not something to shorten")
+    }
+
+    /// A different key is a different purchase — nothing to reconcile against.
+    func testADifferentKeyIsLeftAlone() {
+        let stored = proRecord(key: "OLD-KEY", purchased: Date(timeIntervalSince1970: 1_700_000_000))
+        let bought = proRecord(key: "NEW-KEY", purchased: Date(timeIntervalSince1970: 1_800_000_000))
+
+        let result = EntitlementService.reconciled(incoming: bought, stored: stored)
+
+        XCTAssertEqual(result.purchased, bought.purchased, "a new licence is a new purchase")
+        XCTAssertEqual(result.updatesThrough, bought.updatesThrough)
+    }
+
+    func testFirstActivationHasNothingToReconcile() {
+        let bought = proRecord(purchased: Date(timeIntervalSince1970: 1_800_000_000))
+        XCTAssertEqual(EntitlementService.reconciled(incoming: bought, stored: nil), bought)
+    }
+
+    /// Lifetime has no window to protect, and must never acquire one.
+    func testLifetimeKeepsItsOpenEndedWindow() {
+        let bought = Date(timeIntervalSince1970: 1_800_000_000)
+        let stored = proRecord(purchased: bought, tier: .lifetime)
+        let reActivation = proRecord(purchased: bought.addingTimeInterval(500 * 86_400),
+                                     tier: .lifetime)
+
+        let result = EntitlementService.reconciled(incoming: reActivation, stored: stored)
+
+        XCTAssertEqual(result.purchased, bought)
+        XCTAssertNil(result.updatesThrough, "lifetime never gains an expiry")
+    }
+
+    /// End to end through the service, since `apply` is what production calls.
+    func testApplyReconcilesAndTheEntitlementFollows() throws {
+        let service = makeService()
+        let bought = clock
+        service.apply(license: proRecord(purchased: bought))
+
+        // A year later, deactivate and re-activate — the response stamps today.
+        clock = bought.addingTimeInterval(360 * 86_400)
+        service.apply(license: proRecord(purchased: clock, activationID: "install-2"))
+
+        let expected = Calendar.current.date(byAdding: .year, value: 1, to: bought)
+        XCTAssertEqual(service.license?.updatesThrough, expected)
+
+        // And the update-window rule agrees: a build published after the
+        // original year is still declined.
+        XCTAssertFalse(service.coversUpdates(publishedOn: bought.addingTimeInterval(400 * 86_400)),
+                       "re-activating must not buy access to newer builds")
+    }
+}
