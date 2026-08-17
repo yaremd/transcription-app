@@ -100,15 +100,39 @@ enum Theme {
     /// surface. A fixed gray stays legible on the chip in every row state.
     static let chipText = dynamic(light: 0x565A63, dark: 0x9DA1AA)
 
-    /// Dot colors for tag chips, assigned deterministically per tag.
-    static let tagPalette: [Color] = [
-        dynamic(light: 0x5E6AD2, dark: 0x6E79D6),  // indigo
-        dynamic(light: 0x2F9E68, dark: 0x53B57F),  // green
-        dynamic(light: 0xBF7A18, dark: 0xE2A336),  // amber
-        dynamic(light: 0x9C5ACD, dark: 0xB07CD8),  // purple
-        dynamic(light: 0x2E7DD1, dark: 0x58A6E8),  // blue
-        dynamic(light: 0xC1417B, dark: 0xD9629B),  // pink
+    /// The categorical set: one colour per *category*, where the categories
+    /// have no order and no meaning beyond "not each other" — tag chips, and
+    /// the far-side voices in a transcript.
+    ///
+    /// Brand restraint is the wrong instinct here and this is the one place it
+    /// is. A tag dot and a speaker label are data encodings: their whole job is
+    /// to be told apart, and six shades of one hue cannot do that. What the
+    /// brand gets instead is a set that looks *designed* — generated in OKLCH
+    /// at a single lightness and chroma per appearance, hues 60° apart, and
+    /// anchored on `green` so the first member is the brand's own colour and
+    /// every sibling is its equal in weight. Nothing here shouts over anything
+    /// else, which is what the old set did wrong.
+    ///
+    /// The old set was inherited, not chosen: its first two entries were
+    /// #5E6AD2 and #2F9E68 — the Linear accent and the Linear green, still
+    /// shipping as tag dots long after the rebrand replaced both.
+    ///
+    /// Every entry clears AA on the grounds it is drawn on (light: 4.96–5.66
+    /// on white, 4.68–5.35 on `inset`; dark: 5.75–6.61 on `surface`) and sits
+    /// 0.15–0.40 OKLab from the accent, so no category is ever mistaken for a
+    /// selected or accented control. Chroma is reduced per hue only where sRGB
+    /// cannot hold it — teal and ochre — which is why those two are duller.
+    static let categoricalPalette: [Color] = [
+        green,                                     // 141° — the brand green
+        dynamic(light: 0x027C82, dark: 0x04AFB7),  // 201° teal
+        dynamic(light: 0x3768C2, dark: 0x5D97FE),  // 261° blue
+        dynamic(light: 0x924AA0, dark: 0xC774D7),  // 321° magenta
+        dynamic(light: 0xB33F45, dark: 0xEE696D),  // 21° red
+        dynamic(light: 0x8D6400, dark: 0xC68F00),  // 81° ochre
     ]
+
+    /// Dot colors for tag chips, assigned deterministically per tag.
+    static let tagPalette: [Color] = categoricalPalette
 
     // MARK: - Type scale
 
@@ -131,6 +155,21 @@ enum Theme {
     static func tagColor(_ tag: String) -> Color {
         let hash = tag.lowercased().unicodeScalars.reduce(0) { ($0 &* 31) &+ Int($1.value) }
         return tagPalette[abs(hash) % tagPalette.count]
+    }
+
+    /// The colour for one far-side voice, by its position in the meeting's
+    /// ordered voices. "You" is not in here — it is always `accent`.
+    ///
+    /// Index 0 is `green`, so a meeting with one far-side voice — which is
+    /// most of them — looks exactly as it always has. Only a diarized
+    /// transcript reaches past it, and only as far as it has voices.
+    ///
+    /// Before this existed the tint was a boolean, `isYou ? accent : green`,
+    /// so every identified voice drew in the same colour: "Speaker 1" and
+    /// "Speaker 2" were both green and the colour distinguished nothing, in
+    /// the one feature sold as "who said what, every voice named".
+    static func speakerColor(voiceIndex: Int) -> Color {
+        categoricalPalette[max(0, voiceIndex) % categoricalPalette.count]
     }
 
     private static func dynamic(light: UInt32, dark: UInt32,
