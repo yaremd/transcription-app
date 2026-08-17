@@ -65,20 +65,32 @@ enum Theme {
     /// system chrome, and white on lime is unreadable.
     static let selection = dynamic(light: 0x14513C, dark: 0x1E5C46)
 
-    /// Others / system audio / success. The light value was #2F9E68, which
-    /// sat at 3.38:1 on white and 3.19:1 on `inset` — under AA on every ground
-    /// it is actually drawn on, both as the speaker label and beneath the
-    /// white checkmark in the meeting-detected prompt.
+    /// Others / system audio / success.
     ///
-    /// Darkening it is squeezed from the other side now that `accent` is a
-    /// green too: a sweep of the whole green band says every value dark enough
-    /// to clear AA lands ~0.15 OKLab from the accent, in normal vision and
-    /// under both dichromacies. There is no green that gets both, so this
-    /// takes the best contrast available (4.91:1 white, 4.64 inset, 4.60
-    /// sidebar) and leaves disambiguation to the speaker's name, which is
-    /// always drawn beside the colour. Dark appearance has no such squeeze:
-    /// #53B57F is 6.93:1 on `surface` and 0.21 from the lime accent.
-    static let green = dynamic(light: 0x238050, dark: 0x53B57F)
+    /// Both values are in the accent's *hue family*, which is what the rebrand
+    /// missed. The forest/lime commit rewrote the neutrals and the accent and
+    /// left this token alone, so the dark value stayed #53B57F — the green
+    /// from the Linear palette, unchanged since the original restyle. At hue
+    /// 157° against lime's 121° it is a cool, blue-leaning green sitting next
+    /// to a warm yellow-green accent, and the two read as unrelated colours
+    /// rather than one family. That is the "old colour" the transcript's
+    /// speaker labels were showing.
+    ///
+    /// Moving to ~141° puts both on the same side of green. Measured, against
+    /// the grounds each is actually drawn on:
+    ///
+    ///   light #2A8128 — 4.92:1 white, 4.65 inset, 4.60 sidebar; 0.167 OKLab
+    ///                   from the forest accent (was 4.91 / 4.64 / 4.60 at
+    ///                   0.151, so contrast holds and separation improves)
+    ///   dark  #58B24C — 6.60:1 on `surface`; 0.237 from the lime accent
+    ///                   (was 6.93 at 0.236 — well clear of AA either way)
+    ///
+    /// The squeeze the light value has always been under is unchanged: every
+    /// green dark enough to clear AA lands ~0.15–0.17 OKLab from an accent
+    /// that is itself green, in normal vision and under both dichromacies.
+    /// Disambiguation still leans on the speaker's name, which is always drawn
+    /// beside the colour.
+    static let green = dynamic(light: 0x2A8128, dark: 0x58B24C)
     static let red = dynamic(light: 0xDC3E42, dark: 0xEB5757)
     static let amber = dynamic(light: 0xBF7A18, dark: 0xE2A336)
 

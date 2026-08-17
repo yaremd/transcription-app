@@ -101,7 +101,7 @@ struct RecordingControlBar: View {
         .shadow(color: .black.opacity(0.10), radius: 8, y: 2)
     }
 
-    /// One filled button at a time: red Stop while recording, indigo Start on
+    /// One filled button at a time: red Stop while recording, accent Start on
     /// a fresh screen, quiet Start when a finished session is still shown.
     private var startStopStyle: LinearButtonStyle {
         if monitor.isRunning { return LinearButtonStyle(kind: .primary, tint: Theme.red, compact: true) }
@@ -119,8 +119,9 @@ struct RecordingControlBar: View {
 // MARK: - Live waveform
 
 /// A live, scrolling waveform. New bars enter on the right and scroll left,
-/// each one colored by who's louder right now — indigo for you (mic), green
-/// for the call (system audio) — so a glance confirms both sides are heard.
+/// each one colored by who's louder right now — the accent for you (mic),
+/// `Theme.green` for the call (system audio) — so a glance confirms both
+/// sides are heard.
 /// It samples the shared level meter on that meter's own ~30 Hz cadence and
 /// keeps its history in local state, so it redraws itself without ever
 /// touching the transcript. When paused it holds its last shape, dimmed.
