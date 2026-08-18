@@ -57,7 +57,15 @@ APP="$OUT/export/$APP_NAME.app"
 DMG="$OUT/$APP_NAME.dmg"
 
 echo "▶︎ Building the DMG…"
-hdiutil create -volname "$APP_NAME" -srcfolder "$APP" -ov -format UDZO "$DMG"
+# Stage the app next to an /Applications symlink so the mounted disk image is
+# the drag-and-drop install everyone already knows. Handing someone a window
+# containing only an app leaves them to guess, and the ones who guess wrong run
+# Seal from the disk image forever — where it cannot update itself.
+STAGE="$OUT/dmg"
+rm -rf "$STAGE" && mkdir -p "$STAGE"
+cp -R "$APP" "$STAGE/"
+ln -s /Applications "$STAGE/Applications"
+hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 codesign --force --sign "$DEV_ID" --timestamp "$DMG"
 
 echo "▶︎ Notarizing (uploads to Apple; can take a few minutes)…"
