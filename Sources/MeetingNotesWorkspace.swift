@@ -231,6 +231,7 @@ private struct MeetingTranscriptColumn: View {
             ThemeDivider()
 
             ScrollViewReader { proxy in
+                let order = meeting.voiceOrder
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 8) {
                         if lines.isEmpty {
@@ -248,7 +249,8 @@ private struct MeetingTranscriptColumn: View {
                                               || lines[index - 1].speaker != line.speaker
                                               || lines[index - 1].voice != line.voice,
                                           highlighted: highlighted.contains(line.id) || tapped == line.id,
-                                          isYou: line.speaker == "You")
+                                          isYou: line.speaker == "You",
+                                          voiceIndex: meeting.voiceIndex(for: line, in: order))
                                 .id(line.id)
                                 .contentShape(Rectangle())
                                 .onTapGesture { anchorTo(index) }

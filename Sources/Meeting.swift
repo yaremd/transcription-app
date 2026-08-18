@@ -148,6 +148,22 @@ extension Meeting {
     /// The identified far-side voices this transcript uses, in order.
     var identifiedVoices: [String] { SpeakerLabeler.voices(in: lines) }
 
+    /// Each identified voice's position, which is what picks its colour.
+    /// Built once and handed to the row loop: `identifiedVoices` walks the
+    /// whole transcript, so asking per row would make drawing a meeting
+    /// quadratic in its own length.
+    var voiceOrder: [String: Int] {
+        Dictionary(uniqueKeysWithValues: identifiedVoices.enumerated().map { ($1, $0) })
+    }
+
+    /// Which colour slot a line's voice occupies, given `voiceOrder`. Nil for
+    /// an undiarized line — the plain "Others", which keeps slot 0 and so the
+    /// colour it has always had.
+    func voiceIndex(for line: StoredLine, in order: [String: Int]) -> Int? {
+        guard let voice = line.voice else { return nil }
+        return order[voice]
+    }
+
     /// Transcript text for AI prompts: You/Others keep their baked-in
     /// semantics, far-side lines are labeled by voice (S1, S2, …) when it is
     /// known, and a participants header maps every label to a real name the

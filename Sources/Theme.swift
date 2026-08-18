@@ -65,20 +65,32 @@ enum Theme {
     /// system chrome, and white on lime is unreadable.
     static let selection = dynamic(light: 0x14513C, dark: 0x1E5C46)
 
-    /// Others / system audio / success. The light value was #2F9E68, which
-    /// sat at 3.38:1 on white and 3.19:1 on `inset` — under AA on every ground
-    /// it is actually drawn on, both as the speaker label and beneath the
-    /// white checkmark in the meeting-detected prompt.
+    /// Others / system audio / success.
     ///
-    /// Darkening it is squeezed from the other side now that `accent` is a
-    /// green too: a sweep of the whole green band says every value dark enough
-    /// to clear AA lands ~0.15 OKLab from the accent, in normal vision and
-    /// under both dichromacies. There is no green that gets both, so this
-    /// takes the best contrast available (4.91:1 white, 4.64 inset, 4.60
-    /// sidebar) and leaves disambiguation to the speaker's name, which is
-    /// always drawn beside the colour. Dark appearance has no such squeeze:
-    /// #53B57F is 6.93:1 on `surface` and 0.21 from the lime accent.
-    static let green = dynamic(light: 0x238050, dark: 0x53B57F)
+    /// Both values are in the accent's *hue family*, which is what the rebrand
+    /// missed. The forest/lime commit rewrote the neutrals and the accent and
+    /// left this token alone, so the dark value stayed #53B57F — the green
+    /// from the Linear palette, unchanged since the original restyle. At hue
+    /// 157° against lime's 121° it is a cool, blue-leaning green sitting next
+    /// to a warm yellow-green accent, and the two read as unrelated colours
+    /// rather than one family. That is the "old colour" the transcript's
+    /// speaker labels were showing.
+    ///
+    /// Moving to ~141° puts both on the same side of green. Measured, against
+    /// the grounds each is actually drawn on:
+    ///
+    ///   light #2A8128 — 4.92:1 white, 4.65 inset, 4.60 sidebar; 0.167 OKLab
+    ///                   from the forest accent (was 4.91 / 4.64 / 4.60 at
+    ///                   0.151, so contrast holds and separation improves)
+    ///   dark  #58B24C — 6.60:1 on `surface`; 0.237 from the lime accent
+    ///                   (was 6.93 at 0.236 — well clear of AA either way)
+    ///
+    /// The squeeze the light value has always been under is unchanged: every
+    /// green dark enough to clear AA lands ~0.15–0.17 OKLab from an accent
+    /// that is itself green, in normal vision and under both dichromacies.
+    /// Disambiguation still leans on the speaker's name, which is always drawn
+    /// beside the colour.
+    static let green = dynamic(light: 0x2A8128, dark: 0x58B24C)
     static let red = dynamic(light: 0xDC3E42, dark: 0xEB5757)
     static let amber = dynamic(light: 0xBF7A18, dark: 0xE2A336)
 
@@ -88,15 +100,39 @@ enum Theme {
     /// surface. A fixed gray stays legible on the chip in every row state.
     static let chipText = dynamic(light: 0x565A63, dark: 0x9DA1AA)
 
-    /// Dot colors for tag chips, assigned deterministically per tag.
-    static let tagPalette: [Color] = [
-        dynamic(light: 0x5E6AD2, dark: 0x6E79D6),  // indigo
-        dynamic(light: 0x2F9E68, dark: 0x53B57F),  // green
-        dynamic(light: 0xBF7A18, dark: 0xE2A336),  // amber
-        dynamic(light: 0x9C5ACD, dark: 0xB07CD8),  // purple
-        dynamic(light: 0x2E7DD1, dark: 0x58A6E8),  // blue
-        dynamic(light: 0xC1417B, dark: 0xD9629B),  // pink
+    /// The categorical set: one colour per *category*, where the categories
+    /// have no order and no meaning beyond "not each other" — tag chips, and
+    /// the far-side voices in a transcript.
+    ///
+    /// Brand restraint is the wrong instinct here and this is the one place it
+    /// is. A tag dot and a speaker label are data encodings: their whole job is
+    /// to be told apart, and six shades of one hue cannot do that. What the
+    /// brand gets instead is a set that looks *designed* — generated in OKLCH
+    /// at a single lightness and chroma per appearance, hues 60° apart, and
+    /// anchored on `green` so the first member is the brand's own colour and
+    /// every sibling is its equal in weight. Nothing here shouts over anything
+    /// else, which is what the old set did wrong.
+    ///
+    /// The old set was inherited, not chosen: its first two entries were
+    /// #5E6AD2 and #2F9E68 — the Linear accent and the Linear green, still
+    /// shipping as tag dots long after the rebrand replaced both.
+    ///
+    /// Every entry clears AA on the grounds it is drawn on (light: 4.96–5.66
+    /// on white, 4.68–5.35 on `inset`; dark: 5.75–6.61 on `surface`) and sits
+    /// 0.15–0.40 OKLab from the accent, so no category is ever mistaken for a
+    /// selected or accented control. Chroma is reduced per hue only where sRGB
+    /// cannot hold it — teal and ochre — which is why those two are duller.
+    static let categoricalPalette: [Color] = [
+        green,                                     // 141° — the brand green
+        dynamic(light: 0x027C82, dark: 0x04AFB7),  // 201° teal
+        dynamic(light: 0x3768C2, dark: 0x5D97FE),  // 261° blue
+        dynamic(light: 0x924AA0, dark: 0xC774D7),  // 321° magenta
+        dynamic(light: 0xB33F45, dark: 0xEE696D),  // 21° red
+        dynamic(light: 0x8D6400, dark: 0xC68F00),  // 81° ochre
     ]
+
+    /// Dot colors for tag chips, assigned deterministically per tag.
+    static let tagPalette: [Color] = categoricalPalette
 
     // MARK: - Type scale
 
@@ -119,6 +155,21 @@ enum Theme {
     static func tagColor(_ tag: String) -> Color {
         let hash = tag.lowercased().unicodeScalars.reduce(0) { ($0 &* 31) &+ Int($1.value) }
         return tagPalette[abs(hash) % tagPalette.count]
+    }
+
+    /// The colour for one far-side voice, by its position in the meeting's
+    /// ordered voices. "You" is not in here — it is always `accent`.
+    ///
+    /// Index 0 is `green`, so a meeting with one far-side voice — which is
+    /// most of them — looks exactly as it always has. Only a diarized
+    /// transcript reaches past it, and only as far as it has voices.
+    ///
+    /// Before this existed the tint was a boolean, `isYou ? accent : green`,
+    /// so every identified voice drew in the same colour: "Speaker 1" and
+    /// "Speaker 2" were both green and the colour distinguished nothing, in
+    /// the one feature sold as "who said what, every voice named".
+    static func speakerColor(voiceIndex: Int) -> Color {
+        categoricalPalette[max(0, voiceIndex) % categoricalPalette.count]
     }
 
     private static func dynamic(light: UInt32, dark: UInt32,

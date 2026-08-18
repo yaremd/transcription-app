@@ -496,8 +496,17 @@ struct TranscriptRow: View {
     /// Which side the color coding follows. Defaults to the label itself;
     /// pass explicitly when `speaker` is a real name replacing "You"/"Others".
     var isYou: Bool? = nil
+    /// Which far-side voice this line belongs to, as a position in the
+    /// meeting's ordered voices. Nil — the live view, and any transcript that
+    /// was never diarized — means the single unnamed "Others", which keeps
+    /// index 0 and therefore the colour it has always had.
+    var voiceIndex: Int? = nil
 
-    private var tint: Color { (isYou ?? (speaker == "You")) ? Theme.accent : Theme.green }
+    private var tint: Color {
+        (isYou ?? (speaker == "You"))
+            ? Theme.accent
+            : Theme.speakerColor(voiceIndex: voiceIndex ?? 0)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
