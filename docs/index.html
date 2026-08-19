@@ -744,11 +744,13 @@
 //   autocapture: false                 only the two events chosen below
 //   session_recording masked           replays never capture typed or on-page text
 //
-// TODO: set POSTHOG_KEY once the project exists (Settings → Project → API key;
-// use the EU host below to keep visitor data in the EU). While it is empty the
-// snippet never loads and the page makes no third-party request at all.
-var POSTHOG_KEY = '';
-var POSTHOG_HOST = 'https://eu.i.posthog.com';
+// The project is on PostHog's US cloud (project 565664), so the host is
+// us.i.posthog.com — an EU host with a US project silently accepts nothing.
+// The key is a write-only ingest token, meant to sit in public client-side
+// JS; it cannot read anything back. Empty here means the snippet never loads
+// and the page makes no third-party request at all.
+var POSTHOG_KEY = 'phc_pPYegpi2Ey8LChGz5heDdNjWuRE24jaRExtZrTVhNrwa';
+var POSTHOG_HOST = 'https://us.i.posthog.com';
 
 // TODO: set to the form-post URL of a list provider (Buttondown, ConvertKit,
 // Formspree, …). While it is empty the signup block stays hidden, so a form
@@ -763,6 +765,9 @@ if (POSTHOG_KEY) {
     persistence: 'memory',
     person_profiles: 'identified_only',
     autocapture: false,
+    // PostHog pulls surveys.js on load and we run no surveys. One fewer
+    // third-party request on a page whose argument is that it makes almost none.
+    disable_surveys: true,
     capture_pageview: true,
     session_recording: { maskAllInputs: true, maskTextSelectors: '*' }
   });
