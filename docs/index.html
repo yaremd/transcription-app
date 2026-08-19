@@ -752,10 +752,12 @@
 var POSTHOG_KEY = 'phc_pPYegpi2Ey8LChGz5heDdNjWuRE24jaRExtZrTVhNrwa';
 var POSTHOG_HOST = 'https://us.i.posthog.com';
 
-// TODO: set to the form-post URL of a list provider (Buttondown, ConvertKit,
-// Formspree, …). While it is empty the signup block stays hidden, so a form
-// that would silently drop addresses can never reach the site.
-var NEWSLETTER_ENDPOINT = '';
+// Buttondown's embed endpoint. The username is part of the URL, so renaming
+// the newsletter silently breaks this — the form keeps reporting success
+// because the POST is sent no-cors and the response is opaque. If subscribers
+// stop arriving, check this line before anything else.
+// Empty here would hide the signup block entirely, which is the safe default.
+var NEWSLETTER_ENDPOINT = 'https://buttondown.com/api/emails/embed-subscribe/sealformac';
 
 if (POSTHOG_KEY) {
   !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
@@ -855,7 +857,15 @@ function sealTrack(event, props) {
       body: new URLSearchParams({ email: email }).toString()
     }).then(function () {
       form.reset();
-      say('You’re on the list. One email per release, and you can leave from any of them.', 'ok');
+      // Deliberately not "you're on the list". Two reasons, both learned by
+      // watching Buttondown's dashboard rather than the browser: the list is
+      // double opt-in, so nobody is on it until they click the link in the
+      // confirmation mail; and the POST is sent no-cors, so a rejected address
+      // (Buttondown refuses example.com, among others) resolves exactly like an
+      // accepted one. Promising success we cannot see would be a lie roughly as
+      // often as people typo their domain. Pointing at the inbox is true either
+      // way, and self-correcting when it isn't.
+      say('Almost there — check your inbox for a confirmation link.', 'ok');
       sealTrack('email_subscribed', {});
     }).catch(function () {
       button.disabled = false;
