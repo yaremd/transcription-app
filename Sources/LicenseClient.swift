@@ -29,7 +29,10 @@ enum LicenseError: LocalizedError, Equatable {
         case .offline:
             return "Couldn't reach the license server. Try again when you're online — your notes are unaffected."
         case .storefrontNotLive:
-            return "Purchasing opens with v1.0 — this build can't activate keys yet."
+            // Only reachable if SealStore's product id were ever cleared. It
+            // said "purchasing opens with v1.0" until v1.0 arrived and made
+            // that a promise about the build the user was already running.
+            return "This build can't activate keys — its store details are missing. Reply to your purchase email and we'll sort it out."
         case .rejected(let message):
             return message
         }

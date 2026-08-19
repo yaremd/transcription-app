@@ -13,6 +13,45 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 1.0</title>
+      <sparkle:version>25</sparkle:version>
+      <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 19 Aug 2026 06:56:37 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Seal 1.0</h3>
+        <p>The free core is free forever, and always was: recording, live
+        transcription at full accuracy, on-device notes, your whole meeting
+        history, search, and Markdown and PDF export. Seal Pro adds the slower,
+        deeper passes — speaker split, asking a meeting questions, follow-up
+        drafts, the maximum-accuracy re-transcribe. One payment, two Macs, and
+        the licence is checked exactly once.</p>
+        <p>If you were here before this release: thank you. <b>SEALBETA</b> is
+        Seal Pro, free, and the app will show you the code once.</p>
+        <h3>Your models are moving, and it is about time</h3>
+        <p>Until now Seal let its speech models land in your Documents folder,
+        which is where iCloud Drive syncs — some nine gigabytes of model weights
+        quietly uploading themselves, from the app whose whole argument is that
+        nothing leaves your Mac. They now live in Application Support beside the
+        notes model. This update moves the ones you already have rather than
+        downloading them again.</p>
+        <h3>Offline works now, which it did not</h3>
+        <p>A fully downloaded model still asked huggingface.co for a file listing
+        before it would load, so with Wi-Fi off a recording failed at the first
+        word — while the privacy page invited you to try exactly that. A cached
+        model now loads without touching the network at all.</p>
+        <h3>Every voice gets its own colour</h3>
+        <p>Speaker split named the voices and then drew them all in the same
+        green, which told you nothing. Each identified speaker now has a colour
+        of its own — from a palette the app's greens should have joined at the
+        rebrand and didn't.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v1.0/Seal.dmg"
+        sparkle:edSignature="QWc0gW0Ruw+RrV8oN4Htgbb0A8x+dAjqxumVljYbbanC6EXX4N/pD+4pqh23kWaSy0TLhkMWIW1qtO8i46X7CA==" length="23266302"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.24</title>
       <sparkle:version>24</sparkle:version>
       <sparkle:shortVersionString>0.24</sparkle:shortVersionString>
