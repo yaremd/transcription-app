@@ -88,6 +88,34 @@ Then:
    Leave older items alone: each one's `edSignature` belongs to its own DMG.
 3. Commit and push. Done — existing users get the update automatically.
 
+### The installer window
+
+`scripts/make-dmg.sh` builds the disk image `release.sh` ships: the app beside
+an `/Applications` symlink on a branded background, toolbar and sidebar hidden,
+the volume carrying the app's own icon, and the window titled with the version
+(`Seal 1.0`). It runs standalone, so the window can be built and looked at
+without waiting on an archive and a notarization round trip:
+
+```bash
+./scripts/make-dmg.sh /Applications/Seal.app /tmp/Seal-preview.dmg
+```
+
+The art comes from `Brand/gen-dmg-background.swift` — see `Brand/BRAND.md`.
+
+Three things here fail silently, so all three are guarded in the script rather
+than left to memory:
+
+- **A volume of the same name already mounted.** An older copy of the same
+  release still sitting on `/Volumes` makes the new image mount as
+  `Seal 1.0 1`; every Finder command then lands on the *other* disk and the DMG
+  ships with a plain default window. The script refuses to build instead.
+- **`.VolumeIcon.icns` installed before the window is styled** gets deleted by
+  Finder's `update without registering applications`, custom-icon flag cleared
+  with it, nothing in any log. The icon goes on last, after Finder is done.
+- **A dark background** would be a mistake, however well it suits the brand:
+  Finder switches icon labels to black the moment a window has a background
+  picture, in Dark Mode too. A forest field ships file names nobody can read.
+
 ### Pre-publish checklist (the licensing era)
 
 - **`pubDate` on the new appcast item is present and untouched** — the Pro
