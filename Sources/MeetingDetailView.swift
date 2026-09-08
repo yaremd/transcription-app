@@ -134,6 +134,7 @@ struct MeetingDetailView: View {
                         Button("Export as Word (.docx)…") { gatedExport { AdvancedExporter.exportDocx(meeting) } }
                         Button("Export subtitles (.srt)…") { gatedExport { AdvancedExporter.exportSRT(meeting) } }
                         Button("Export subtitles (.vtt)…") { gatedExport { AdvancedExporter.exportVTT(meeting) } }
+                        Button("Export for Obsidian (.md)…") { gatedExport { AdvancedExporter.exportObsidian(meeting) } }
                     }
                     Divider()
                     Button("Report a problem…") { showReportProblem = true }

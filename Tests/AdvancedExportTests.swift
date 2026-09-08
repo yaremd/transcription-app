@@ -124,4 +124,99 @@ final class AdvancedExportTests: XCTestCase {
         XCTAssertEqual(NotesTemplate.byID("custom-DELETED").id, NotesTemplate.general.id)
         XCTAssertEqual(NotesTemplate.byID("sales").id, "sales")
     }
+
+    // MARK: - Obsidian Markdown
+
+    func testObsidianFrontmatterIsWellFormedAndOrdered() {
+        var m = meeting(lines: [StoredLine(speaker: "You", text: "Hello.")], notes: "A point")
+        m.tags = ["Product Launch", "q3"]
+        let md = AdvancedExporter.obsidianMarkdown(m)
+
+        XCTAssertTrue(md.hasPrefix("---\n"), "frontmatter must open the file or Obsidian ignores it")
+        let body = md.components(separatedBy: "\n---\n\n")
+        XCTAssertEqual(body.count, 2, "exactly one closing delimiter")
+        XCTAssertTrue(body[0].contains("title: \"Vendor call\""))
+        XCTAssertTrue(body[0].contains("duration_minutes: 10"))
+        // A spaced tag would break Obsidian's parser; it gets hyphenated.
+        XCTAssertTrue(body[0].contains("  - Product-Launch"))
+        XCTAssertTrue(body[0].contains("  - meeting"))
+    }
+
+    /// `Date.formatted` follows the user's locale. On a Ukrainian Mac that
+    /// writes a date Obsidian will not read as a date, so the exporter pins
+    /// the formatter to POSIX.
+    func testDatesAreISORegardlessOfDeviceLocale() {
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        XCTAssertEqual(AdvancedExporter.isoDate(date).count, 10)
+        XCTAssertTrue(AdvancedExporter.isoDate(date).hasPrefix("2027-"))
+        XCTAssertEqual(AdvancedExporter.isoTime(date).count, 5)
+        XCTAssertTrue(AdvancedExporter.isoDate(date).allSatisfy { $0.isNumber || $0 == "-" })
+    }
+
+    func testYAMLQuotingSurvivesQuotesBackslashesAndColons() {
+        XCTAssertEqual(AdvancedExporter.yamlQuoted("Acme: a \"big\" win"), "\"Acme: a \\\"big\\\" win\"")
+        XCTAssertEqual(AdvancedExporter.yamlQuoted("path\\to"), "\"path\\\\to\"")
+        // A newline inside a double-quoted scalar would end the value early.
+        XCTAssertFalse(AdvancedExporter.yamlQuoted("two\nlines").contains("\n"))
+    }
+
+    /// The point of the format: every meeting with Maya backlinks to Maya.
+    /// Role labels are not people and must stay plain text.
+    func testNamedSpeakersAreWikilinkedButRolesAreNot() {
+        var m = meeting(lines: [
+            StoredLine(speaker: "You", text: "Morning."),
+            StoredLine(speaker: "Others", text: "Morning.", voice: "S1"),
+            StoredLine(speaker: "Others", text: "Anything else?", voice: "S2"),
+        ])
+        m.speakerNames = ["S1": "Maya"]
+        let md = AdvancedExporter.obsidianMarkdown(m)
+
+        XCTAssertTrue(md.contains("**[[Maya]]:** Morning."))
+        XCTAssertTrue(md.contains("**You:** Morning."))
+        XCTAssertFalse(md.contains("[[You]]"), "a role is not a person")
+        XCTAssertFalse(md.contains("[[Speaker 2]]"), "an unnamed voice is a placeholder")
+        // Frontmatter links must be quoted or YAML reads [[..]] as a sequence.
+        XCTAssertTrue(md.contains("  - \"[[Maya]]\""))
+    }
+
+    func testWikilinkSyntaxInANameCannotEscapeTheLink() {
+        var m = meeting(lines: [StoredLine(speaker: "Others", text: "Hi.", voice: "S1")])
+        m.speakerNames = ["S1": "Bo]] | #x"]
+        let md = AdvancedExporter.obsidianMarkdown(m)
+        XCTAssertTrue(md.contains("[[Bo)) - x]]"))
+        XCTAssertFalse(md.contains("]] |"))
+    }
+
+    func testActionItemsBecomeObsidianCheckboxes() {
+        var m = meeting(lines: [StoredLine(speaker: "You", text: "Done.")])
+        m.actionItems = [ActionItem(text: "Run QA"), ActionItem(text: "Send note", done: true)]
+        let md = AdvancedExporter.obsidianMarkdown(m)
+        XCTAssertTrue(md.contains("- [ ] Run QA"))
+        XCTAssertTrue(md.contains("- [x] Send note"))
+    }
+
+    /// The filename carries the title in a vault, so an H1 repeating it is
+    /// the duplication Obsidian users complain about.
+    func testNoLevelOneHeadingAndCalendarAttendeesWin() {
+        var m = meeting(lines: [StoredLine(speaker: "Others", text: "Hi.", voice: "S1")], notes: "Note")
+        m.speakerNames = ["S1": "Maya"]
+        m.calendarAttendees = ["Priya Raman", "  "]
+        let md = AdvancedExporter.obsidianMarkdown(m)
+
+        XCTAssertFalse(md.contains("\n# "), "no duplicate H1")
+        XCTAssertTrue(md.contains("  - \"[[Priya Raman]]\""), "calendar list wins over speakers")
+        XCTAssertFalse(md.contains("[[  ]]"), "blank attendee dropped")
+        XCTAssertTrue(md.contains("## Notes"))
+        XCTAssertTrue(md.contains("## Transcript"))
+    }
+
+    func testEmptyMeetingStillProducesValidFrontmatter() {
+        let m = Meeting(title: "", date: Date(timeIntervalSince1970: 0),
+                        duration: 0, language: "", lines: [], notes: "")
+        let md = AdvancedExporter.obsidianMarkdown(m)
+        XCTAssertTrue(md.contains("title: \"Meeting\""), "untitled falls back rather than emitting an empty key")
+        XCTAssertFalse(md.contains("attendees:"), "no empty YAML list")
+        XCTAssertFalse(md.contains("language:"))
+        XCTAssertTrue(md.contains("  - meeting"), "always at least one tag")
+    }
 }
