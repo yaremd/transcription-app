@@ -207,6 +207,10 @@ final class AudioMonitor: ObservableObject {
     // conversation it was written in.
     @Published var noteBlocks: [NoteBlock] = []
     @Published var template: NotesTemplate = .general
+    /// A title typed on the live page; saved with the meeting at Stop (and
+    /// on every save after), where it outranks the calendar's and the
+    /// placeholder the auto-titler later replaces.
+    @Published var liveTitle = ""
 
     /// The notes as plain text — what generation prompts and exports consume.
     var joinedNotes: String {
@@ -268,7 +272,10 @@ final class AudioMonitor: ObservableObject {
     private let settings: AppSettings
     private var sessionStart = Date()
     private var sessionEnd = Date()
-    private var currentMeetingID = UUID()
+    /// The meeting this session is (or was) saving into. Read by the live
+    /// page so an Ask conversation begun mid-meeting carries straight over
+    /// to the saved page after Stop.
+    private(set) var currentMeetingID = UUID()
     /// The calendar event the running session belongs to, when calendar
     /// context is on — applied at save time (YAR-36).
     private var sessionCalendarContext: CalendarEventContext?
@@ -407,6 +414,7 @@ final class AudioMonitor: ObservableObject {
         notes = ""
         notesError = nil
         noteBlocks = []
+        liveTitle = ""
         isPaused = false
         discarding = false
         sessionStart = Date()
@@ -546,6 +554,9 @@ final class AudioMonitor: ObservableObject {
     }
 
     func stop() {
+        #if DEBUG
+        if isDemoSession { endDemoSession(); return }
+        #endif
         teardownCapture(flush: true)
         Task { await transcriber.endSession() }   // recording done — Whisper may be freed for notes once idle
         sessionEnd = Date()
@@ -598,6 +609,7 @@ final class AudioMonitor: ObservableObject {
         notes = ""
         notesError = nil
         noteBlocks = []
+        liveTitle = ""
         errorMessage = nil
         clearNotice()
         statusMessage = "Press Start. You and the call will both be transcribed."
@@ -744,6 +756,76 @@ final class AudioMonitor: ObservableObject {
         }
     }
 
+    #if DEBUG
+    // MARK: - Demo session (debug builds only)
+
+    private var demoTask: Task<Void, Never>?
+    var isDemoSession: Bool { demoTask != nil }
+
+    /// A scripted session with no capture and no model: lines arrive every
+    /// couple of seconds as if spoken, so the live page can be seen and
+    /// measured from a session without a microphone or a call. Stop saves
+    /// it like any other; it lands in whatever store the app is using, so
+    /// pair it with `SEAL_DEMO_CONTAINER`. Compiled out of release builds.
+    func beginDemoSession() {
+        guard !isRunning else { return }
+        errorMessage = nil
+        clearNotice()
+        transcript = []
+        liveLines = [:]
+        notes = ""
+        notesError = nil
+        noteBlocks = []
+        liveTitle = ""
+        isPaused = false
+        discarding = false
+        sessionStart = Date()
+        sessionEnd = sessionStart
+        recordingStart = sessionStart
+        currentMeetingID = UUID()
+        isRunning = true
+        statusMessage = "Listening…"
+        let you = speakerYou, others = speakerOthers
+        let script: [(String, String)] = [
+            (others, "Thanks for making time. I wanted to walk through where the pilot landed before we talk about the rollout."),
+            (you, "Sounds good. I have the numbers from the last two weeks in front of me."),
+            (others, "So the short version: adoption in the support team went well, about seventy percent of them are using it daily now. Sales was slower."),
+            (you, "Slower how? Is it the training, or does the workflow not fit?"),
+            (others, "Mostly the workflow. Their calls are shorter and they want the follow-up drafted before they hang up, not after."),
+            (you, "Okay, that's useful. Let's keep the rollout to support for now and revisit sales once the follow-up timing is sorted."),
+            (others, "Agreed. One more thing — legal asked for a one-page summary of what stays on the device. Can you send that by Friday?"),
+            (you, "Yes, I'll have it to you by Thursday."),
+        ]
+        demoTask = Task { @MainActor [weak self] in
+            var offset: TimeInterval = 0
+            for (speaker, text) in script {
+                try? await Task.sleep(nanoseconds: 1_800_000_000)
+                guard let self, self.isRunning, !Task.isCancelled else { return }
+                let now = Date()
+                offset += 1.8
+                self.transcript.append(TranscriptLine(speaker: speaker, fragments: [text], at: now, end: now,
+                                                      startOffset: offset, endOffset: offset + 1.5))
+                self.levels.mic = speaker == you ? 0.55 : 0.08
+                self.levels.system = speaker == you ? 0.08 : 0.5
+            }
+        }
+    }
+
+    private func endDemoSession() {
+        demoTask?.cancel()
+        demoTask = nil
+        isRunning = false
+        isPaused = false
+        recordingStart = nil
+        levels.mic = 0
+        levels.system = 0
+        sessionEnd = Date()
+        persistCurrentSession()
+        statusMessage = transcript.isEmpty ? "Stopped." : "Saved to your library."
+        if !transcript.isEmpty { finishedMeetingID = currentMeetingID }
+    }
+    #endif
+
     /// Builds a Meeting from the current session and saves it (idempotent by id).
     /// Called after Stop, when a late transcript line arrives, and after notes are
     /// generated. Preserves an existing title/notes so a re-save never clobbers them.
@@ -753,8 +835,11 @@ final class AudioMonitor: ObservableObject {
         // notes anchor to the transcript moment they were written in. Without
         // it every saved line has a nil timestamp and note→transcript jumps
         // have nothing to aim at.
+        // The live line's id is kept too: Ask's conversation remembers lines
+        // by id, so the meeting's saved copy continues the conversation its
+        // live copy started instead of re-reading the whole transcript.
         let lines = transcript.map {
-            StoredLine(speaker: $0.speaker, text: $0.text, at: $0.at,
+            StoredLine(id: $0.id, speaker: $0.speaker, text: $0.text, at: $0.at,
                        start: $0.startOffset, end: $0.endOffset)
         }
         let existing = store.meetings.first { $0.id == currentMeetingID }
@@ -763,7 +848,8 @@ final class AudioMonitor: ObservableObject {
         let blocksToStore: [NoteBlock]? = noteBlocks.isEmpty ? existing?.noteBlocks : noteBlocks
         var meeting = Meeting(
             id: currentMeetingID,
-            title: Meeting.startingTitle(existing: existing?.title,
+            title: Meeting.startingTitle(existing: liveTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                                    ? existing?.title : liveTitle,
                                          calendar: sessionCalendarContext?.title),
             date: sessionStart,
             duration: max(0, sessionEnd.timeIntervalSince(sessionStart)),

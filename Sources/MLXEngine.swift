@@ -6,13 +6,14 @@ import MLXLLM
 import MLXLMCommon
 import MLXHuggingFace
 
-/// On-device LLM used for notes, titles, and chat — the shipping replacement for
-/// the dev-time Ollama backend. Runs a small instruct model locally via MLX
-/// (Apple Silicon), auto-downloading its weights from Hugging Face on first use,
-/// exactly like WhisperKit fetches its speech models. Nothing leaves the Mac.
+/// On-device LLM used for notes, titles, and Ask — the shipping replacement
+/// for the dev-time Ollama backend. Runs a small instruct model locally via
+/// MLX (Apple Silicon), auto-downloading its weights from Hugging Face on
+/// first use, exactly like WhisperKit fetches its speech models. Nothing
+/// leaves the Mac.
 ///
-/// The model is loaded once and reused. Loading and generation are serialized by
-/// the actor so the single in-memory model is never used concurrently.
+/// The model is loaded once and reused. Loading and generation are serialized
+/// by the actor so the single in-memory model is never used concurrently.
 actor MLXEngine {
     static let shared = MLXEngine()
 
@@ -76,13 +77,18 @@ actor MLXEngine {
     var isReady: Bool { container != nil }
 
     /// Generate a completion for a system + user prompt. One-shot: a fresh
-    /// `ChatSession` per call so unrelated jobs (titles, notes, chat) never share
+    /// `ChatSession` per call so unrelated jobs (titles, notes) never share
     /// context. Downloads and loads the model on first call.
+    ///
+    /// With `onPartial`, the text is streamed: the callback receives the whole
+    /// reply so far each time a token lands, so notes can appear as they are
+    /// written instead of after a long silence.
     func generate(system: String,
                   user: String,
                   maxTokens: Int = 1200,
                   temperature: Float = 0.3,
-                  modelID: String = MLXEngine.defaultModelID) async throws -> String {
+                  modelID: String = MLXEngine.defaultModelID,
+                  onPartial: (@Sendable (String) -> Void)? = nil) async throws -> String {
         guard Self.isSupported else {
             throw EngineError(message: "On-device notes need an Apple-silicon Mac. Turn on a cloud model in Settings to use notes here.")
         }
@@ -92,7 +98,17 @@ actor MLXEngine {
             container,
             instructions: system,
             generateParameters: GenerateParameters(maxTokens: maxTokens, temperature: temperature))
-        let output = try await session.respond(to: user)
+        let output: String
+        if let onPartial {
+            var text = ""
+            for try await chunk in session.streamResponse(to: user) {
+                text += chunk
+                onPartial(text)
+            }
+            output = text
+        } else {
+            output = try await session.respond(to: user)
+        }
         let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw EngineError(message: "The on-device model returned an empty response. Try again.")
@@ -105,6 +121,98 @@ actor MLXEngine {
     func prewarm(modelID: String = MLXEngine.defaultModelID) async throws -> Bool {
         _ = try await ensureLoaded(modelID: modelID)
         return true
+    }
+
+    // MARK: - Ask
+
+    /// One meeting's Ask conversation. The `ChatSession` keeps every turn —
+    /// and the model's KV cache for it — so the transcript is read into the
+    /// model once and later questions only pay for what was said since. That
+    /// is what makes asking *during* a meeting answer in seconds: the hour
+    /// already spoken is already in memory.
+    private final class Conversation {
+        let session: ChatSession
+        let modelID: String
+        var feed = AskTranscriptFeed()
+        var lastUsed = Date()
+
+        init(session: ChatSession, modelID: String) {
+            self.session = session
+            self.modelID = modelID
+        }
+    }
+
+    private var conversations: [UUID: Conversation] = [:]
+    /// Each conversation pins its KV cache (hundreds of MB for a long
+    /// meeting), so only the most recent couple of meetings keep one.
+    private static let conversationCap = 2
+    private static let askMaxTokens = 700
+
+    /// Answers `question` about the meeting, streaming the reply. `lines` is
+    /// the whole transcript as it stands; the conversation works out what the
+    /// model hasn't read yet. A conversation whose transcript changed
+    /// underneath it (a re-transcription, an edit) starts over on its own.
+    func ask(meetingID: UUID,
+             instructions: String,
+             lines: [AskTranscriptFeed.Line],
+             question: String,
+             modelID: String = MLXEngine.defaultModelID) async throws -> AsyncThrowingStream<String, Error> {
+        guard Self.isSupported else {
+            throw EngineError(message: "Ask needs an Apple-silicon Mac. Turn on a cloud model in Settings to use it here.")
+        }
+        lastUsedAt = Date()
+        let container = try await ensureLoaded(modelID: modelID)
+
+        var conversation = conversations[meetingID]
+        if let existing = conversation, existing.modelID != modelID {
+            conversations[meetingID] = nil
+            conversation = nil
+        }
+        var step = conversation?.feed.update(with: lines) ?? .nothing
+        if conversation == nil || isRestart(step) {
+            let fresh = Conversation(
+                session: ChatSession(container,
+                                     instructions: instructions,
+                                     generateParameters: GenerateParameters(maxTokens: Self.askMaxTokens, temperature: 0.3)),
+                modelID: modelID)
+            step = fresh.feed.update(with: lines)
+            conversation = fresh
+            retire(keeping: meetingID)
+            conversations[meetingID] = fresh
+        }
+        guard let conversation else { throw EngineError(message: "Couldn't start the conversation.") }
+        conversation.lastUsed = Date()
+
+        let user: String
+        switch step {
+        case .nothing:
+            user = "QUESTION: \(question)"
+        case .append(let text):
+            user = "SAID SINCE YOUR LAST ANSWER:\n\(text)\n\nQUESTION: \(question)"
+        case .restart(let text):
+            user = "TRANSCRIPT SO FAR:\n\(text)\n\nQUESTION: \(question)"
+        }
+        return conversation.session.streamResponse(to: user)
+    }
+
+    /// Forgets a meeting's conversation — after a failed answer, so the next
+    /// question starts from a clean exchange rather than a half-recorded one.
+    func dropConversation(for meetingID: UUID) {
+        conversations[meetingID] = nil
+    }
+
+    private func isRestart(_ step: AskTranscriptFeed.Step) -> Bool {
+        if case .restart = step { return true }
+        return false
+    }
+
+    private func retire(keeping meetingID: UUID) {
+        while conversations.count >= Self.conversationCap {
+            guard let oldest = conversations
+                .filter({ $0.key != meetingID })
+                .min(by: { $0.value.lastUsed < $1.value.lastUsed }) else { return }
+            conversations[oldest.key] = nil
+        }
     }
 
     // MARK: - Loading
@@ -172,10 +280,13 @@ actor MLXEngine {
     /// Releases the loaded model under memory pressure. A critical event always
     /// releases it; a warning only once the model has gone idle, so an
     /// in-progress notes session isn't yanked out from under the user. Weights
-    /// stay on disk, so the next generate reloads without re-downloading.
+    /// stay on disk, so the next generate reloads without re-downloading. Ask
+    /// conversations go with it — each one pins its own cache of the model's
+    /// state, and the next question simply re-reads the transcript.
     private func handleMemoryPressure(critical: Bool) {
         guard container != nil else { return }   // nothing loaded (or a load is mid-flight)
         if !critical && Date().timeIntervalSince(lastUsedAt) < Self.idleUnloadSeconds { return }
+        conversations = [:]
         container = nil
         loadedModelID = nil
         loadTask = nil          // the completed load task also retains the model — drop it
