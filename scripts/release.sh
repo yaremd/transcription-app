@@ -34,11 +34,20 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 echo "▶︎ Regenerating Xcode project…"
 ( cd "$ROOT" && xcodegen generate )
 
-echo "▶︎ Archiving (Release)…"
-xcodebuild -project "$ROOT/LocalScribe.xcodeproj" -scheme "$SCHEME" \
-  -configuration Release -destination 'generic/platform=macOS' \
-  -skipPackagePluginValidation -skipMacroValidation \
-  -archivePath "$OUT/$APP_NAME.xcarchive" archive
+# REUSE_ARCHIVE=/path/to/Seal.xcarchive skips the archive step and signs,
+# packages and notarizes that archive instead — for when a Release archive of
+# the exact release commit already exists (a compile check run ahead of a
+# notarization that was blocked), so the slowest step isn't paid twice.
+if [ -n "${REUSE_ARCHIVE:-}" ]; then
+  echo "▶︎ Reusing archive $REUSE_ARCHIVE…"
+  cp -R "$REUSE_ARCHIVE" "$OUT/$APP_NAME.xcarchive"
+else
+  echo "▶︎ Archiving (Release)…"
+  xcodebuild -project "$ROOT/LocalScribe.xcodeproj" -scheme "$SCHEME" \
+    -configuration Release -destination 'generic/platform=macOS' \
+    -skipPackagePluginValidation -skipMacroValidation \
+    -archivePath "$OUT/$APP_NAME.xcarchive" archive
+fi
 
 echo "▶︎ Exporting a Developer ID-signed app (Hardened Runtime is already on)…"
 cat > "$OUT/ExportOptions.plist" <<PLIST

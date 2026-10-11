@@ -13,6 +13,45 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 1.1</title>
+      <sparkle:version>26</sparkle:version>
+      <sparkle:shortVersionString>1.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Sun, 11 Oct 2026 19:07:56 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Seal 1.1</h3>
+        <h3>Ask the meeting while it is still happening</h3>
+        <p>Ask used to open only after a meeting ended. It now sits beside the
+        live transcript and answers from everything said so far — "what did
+        they just say?", "what has been decided?" — on your Mac, as always. The
+        on-device model keeps what it has already read, so a question an hour
+        in is answered in seconds, and the conversation stays with the meeting
+        after you stop. Seal Pro.</p>
+        <h3>One page, live and after</h3>
+        <p>The recording screen and the saved meeting used to be two different
+        places. They are now the same page: your notes on the left, the
+        transcript or Ask on the right (⇧⌘T and ⌘J), and nothing moves when you
+        press Stop. The transcript no longer hides behind a separate window.</p>
+        <h3>Notes that read like notes</h3>
+        <p>The write-up is set in document type on a readable column. What Seal
+        wrote is in a quieter ink; what you typed or edited is in full ink, so
+        you can tell your words from the model's at a glance. Click the title
+        or the notes to edit them — they save when you click away. Notes now
+        appear as they are written rather than all at once.</p>
+        <h3>No more "the user"</h3>
+        <p>The write-up used to describe you as "the user". It no longer does,
+        and Settings → General has an optional "Your name" so the notes can say
+        who agreed to what.</p>
+        <h3>Everything Seal can do, in one place</h3>
+        <p>Rewrite, reshape, find action items, draft a follow-up, identify
+        speakers, improve the transcript: one Seal AI menu in the toolbar.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v1.1/Seal.dmg"
+        sparkle:edSignature="Ez6ALKaytluoB6rTPd6bSn9T5Qp2F0pJPvZfsj5ADotj6Ibn5un82xDNVJZmsuRMZYtg1Mh4r0HTvciQxKaqCw==" length="20626503"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 1.0</title>
       <sparkle:version>25</sparkle:version>
       <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
