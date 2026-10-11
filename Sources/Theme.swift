@@ -134,6 +134,18 @@ enum Theme {
     /// Dot colors for tag chips, assigned deterministically per tag.
     static let tagPalette: [Color] = categoricalPalette
 
+    // MARK: - Ink
+
+    /// Text the on-device model wrote, as opposed to text the user typed.
+    ///
+    /// The note surface shows both — jotted notes and the write-up built from
+    /// them — and the difference matters more than any badge could say: a
+    /// muted line is the model's reading of the meeting, an ink line is the
+    /// user's own words, and editing a muted line makes it ink. Measured on
+    /// the grounds it is drawn on: 5.3:1 on `background` in light appearance,
+    /// 7.4:1 in dark — AA either way, and visibly a step below `.primary`.
+    static let inkAI = dynamic(light: 0x676B66, dark: 0x9EA39D)
+
     // MARK: - Type scale
 
     /// 20pt document titles (a saved meeting's title).
@@ -148,6 +160,28 @@ enum Theme {
     /// 11pt metadata.
     static let meta = Font.system(size: 11)
     static let metaMedium = Font.system(size: 11, weight: .medium)
+
+    // MARK: - Document type
+    //
+    // The meeting page is a document, not a form. 13pt is Apple's *interface*
+    // size; every real document app runs 15–17pt on a 480–700pt measure (Bear
+    // 15pt/653pt, Notion 16px/~700px, Granola 16px/~608px). Seal's notes take
+    // 15pt on a 640pt measure — roughly 70 characters a line — with the line
+    // height opened up to about 1.5.
+
+    /// The meeting's title at the top of its page.
+    static let docTitle = Font.system(size: 24, weight: .semibold)
+    /// Notes, jotted notes, the follow-up draft.
+    static let docBody = Font.system(size: 15)
+    static let docBodyMedium = Font.system(size: 15, weight: .medium)
+    /// "## Summary"-level headings inside the notes.
+    static let docHeading = Font.system(size: 15, weight: .semibold)
+    /// Checklist rows and other document furniture a step below the prose.
+    static let docSmall = Font.system(size: 14)
+    /// The widest a line of notes is allowed to run.
+    static let docMeasure: CGFloat = 640
+    /// Extra leading between lines of document text.
+    static let docLineSpacing: CGFloat = 5
 
     // MARK: - Helpers
 

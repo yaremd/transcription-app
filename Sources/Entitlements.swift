@@ -45,7 +45,7 @@ enum ProFeature: String, CaseIterable, Identifiable {
     var blurb: String {
         switch self {
         case .speakerSplit: return "Who said what — every voice named"
-        case .askMeeting: return "Answers from the transcript, on demand"
+        case .askMeeting: return "Answers from the transcript — during the meeting or after"
         case .reshapeSummary: return "Regenerate notes in a different shape"
         case .followUpDraft: return "A ready-to-send follow-up, drafted locally"
         case .actionTracking: return "Action items tracked across meetings"

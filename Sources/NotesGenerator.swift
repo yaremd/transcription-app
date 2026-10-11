@@ -18,19 +18,23 @@ final class NotesGenerator {
         var errorDescription: String? { message }
     }
 
+    /// With `onPartial`, the notes stream in as they are written (on device;
+    /// the cloud backend answers in one piece) — the callback gets the whole
+    /// text so far each time it grows.
     func generate(transcript: String,
                   userNotes: String,
                   template: NotesTemplate,
                   languageHint: String,
-                  backend: NotesBackend) async throws -> String {
+                  backend: NotesBackend,
+                  onPartial: (@Sendable (String) -> Void)? = nil) async throws -> String {
         let language = Self.writeLanguage(hint: languageHint, transcript: transcript)
         let prompt = buildPrompt(transcript: transcript, userNotes: userNotes,
                                  template: template, language: language)
-        let result = try await dispatch(system: prompt.system, user: prompt.user, backend: backend)
+        let result = try await dispatch(system: prompt.system, user: prompt.user, backend: backend, onPartial: onPartial)
         // The small on-device model can occasionally leak a run of another
         // language's script into long notes; if that happens, regenerate once.
         if hasForeignScriptLeak(result, language: language) {
-            return try await dispatch(system: prompt.system, user: prompt.user, backend: backend)
+            return try await dispatch(system: prompt.system, user: prompt.user, backend: backend, onPartial: onPartial)
         }
         return result
     }
@@ -135,17 +139,46 @@ final class NotesGenerator {
         return result
     }
 
-    /// Answers a question about the meeting using only the transcript.
-    func answer(question: String, transcript: String, languageHint: String, backend: NotesBackend) async throws -> String {
-        let language = Self.writeLanguage(hint: languageHint, transcript: transcript)
-        let system = """
-        You answer questions about a meeting using ONLY the transcript provided. \
-        Lines labeled "You" are the app's user; "Others" and voice labels ("S1", "S2", …) are the other participants — each S-label is one distinct person. \
-        If the transcript doesn't contain the answer, say you don't see it in this meeting. \
+    /// Answers a question about the meeting, streaming the reply as it is
+    /// written. On device the conversation remembers the transcript it has
+    /// already read (see `MLXEngine.ask`), so asking during a meeting only
+    /// pays for what was said since the last question; the cloud backend is
+    /// sent the whole transcript each time and answers in one piece.
+    func ask(question: String,
+             meetingID: UUID,
+             lines: [AskTranscriptFeed.Line],
+             transcriptText: String,
+             participants: String?,
+             languageHint: String,
+             backend: NotesBackend) async throws -> AsyncThrowingStream<String, Error> {
+        let language = Self.writeLanguage(hint: languageHint, transcript: transcriptText)
+        var system = """
+        You answer questions about a meeting using ONLY its transcript, which you receive in pieces as the meeting goes on — later messages add what was said since. \
+        Each line reads "[time] Speaker: words". Lines labeled "You" were spoken by the person asking you — address them as "you", never as "the user". \
+        "Others" and voice labels ("S1", "S2", …) are the other participants — each voice label is one distinct person. \
+        If the transcript doesn't contain the answer, say you don't see it in the meeting so far. \
         Be concise and factual. \(languageRule(language))
         """
-        let user = "TRANSCRIPT:\n\(transcript)\n\nQUESTION: \(question)"
-        return try await dispatch(system: system, user: user, backend: backend)
+        if let participants, !participants.isEmpty {
+            system += "\n\(participants)"
+        }
+        switch backend {
+        case let .localEmbedded(model):
+            do {
+                return try await MLXEngine.shared.ask(meetingID: meetingID, instructions: system,
+                                                      lines: lines, question: question, modelID: model)
+            } catch let error as MLXEngine.EngineError {
+                throw GenerationError(message: error.message)
+            }
+        case let .cloudOpenAICompatible(baseURL, apiKey, model):
+            let user = "TRANSCRIPT:\n\(transcriptText)\n\nQUESTION: \(question)"
+            let reply = try await sendOpenAICompatible(baseURL: baseURL, apiKey: apiKey, model: model,
+                                                       system: system, user: user)
+            return AsyncThrowingStream { continuation in
+                continuation.yield(reply)
+                continuation.finish()
+            }
+        }
     }
 
     /// Rewrites existing notes per an instruction, staying faithful to the transcript.
@@ -209,10 +242,11 @@ final class NotesGenerator {
         return s.trimmingCharacters(in: .whitespaces)
     }
 
-    private func dispatch(system: String, user: String, backend: NotesBackend) async throws -> String {
+    private func dispatch(system: String, user: String, backend: NotesBackend,
+                          onPartial: (@Sendable (String) -> Void)? = nil) async throws -> String {
         switch backend {
         case let .localEmbedded(model):
-            return try await sendEmbedded(model: model, system: system, user: user)
+            return try await sendEmbedded(model: model, system: system, user: user, onPartial: onPartial)
         case let .cloudOpenAICompatible(baseURL, apiKey, model):
             return try await sendOpenAICompatible(baseURL: baseURL, apiKey: apiKey, model: model, system: system, user: user)
         }
@@ -277,13 +311,17 @@ final class NotesGenerator {
 
     // MARK: - Prompt
 
-    private func buildPrompt(transcript: String, userNotes: String,
-                             template: NotesTemplate, language: String) -> (system: String, user: String) {
+    /// The notes prompt. Internal so a test can hold it to its wording: the
+    /// transcript labels its speaker "You", and a model told that "You" is
+    /// "the app's user" writes "The user discussed…" through every section.
+    func buildPrompt(transcript: String, userNotes: String,
+                     template: NotesTemplate, language: String) -> (system: String, user: String) {
         let sectionList = template.sections.map { "## \($0)" }.joined(separator: "\n")
 
         var system = """
         You are a meeting-notes assistant. You will receive a transcript of a spoken conversation. \
-        Lines labeled "You" are the app's user; lines labeled "Others" are the other participants. Far-side lines may instead carry a voice label — "S1", "S2", … — each of which is one distinct participant; the PARTICIPANTS header, when present, gives their real names.
+        Lines labeled "You" were spoken by the person these notes are for; lines labeled "Others" are the other participants. Far-side lines may instead carry a voice label — "S1", "S2", … — each of which is one distinct participant; the PARTICIPANTS header, when present, gives their real names. \
+        Write these as that person's own meeting notes: call people by the names the PARTICIPANTS header gives. Where "You" has no name, write impersonally ("Discussed…", "Agreed to…") or in the first person — never as "the user" or "the speaker".
         """
         if !template.guidance.isEmpty {
             system += "\nContext: \(template.guidance)"
@@ -323,9 +361,11 @@ final class NotesGenerator {
 
     /// Runs the prompt on the on-device MLX model. This is the shipping default —
     /// fully offline, nothing leaves the Mac. The model auto-downloads on first use.
-    private func sendEmbedded(model: String, system: String, user: String) async throws -> String {
+    private func sendEmbedded(model: String, system: String, user: String,
+                              onPartial: (@Sendable (String) -> Void)? = nil) async throws -> String {
         do {
-            return try await MLXEngine.shared.generate(system: system, user: user, maxTokens: 2048, modelID: model)
+            return try await MLXEngine.shared.generate(system: system, user: user, maxTokens: 2048,
+                                                       modelID: model, onPartial: onPartial)
         } catch let error as MLXEngine.EngineError {
             throw GenerationError(message: error.message)
         }

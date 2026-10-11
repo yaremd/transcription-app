@@ -34,9 +34,19 @@ Every token lives in `Sources/Theme.swift`. Use tokens, never raw colors or ad-h
   until `.toolbarBackground(Theme.background, for: .windowToolbar)` pins it. These five
   Forms and the sidebar `List` are the only `List`/`Form`/`Table` in the app.
 
+- `inkAI` #676B66 / #9EA39D — text the model wrote, as opposed to text the user typed. The
+  meeting page shows both and the difference is the whole point: muted is the model's reading of
+  the meeting, ink is the user's own words, and editing a muted line makes it ink (no badge, no
+  icon — see `NotesProvenance`). 5.3:1 on `background` in light, 7.4:1 in dark.
+
 ## Type (SF Pro system font only)
 `pageTitle` 20 semibold · `title` 15 semibold · `body` 13 · `bodyMedium` 13 medium · `sub` 12 · `meta` 11 · `metaMedium` 11 medium.
 `SectionLabel`: 11 semibold, uppercase, tracking 0.7, secondary. Speaker labels: 10 semibold uppercase, tracking 0.6, tinted.
+
+Document type, for the meeting page only: `docTitle` 24 semibold · `docBody` 15 (+`docLineSpacing` 5,
+≈1.5 line height) · `docBodyMedium` · `docHeading` 15 semibold · `docSmall` 14 (checklists), on a
+`docMeasure` of 640pt (~70 characters). 13pt is Apple's *interface* size and reads as a form; every
+real document app runs 15–17pt on a 480–700pt measure. Side panels (transcript, Ask) stay at 13.
 
 ## Components
 - Buttons: `LinearButtonStyle` — `.linearPrimary` / `.linearQuiet` / `.linearDestructive` (+`Compact` variants). 6pt radius, hairline border, hover wash, 0.97 press dip.
@@ -47,10 +57,23 @@ Every token lives in `Sources/Theme.swift`. Use tokens, never raw colors or ad-h
 - Icon menus: `Menu { … }` + `.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(…)`.
 - Progress: `ProgressLabel(text:)` (small spinner + caption); download states show real percentages.
 
+## The meeting page
+One page for the live recording and every saved meeting, so nothing is learned twice
+(`MeetingPageLayout`): a document column (title, the user's jotted notes, the model's write-up,
+action items, a follow-up once drafted) with a companion column beside it — Transcript or Ask —
+that the page reflows next to, never an overlay that hides what it refers to. The companion is
+360pt, narrowing to 280 so the document keeps ~350 at the window's minimum; its visibility and tab
+are one shared preference (`CompanionPrefs`). Toolbar: Transcript (⇧⌘T) and Ask (⌘J) as separate
+items (grouped buttons fuse into one capsule), then the one `Seal AI` menu — everything the model
+can do for the page lives there, nowhere else — then Export. Transcript-only actions (identify
+speakers, improve) live on the transcript's own ⋯ menu. Live-only chrome is the floating control
+bar, docked under the document column; it goes compact (no waveform, no star) under 480pt and
+never wraps. Title and notes edit in place on click and save on focus loss — no Edit/Save pair.
+
 ## Rules
 - Radii: 4 chips · 6 buttons/fields · 8 panels · 10 chat bubbles · capsule for the control bar and pills.
 - Spacing rhythm: 6/8/10/12/14/16/24.
 - Motion: `.spring(response: 0.3, dampingFraction: 1.0)` for panel/section collapse; `.easeOut(0.12–0.2)` for hover/press; nothing decorative; honor Reduce Motion (`PulsingDot` holds steady).
 - Copy: sentence case everywhere including menu items; "…" on actions that ask or confirm; no em dashes in UI copy.
-- Pro gating: `.proGated(.feature)` + `ProBadge()`; inside menus, gate at the action and let the section title carry "— Seal Pro".
+- Pro gating: `.proGated(.feature)` + `ProBadge()`; inside menus, gate at the action and let the section title carry "— Seal Pro". A whole panel that *is* the feature (Ask) explains itself when locked instead of showing dead controls.
 - Status: transient conditions are notices that auto-dismiss; only hard errors persist. Fully-local is the default and is not announced; the amber badge appears only when cloud notes are on.

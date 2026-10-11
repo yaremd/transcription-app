@@ -60,6 +60,10 @@ final class AppSettings: ObservableObject {
     /// invited (YAR-36, Pro). Off by default — reading the calendar is opt-in
     /// like every integration, and macOS asks its own permission on top.
     @Published var calendarContextEnabled: Bool { didSet { d.set(calendarContextEnabled, forKey: "calendarContextEnabled") } }
+    /// The user's own name, for the notes and Ask: "Dmytro will send the
+    /// deck" reads as notes; "the user will send the deck" reads as a log.
+    /// Optional, and only ever read on this Mac.
+    @Published var userName: String { didSet { d.set(userName, forKey: "userName") } }
 
     private let d = UserDefaults.standard
     private static let apiKeyAccount = "cloudAPIKey"
@@ -78,6 +82,7 @@ final class AppSettings: ObservableObject {
         autoStartOnMeeting = d.bool(forKey: "autoStartOnMeeting")
         autoStopAfterMeeting = d.object(forKey: "autoStopAfterMeeting") == nil ? true : d.bool(forKey: "autoStopAfterMeeting")
         calendarContextEnabled = d.bool(forKey: "calendarContextEnabled")
+        userName = d.string(forKey: "userName") ?? ""
 
         // The API key lives in the macOS Keychain, not UserDefaults. Migrate any
         // legacy plaintext key an earlier build may have stored in UserDefaults.

@@ -13,6 +13,9 @@ struct RecordingControlBar: View {
     let transcriptVisible: Bool
     let toggleTranscript: () -> Void
     let requestDiscard: () -> Void
+    /// A narrow column: the waveform and the star step aside so the timer,
+    /// Pause and Stop never wrap.
+    var compact = false
 
     @State private var showSettings = false
 
@@ -29,19 +32,21 @@ struct RecordingControlBar: View {
                 if let start = monitor.recordingStart {
                     RecordingTimerLabel(start: start)
                 }
-                LiveWaveform(levels: monitor.levels,
-                             active: monitor.isRunning && !monitor.isPaused)
-                    .frame(width: 88, height: 16)
+                if !compact {
+                    LiveWaveform(levels: monitor.levels,
+                                 active: monitor.isRunning && !monitor.isPaused)
+                        .frame(width: 88, height: 16)
 
-                Button {
-                    monitor.addHighlight()
-                } label: {
-                    Image(systemName: "star")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                    Button {
+                        monitor.addHighlight()
+                    } label: {
+                        Image(systemName: "star")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Star this moment — the notes will cover it (⇧⌘H)")
                 }
-                .buttonStyle(.plain)
-                .help("Star this moment — the notes will cover it (⇧⌘H)")
 
                 Button(monitor.isPaused ? "Resume" : "Pause") {
                     monitor.pauseResume()
@@ -96,6 +101,9 @@ struct RecordingControlBar: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
+        // The bar keeps its own width: squeezed, it once folded the timer
+        // onto three lines and Pause/Stop into slivers.
+        .fixedSize(horizontal: true, vertical: false)
         .background(Capsule().fill(Theme.surface))
         .overlay(Capsule().strokeBorder(Theme.border, lineWidth: 1))
         .shadow(color: .black.opacity(0.10), radius: 8, y: 2)

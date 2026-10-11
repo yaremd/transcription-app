@@ -79,7 +79,10 @@ struct LocalScribeApp: App {
                 // creates them — an @StateObject that body never reads may never
                 // be realized, and then no pill / no meeting nudge would appear.
                 .onAppear {
-                    guard !Self.isRunningTests else { return }
+                    // A demo run must never listen for calls: with auto-start
+                    // on, a screenshot instance once recorded 20 s of whatever
+                    // the Mac was playing into its scratch container.
+                    guard !Self.isRunningTests, !DemoMode.isActive else { return }
                     pill.ensureActive()
                     detector.activate()
                 }

@@ -1,10 +1,11 @@
 import SwiftUI
 
-/// A saved meeting, arranged the way it's actually used: notes first (with
-/// Generate), the transcript as a short preview with Copy right under it,
-/// then action items and the follow-up draft. Every section collapses; ones
-/// with content start open, empty ones closed. "Ask this meeting" is a chat
-/// docked to the bottom of the page — ephemeral, cleared on leaving.
+/// A saved meeting, on the same page it was recorded on: the document — a
+/// title, the notes you jotted, the write-up Seal built from them and the
+/// transcript (the model's lines in muted ink, yours in ink), action items,
+/// a follow-up when one has been drafted — and the companion beside it, the
+/// transcript or Ask. Everything the model can do for the page lives in one
+/// menu; everything about the transcript lives on the transcript.
 struct MeetingDetailView: View {
     let meeting: Meeting
     @EnvironmentObject private var store: MeetingStore
@@ -16,27 +17,44 @@ struct MeetingDetailView: View {
     /// The on-device notes model's download status — so the very first notes
     /// generation shows real download progress instead of an opaque spinner.
     @ObservedObject private var embeddedStatus = EmbeddedModelStatus.shared
-    private static let sectionSpring = Animation.spring(response: 0.3, dampingFraction: 1.0)
+    @ObservedObject private var customTemplates = CustomTemplateStore.shared
+    private static let spring = MeetingPageLayout<EmptyView, EmptyView>.spring
+
+    /// The companion's visibility and tab — preferences shared with the live
+    /// page, so the choice survives Stop, new recordings, and relaunches.
+    @AppStorage(CompanionPrefs.visibleKey) private var companionVisible = true
+    @AppStorage(CompanionPrefs.tabKey) private var companionTabRaw = CompanionTab.transcript.rawValue
 
     @State private var title = ""
-    @State private var notesText = ""
-    @State private var editingNotes = false
+    @State private var editingTitle = false
+    @FocusState private var titleFocused: Bool
     @State private var tags: [String] = []
     @State private var newTag = ""
-    // Long-running model jobs are keyed by the meeting they were started for.
-    // This view's @State storage survives navigating between meetings, and the
-    // plain Bools these used to be leaked one meeting's "Generating…" spinner
-    // (and, worse, its finished text) onto whichever meeting was open when the
-    // job ended. A job shows progress only on its own meeting; the computed
-    // accessors below keep every render site reading naturally.
-    @State private var reshapingID: UUID?
-    @State private var generatingID: UUID?
-    @State private var draftingFollowUpID: UUID?
-    @State private var extractingActionsID: UUID?
-    @State private var generateError: String?
+
+    // Notes: the write-up, edited in place.
+    @State private var notesText = ""
+    @State private var editingNotes = false
+    @FocusState private var notesFocused: Bool
     @State private var templateID = NotesTemplate.general.id
-    @State private var followUp = ""
-    @State private var followUpError: String?
+    // Long-running model jobs are keyed by the meeting they were started for.
+    // This view's @State storage survives navigating between meetings, and
+    // plain Bools leaked one meeting's "Generating…" spinner (and, worse, its
+    // finished text) onto whichever meeting was open when the job ended.
+    @State private var generatingID: UUID?
+    @State private var streamingNotes = ""
+    @State private var reshapingID: UUID?
+    @State private var generateError: String?
+
+    // The user's own notes, jotted during the call or added here. A local
+    // editable copy, written back debounced so typing doesn't hit disk per key.
+    @State private var jots: [NoteBlock] = []
+    @State private var jotsFor: UUID?
+    @State private var jotSaveTask: Task<Void, Never>?
+    /// Where a note added here attaches: the transcript line last tapped.
+    @State private var anchor: Date?
+
+    // Action items.
+    @State private var extractingActionsID: UUID?
     @State private var actionsError: String?
     @State private var newAction = ""
     /// Action items already checked when this meeting was opened — hidden by
@@ -45,148 +63,386 @@ struct MeetingDetailView: View {
     @State private var completedAtOpen: Set<UUID> = []
     @State private var showCompletedActions = false
 
+    // Follow-up.
+    @State private var draftingFollowUpID: UUID?
+    @State private var followUp = ""
+    @State private var followUpError: String?
+
+    // Transcript jobs.
+    @State private var polishingID: UUID?
+    @State private var polishError: String?
+    @State private var identifyError: String?
+    /// Speaker names the model proposed for this meeting, awaiting the user's
+    /// confirmation. nil = nothing (yet) to suggest.
+    @State private var suggestedNames: [String: String]?
+    @State private var renamingVoice: String?
+    @State private var renameDraft = ""
+
+    // Companion.
+    @State private var jumpDate: Date?
+    @State private var jumpPulse = 0
+    @State private var askFocusPulse = 0
+
+    @State private var showReportProblem = false
+    @State private var showTemplateEditor = false
+
     private var generating: Bool { generatingID == meeting.id }
     private var reshaping: Bool { reshapingID == meeting.id }
     private var draftingFollowUp: Bool { draftingFollowUpID == meeting.id }
     private var extractingActions: Bool { extractingActionsID == meeting.id }
     private var polishing: Bool { polishingID == meeting.id }
 
-    // Section collapse state — re-derived per meeting ("content decides").
-    @State private var notesOpen = true
-    @State private var transcriptOpen = true
-    @State private var actionsOpen = true
-    @State private var followUpOpen = false
-    @State private var showFullTranscript = false
-    @State private var copiedTranscript = false
-    @State private var polishingID: UUID?
-    @State private var polishError: String?
-    @State private var identifyError: String?
-
-    // The notes<->transcript workspace opens as a full-height sheet (the inline
-    // box was too cramped to scroll); `workspaceJump` carries the moment to
-    // scroll to when it's opened by clicking a note.
-    @State private var showWorkspace = false
-    @State private var showReportProblem = false
-    @State private var showTemplateEditor = false
-    @State private var workspaceJump: Date?
-    @ObservedObject private var customTemplates = CustomTemplateStore.shared
-
-    // Ephemeral chat — a floating widget, closed until opened.
-    @State private var chat: [ChatMessage] = []
-    @State private var chatInput = ""
-    @State private var chatBusy = false
-    @State private var chatOpen = false
-    @FocusState private var chatFocused: Bool
-
-    /// Speaker names the model proposed for this meeting, awaiting the user's
-    /// confirmation. nil = nothing (yet) to suggest.
-    @State private var suggestedNames: [String: String]?
+    private var companionTab: Binding<CompanionTab> {
+        Binding(get: { CompanionTab(rawValue: companionTabRaw) ?? .transcript },
+                set: { companionTabRaw = $0.rawValue })
+    }
 
     var body: some View {
-        HStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    header
-                    tagsSection
-                    ThemeDivider()
-                    notesSection
-                    ThemeDivider()
-                    transcriptSection
-                    ThemeDivider()
-                    actionItemsSection
-                    ThemeDivider()
-                    followUpSection
-                    Color.clear.frame(height: 56)   // clearance for the closed Ask pill
-                }
-                .padding(24)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            // "Ask this meeting" docks as its own right-hand column so it never
-            // covers the notes it answers about — the page reflows beside it.
-            if chatOpen && !meeting.lines.isEmpty {
-                chatDock
-                    .frame(width: 360)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-            }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            if !chatOpen && !meeting.lines.isEmpty {
-                chatLauncher
-                    .padding(20)
-                    .transition(.scale(scale: 0.9, anchor: .bottomTrailing).combined(with: .opacity))
+        MeetingPageLayout(companionVisible: companionVisible) {
+            DocumentColumn { document }
+        } companion: {
+            CompanionPanel(tab: companionTab,
+                           close: { withAnimation(Self.spring) { companionVisible = false } }) {
+                transcriptPanel
+            } ask: {
+                AskPanel(context: askContext, focusPulse: askFocusPulse)
             }
         }
         .navigationTitle(meeting.title)
         .toolbar {
-            ToolbarItem {
-                Menu {
-                    Button("Copy as Markdown") { MeetingExporter.copyMarkdown(meeting) }
-                    Button("Copy transcript") { copyToPasteboard(meeting.transcriptText) }
-                    Divider()
-                    Button("Export as Markdown…") { MeetingExporter.exportMarkdown(meeting) }
-                    Button("Export as PDF…") { MeetingExporter.exportPDF(meeting) }
-                    // The Pro formats (YAR-104). Menu items can't host the
-                    // .proGated overlay, so the gate lives in gatedExport and
-                    // the section title carries the honesty — the Reshape
-                    // menu's pattern.
-                    Section(entitlements.allows(.advancedExport) ? "More formats" : "More formats — Seal Pro") {
-                        Button("Export as Word (.docx)…") { gatedExport { AdvancedExporter.exportDocx(meeting) } }
-                        Button("Export subtitles (.srt)…") { gatedExport { AdvancedExporter.exportSRT(meeting) } }
-                        Button("Export subtitles (.vtt)…") { gatedExport { AdvancedExporter.exportVTT(meeting) } }
-                    }
-                    Divider()
-                    Button("Report a problem…") { showReportProblem = true }
-                } label: {
-                    Label("Export", systemImage: "square.and.arrow.up")
-                }
-            }
+            CompanionToolbarItems(visible: companionVisible, tab: companionTab.wrappedValue,
+                                  toggle: toggleCompanion)
+            ToolbarItem { aiMenu }
+            ToolbarItem { exportMenu }
         }
-        .onChange(of: meeting.id, initial: true) { _, _ in
-            title = meeting.title
-            notesText = meeting.notes
-            tags = meeting.tags ?? []
-            editingNotes = false
-            followUp = ""
-            followUpError = nil
-            newAction = ""
-            actionsError = nil
-            generateError = nil
-            polishError = nil
-            templateID = meeting.templateID ?? NotesTemplate.general.id
-            // Content decides the initial state.
-            notesOpen = true
-            transcriptOpen = true
-            actionsOpen = !(meeting.actionItems ?? []).isEmpty
-            completedAtOpen = Set((meeting.actionItems ?? []).filter(\.done).map(\.id))
-            showCompletedActions = false
-            followUpOpen = false
-            showFullTranscript = false
-            copiedTranscript = false
-            chat = []
-            chatInput = ""
-            chatBusy = false
-            chatOpen = false
-            suggestedNames = nil
-            maybeSuggestTitle()
-            maybeSuggestSpeakers()
-            maybeGenerateNotes()
+        .onChange(of: meeting.id, initial: true) { _, _ in load() }
+        .onChange(of: jots) { _, _ in scheduleJotSave() }
+        .onChange(of: notesFocused) { _, focused in
+            if !focused && editingNotes { finishEditingNotes() }
         }
-        .sheet(isPresented: $showWorkspace) { workspaceSheet }
         .sheet(isPresented: $showReportProblem) {
             ReportProblemView(meeting: meeting).environmentObject(store)
         }
         .sheet(isPresented: $showTemplateEditor) { TemplateEditorSheet() }
+        // Naming an identified voice: the name lands in speakerNames keyed by
+        // the voice ("S2"), so every line of that voice — and the notes'
+        // participants header — picks it up at once.
+        .alert("Who is this?",
+               isPresented: Binding(get: { renamingVoice != nil },
+                                    set: { if !$0 { renamingVoice = nil } })) {
+            TextField("Name", text: $renameDraft)
+            Button("Save") {
+                if let voice = renamingVoice,
+                   var updated = store.meetings.first(where: { $0.id == meeting.id }) {
+                    var names = updated.speakerNames ?? [:]
+                    let trimmed = renameDraft.trimmingCharacters(in: .whitespaces)
+                    if trimmed.isEmpty { names.removeValue(forKey: voice) } else { names[voice] = trimmed }
+                    updated.speakerNames = names
+                    store.save(updated)
+                }
+                renamingVoice = nil
+            }
+            Button("Cancel", role: .cancel) { renamingVoice = nil }
+        } message: {
+            Text("Every line this voice speaks will show the name, and the notes will use it.")
+        }
     }
 
-    /// Menu items can't host the .proGated overlay, so the Pro exports and
-    /// custom templates gate at the action, opening the upgrade sheet instead
-    /// of running (YAR-103/104).
-    private func gatedExport(_ export: () -> Void) {
-        guard entitlements.allows(.advancedExport) else {
-            return entitlements.requestUpgrade(for: .advancedExport)
+    /// Fresh page state for the meeting that just came on screen.
+    private func load() {
+        title = meeting.title
+        editingTitle = false
+        notesText = meeting.notes
+        editingNotes = false
+        tags = meeting.tags ?? []
+        newTag = ""
+        templateID = meeting.templateID ?? NotesTemplate.general.id
+        generateError = nil
+        jots = meeting.noteBlocks ?? []
+        jotsFor = meeting.id
+        anchor = nil
+        newAction = ""
+        actionsError = nil
+        completedAtOpen = Set((meeting.actionItems ?? []).filter(\.done).map(\.id))
+        showCompletedActions = false
+        followUp = ""
+        followUpError = nil
+        polishError = nil
+        identifyError = nil
+        suggestedNames = nil
+        maybeSuggestTitle()
+        maybeSuggestSpeakers()
+        maybeGenerateNotes()
+    }
+
+    // MARK: - Document
+
+    private var document: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+            if !jots.isEmpty {
+                jotList.padding(.top, 24)
+            }
+            notesBlock
+                .padding(.top, jots.isEmpty ? 24 : 20)
+            if jots.isEmpty {
+                jotList.padding(.top, 18)
+            }
+            actionItemsSection
+            if !followUp.isEmpty || draftingFollowUp || followUpError != nil {
+                followUpSection
+            }
         }
-        export()
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Plain text until clicked: a live text field here takes first
+            // focus whenever the window becomes key and sits there with the
+            // whole title selected.
+            if editingTitle {
+                TextField("Untitled meeting", text: $title)
+                    .font(Theme.docTitle)
+                    .textFieldStyle(.plain)
+                    .focused($titleFocused)
+                    .onSubmit(finishEditingTitle)
+                    .onExitCommand {
+                        title = meeting.title
+                        editingTitle = false
+                    }
+                    .onChange(of: titleFocused) { _, focused in
+                        if !focused && editingTitle { finishEditingTitle() }
+                    }
+            } else {
+                Text(title.isEmpty ? "Untitled meeting" : title)
+                    .font(Theme.docTitle)
+                    .foregroundStyle(title.isEmpty ? .tertiary : .primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        editingTitle = true
+                        Task { @MainActor in titleFocused = true }
+                    }
+                    .help("Click to rename")
+            }
+            Text(headerMeta)
+                .font(Theme.sub)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+            tagsRow
+        }
+    }
+
+    /// One quiet meta line: date · duration · language (when it was fixed,
+    /// not auto-detected — auto would just be noise).
+    private var headerMeta: String {
+        var parts = [meeting.date.formatted(date: .abbreviated, time: .shortened), durationText]
+        if let lang = TranscriptLanguage(rawValue: meeting.language), lang != .auto {
+            parts.append(lang.label)
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private var jotList: some View {
+        JotList(blocks: $jots,
+                onJump: jumpToMoment,
+                onAdd: addJot,
+                onDelete: { id in jots.removeAll { $0.id == id } },
+                placeholder: anchor == nil ? "Add a note…" : "Add a note at \(Self.time(anchor!))…")
+    }
+
+    // MARK: - Notes
+
+    @ViewBuilder
+    private var notesBlock: some View {
+        if generating {
+            if !streamingNotes.isEmpty {
+                NotesDocument(notes: streamingNotes, generated: streamingNotes)
+                ProgressLabel(text: "Writing… (\(engineLabel))")
+                    .padding(.top, 10)
+            } else if case .downloading(let p) = embeddedStatus.phase {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Downloading the on-device notes model… \(Int(p * 100))%")
+                        .font(Theme.sub).foregroundStyle(.secondary)
+                    ProgressView(value: p).frame(maxWidth: 320)
+                }
+            } else {
+                ProgressLabel(text: "Writing the notes… (\(engineLabel))")
+            }
+        } else if editingNotes {
+            VStack(alignment: .trailing, spacing: 6) {
+                TextEditor(text: $notesText)
+                    .font(Theme.docBody)
+                    .lineSpacing(Theme.docLineSpacing)
+                    .scrollContentBackground(.hidden)
+                    .scrollDisabled(true)
+                    .focused($notesFocused)
+                    .frame(minHeight: 160)
+                    .padding(.horizontal, -5)   // TextEditor's own inset; keep the text on the page's edge
+                    .onExitCommand { finishEditingNotes() }
+                Button("Done", action: finishEditingNotes)
+                    .buttonStyle(.linearPrimaryCompact)
+                    .keyboardShortcut("s", modifiers: .command)
+            }
+        } else if meeting.hasNotes {
+            NotesDocument(notes: meeting.notes,
+                          generated: meeting.generatedNotes,
+                          fallback: meeting.lines.isEmpty ? .human : .ai)
+                .contentShape(Rectangle())
+                .onTapGesture { beginEditingNotes() }
+                .help("Click to edit")
+            if reshaping {
+                ProgressLabel(text: "Reshaping… (\(engineLabel))").padding(.top, 10)
+            }
+            if let generateError {
+                Text(generateError).font(Theme.sub).foregroundStyle(Theme.red).padding(.top, 8)
+            }
+        } else if !meeting.lines.isEmpty {
+            // A transcript but no write-up: usually a failed first attempt —
+            // auto-generation ran when the page opened.
+            VStack(alignment: .leading, spacing: 10) {
+                if let generateError {
+                    Text(generateError).font(Theme.sub).foregroundStyle(Theme.red)
+                } else {
+                    Text("No notes yet.")
+                        .font(Theme.docBody)
+                        .foregroundStyle(.tertiary)
+                }
+                Button("Write the notes", action: generateNotes)
+                    .buttonStyle(.linearPrimaryCompact)
+            }
+        }
+    }
+
+    private func beginEditingNotes() {
+        guard !generating, !reshaping else { return }
+        notesText = meeting.notes
+        editingNotes = true
+        notesFocused = true
+    }
+
+    /// Leaves edit mode and keeps what was typed. Lines that still match the
+    /// model's text stay muted; anything changed is now the user's, in ink.
+    private func finishEditingNotes() {
+        guard editingNotes else { return }
+        editingNotes = false
+        notesFocused = false
+        guard notesText != meeting.notes else { return }
+        var updated = meeting
+        updated.notes = notesText
+        store.save(updated)
+    }
+
+    private func finishEditingTitle() {
+        guard editingTitle else { return }
+        editingTitle = false
+        titleFocused = false
+        saveTitle()
+    }
+
+    private func saveTitle() {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        var updated = meeting
+        updated.title = trimmed.isEmpty ? Meeting.defaultTitle : trimmed
+        title = updated.title
+        store.save(updated)
+    }
+
+    /// After Stop — and on any later open — fills the notes in automatically
+    /// when the meeting has none yet, so they're ready without a button. Only
+    /// generates when empty (a meeting whose notes were cleared stays clear
+    /// until asked) and stays silent on failure, leaving the button as the retry.
+    private func maybeGenerateNotes() {
+        guard !meeting.hasNotes, !meeting.lines.isEmpty, generatingID == nil else { return }
+        generateNotes()
+    }
+
+    /// Builds (or rebuilds) the meeting's notes from its stored transcript and
+    /// the notes the user jotted during it — streamed onto the page as they
+    /// are written.
+    private func generateNotes() {
+        guard !meeting.lines.isEmpty, generatingID == nil else { return }
+        let id = meeting.id
+        generatingID = id
+        streamingNotes = ""
+        generateError = nil
+        editingNotes = false
+        let b = backend
+        let hint = languageHint
+        let transcript = meeting.aiTranscript(userName: settings.userName)
+        let jotted = meeting.notesForAI
+        let chosenTemplateID = templateID
+        let template = NotesTemplate.byID(chosenTemplateID)
+        Task {
+            do {
+                let result = try await generator.generate(
+                    transcript: transcript, userNotes: jotted, template: template,
+                    languageHint: hint, backend: b,
+                    onPartial: { text in
+                        Task { @MainActor in
+                            if generatingID == id && meeting.id == id { streamingNotes = text }
+                        }
+                    })
+                await MainActor.run {
+                    generatingID = nil
+                    streamingNotes = ""
+                    // Rebase on the freshest stored copy — the user may have
+                    // retitled or tagged the meeting while the model ran, and
+                    // saving the captured snapshot would erase that.
+                    if var updated = store.meetings.first(where: { $0.id == id }) {
+                        updated.notes = result
+                        updated.generatedNotes = result
+                        updated.templateID = chosenTemplateID
+                        store.save(updated)
+                    }
+                    if meeting.id == id { notesText = result }
+                }
+            } catch {
+                await MainActor.run {
+                    generatingID = nil
+                    streamingNotes = ""
+                    if meeting.id == id { generateError = error.localizedDescription }
+                }
+            }
+        }
+    }
+
+    private func gatedReshape(_ instruction: String) {
+        guard entitlements.allows(.reshapeSummary) else {
+            return entitlements.requestUpgrade(for: .reshapeSummary)
+        }
+        reshape(instruction)
+    }
+
+    private func reshape(_ instruction: String) {
+        guard meeting.hasNotes, reshapingID == nil, generatingID == nil else { return }
+        let id = meeting.id
+        reshapingID = id
+        editingNotes = false
+        let b = backend
+        let hint = languageHint
+        let transcript = meeting.aiTranscript(userName: settings.userName)
+        let current = meeting.notes
+        Task {
+            do {
+                let result = try await generator.reshape(currentNotes: current, transcript: transcript,
+                                                         instruction: instruction, languageHint: hint, backend: b)
+                await MainActor.run {
+                    reshapingID = nil
+                    if var updated = store.meetings.first(where: { $0.id == id }) {
+                        updated.notes = result
+                        updated.generatedNotes = result
+                        store.save(updated)
+                    }
+                    if meeting.id == id { notesText = result }
+                }
+            } catch {
+                await MainActor.run {
+                    reshapingID = nil
+                    if meeting.id == id { generateError = error.localizedDescription }
+                }
+            }
+        }
     }
 
     private func gatedTemplate(_ template: NotesTemplate) {
@@ -204,630 +460,165 @@ struct MeetingDetailView: View {
         showTemplateEditor = true
     }
 
-    /// Asks the local model who was actually talking (from self-intros and
-    /// address forms) the first time a meeting is opened. Proposes, never
-    /// applies: the banner in the transcript section waits for the user.
-    /// Silent on failure; declining is remembered (speakerNames == [:]).
-    private func maybeSuggestSpeakers() {
-        guard meeting.speakerNames == nil, !meeting.lines.isEmpty else { return }
-        let transcript = meeting.transcriptText
-        guard transcript.count >= 80 else { return }
-        let id = meeting.id
-        let b = titleBackend
-        Task {
-            guard let names = try? await generator.suggestSpeakerNames(transcript: transcript, backend: b),
-                  !names.isEmpty else { return }
-            await MainActor.run {
-                guard meeting.id == id, meeting.speakerNames == nil else { return }
-                suggestedNames = names
+    // MARK: - Seal AI menu
+
+    /// One menu for everything the model can do for this page. Menu items
+    /// can't host the .proGated overlay, so each Pro action gates itself and
+    /// its section title carries the honesty ("— Seal Pro").
+    private var aiMenu: some View {
+        Menu {
+            if !meeting.lines.isEmpty {
+                Section("Notes") {
+                    Button(meeting.hasNotes ? "Rewrite the notes" : "Write the notes", action: generateNotes)
+                        .disabled(generating || reshaping)
+                    Menu(meeting.hasNotes ? "Rewrite as…" : "Write as…") {
+                        ForEach(NotesTemplate.all) { t in
+                            Button(t.name) { templateID = t.id; generateNotes() }
+                        }
+                        if !customTemplates.templates.isEmpty {
+                            Section(proTitle("Yours", .customTemplates)) {
+                                ForEach(customTemplates.templates) { t in
+                                    Button(t.name.isEmpty ? "Untitled" : t.name) { gatedTemplate(t) }
+                                }
+                            }
+                        }
+                        Divider()
+                        Button("Manage templates…") { gatedManageTemplates() }
+                    }
+                    .disabled(generating || reshaping)
+                }
+                if meeting.hasNotes {
+                    Section(proTitle("Reshape", .reshapeSummary)) {
+                        Button("Make shorter") { gatedReshape("Make the notes shorter and tighter.") }
+                        Button("Add more detail") { gatedReshape("Expand the notes with more detail from the transcript.") }
+                        Button("More formal") { gatedReshape("Rewrite in a more formal, professional tone.") }
+                        Button("Bullet points") { gatedReshape("Convert the notes to concise bullet points under each heading.") }
+                        Button("Plain language") { gatedReshape("Rewrite in plain, simple language.") }
+                    }
+                    .disabled(generating || reshaping)
+                }
             }
-        }
-    }
-
-    private func applySuggestedNames() {
-        guard let names = suggestedNames, !names.isEmpty else { return }
-        var updated = meeting
-        updated.speakerNames = names
-        store.save(updated)
-        suggestedNames = nil
-    }
-
-    private func dismissSuggestedNames() {
-        var updated = meeting
-        updated.speakerNames = [:]   // remembered: asked, and the labels stay
-        store.save(updated)
-        suggestedNames = nil
-    }
-
-    private func suggestionLine(_ names: [String: String]) -> String {
-        var parts: [String] = []
-        if let others = names["Others"] { parts.append("\(others) — the other side") }
-        if let you = names["You"] { parts.append("\(you) — you") }
-        return "Sounds like: " + parts.joined(separator: " · ")
-    }
-
-    /// Retries naming a meeting that Stop couldn't name — e.g. the local model
-    /// wasn't running then, so it kept the "New transcription" placeholder. Runs
-    /// once when the meeting is opened, only ever replaces the placeholder (a
-    /// title the user typed is never touched), and stays silent on failure.
-    private func maybeSuggestTitle() {
-        let current = meeting.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard current.isEmpty || current == Meeting.defaultTitle else { return }
-        let transcript = meeting.aiTranscript
-        guard transcript.count >= 80 else { return }   // too little to name well
-        let id = meeting.id
-        let hint = languageHint
-        let b = titleBackend
-        Task {
-            guard let suggested = try? await generator.suggestTitle(
-                transcript: transcript, languageHint: hint, backend: b) else { return }
-            await MainActor.run {
-                guard var m = store.meetings.first(where: { $0.id == id }) else { return }
-                let existing = m.title.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard existing.isEmpty || existing == Meeting.defaultTitle else { return }
-                m.title = suggested
-                store.save(m)
-                if meeting.id == id { title = suggested }   // reflect in the open header
+            Section {
+                Button("Edit the notes", action: beginEditingNotes)
+                    .keyboardShortcut("e", modifiers: .command)
+                    .disabled(generating || reshaping || editingNotes)
             }
-        }
-    }
-
-    /// After Stop — and on any later open — fills the AI notes in automatically
-    /// when the meeting has none yet, so they're ready without a button. Only
-    /// generates when empty (a meeting whose notes were cleared stays clear
-    /// until asked) and stays silent on failure, leaving the manual Generate
-    /// button as the retry.
-    private func maybeGenerateNotes() {
-        guard !meeting.hasNotes, !meeting.lines.isEmpty, generatingID == nil else { return }
-        generateNotes()
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            TextField("Title", text: $title)
-                .font(Theme.pageTitle)
-                .textFieldStyle(.plain)
-                .onSubmit(saveTitle)
-            Text(headerMeta)
-                .font(Theme.sub)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    /// One quiet meta line: date · duration · language (when it was fixed,
-    /// not auto-detected — auto would just be noise).
-    private var headerMeta: String {
-        var parts = [meeting.date.formatted(date: .abbreviated, time: .shortened), durationText]
-        if let lang = TranscriptLanguage(rawValue: meeting.language), lang != .auto {
-            parts.append(lang.label)
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    // MARK: - Section chrome
-
-    /// Chevron + section label; the whole leading edge toggles the section.
-    private func sectionHeader(_ label: String, isOpen: Binding<Bool>) -> some View {
-        Button {
-            withAnimation(Self.sectionSpring) { isOpen.wrappedValue.toggle() }
+            if !meeting.lines.isEmpty {
+                Section(proTitle("Meeting", .actionTracking)) {
+                    Button("Find action items") { gatedExtractActions() }
+                        .disabled(extractingActions)
+                    Button(followUp.isEmpty ? "Draft a follow-up" : "Redraft the follow-up") { gatedDraftFollowUp() }
+                        .disabled(draftingFollowUp)
+                }
+                Section("Transcript") {
+                    Button("Identify speakers…") { gatedIdentifySpeakers() }
+                        .disabled(!canIdentifySpeakers || store.identifyingSpeakers.contains(meeting.id))
+                    Button("Improve the transcript…") { gatedPolishTranscript() }
+                        .disabled(!store.hasAudio(for: meeting.id) || polishing)
+                }
+            }
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-                    .rotationEffect(.degrees(isOpen.wrappedValue ? 90 : 0))
-                SectionLabel(label)
-            }
-            .contentShape(Rectangle())
+            Label("Seal AI", systemImage: "sparkles")
         }
-        .buttonStyle(.plain)
+        .help("Everything Seal can write for this meeting — on your Mac")
     }
 
-    // MARK: - Notes
-
-    private var notesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                sectionHeader("Notes", isOpen: $notesOpen)
-                Spacer()
-                if editingNotes {
-                    Button("Cancel") {
-                        notesText = meeting.notes
-                        editingNotes = false
-                    }
-                    .buttonStyle(.linearQuietCompact)
-                    Button("Save", action: saveNotes)
-                        .buttonStyle(.linearPrimaryCompact)
-                        .keyboardShortcut("s", modifiers: .command)
-                } else if !meeting.lines.isEmpty {
-                    if meeting.hasNotes {
-                        // One menu for every AI rewrite: regenerate (optionally
-                        // with a different template) or reshape the tone/length —
-                        // instead of four separate controls competing up here.
-                        Menu {
-                            Button("Regenerate", action: generateNotes)
-                            Menu("Regenerate as…") {
-                                ForEach(NotesTemplate.all) { t in
-                                    Button(t.name) { templateID = t.id; generateNotes() }
-                                }
-                                if !customTemplates.templates.isEmpty {
-                                    Section(entitlements.allows(.customTemplates) ? "Yours" : "Yours — Seal Pro") {
-                                        ForEach(customTemplates.templates) { t in
-                                            Button(t.name.isEmpty ? "Untitled" : t.name) { gatedTemplate(t) }
-                                        }
-                                    }
-                                }
-                                Divider()
-                                Button("Manage templates…") { gatedManageTemplates() }
-                            }
-                            Divider()
-                            // Menu items can't host the .proGated overlay, so
-                            // the gate lives in gatedReshape; the section title
-                            // carries the honesty.
-                            Section(entitlements.allows(.reshapeSummary) ? "Reshape" : "Reshape — Seal Pro") {
-                                Button("Make shorter") { gatedReshape("Make the notes shorter and tighter.") }
-                                Button("Add more detail") { gatedReshape("Expand the notes with more detail from the transcript.") }
-                                Button("More formal") { gatedReshape("Rewrite in a more formal, professional tone.") }
-                                Button("Bullet points") { gatedReshape("Convert the notes to concise bullet points under each heading.") }
-                                Button("Plain language") { gatedReshape("Rewrite in plain, simple language.") }
-                            }
-                        } label: {
-                            Label("Rewrite", systemImage: "sparkles")
-                        }
-                        .menuStyle(.borderlessButton)
-                        .controlSize(.small)
-                        .fixedSize()
-                        .disabled(generatingID != nil || reshapingID != nil)
-
-                        Button("Edit") {
-                            notesText = meeting.notes
-                            editingNotes = true
-                            notesOpen = true
-                        }
-                        .buttonStyle(.linearQuietCompact)
-                    } else {
-                        // No notes yet: one prominent action. The click generates
-                        // with the current template; the menu picks another.
-                        Menu {
-                            ForEach(NotesTemplate.all) { t in
-                                Button(t.name) { templateID = t.id; generateNotes() }
-                            }
-                            if !customTemplates.templates.isEmpty {
-                                Section(entitlements.allows(.customTemplates) ? "Yours" : "Yours — Seal Pro") {
-                                    ForEach(customTemplates.templates) { t in
-                                        Button(t.name.isEmpty ? "Untitled" : t.name) { gatedTemplate(t) }
-                                    }
-                                }
-                            }
-                            Divider()
-                            Button("Manage templates…") { gatedManageTemplates() }
-                        } label: {
-                            Label("Generate Notes", systemImage: "sparkles")
-                        } primaryAction: {
-                            generateNotes()
-                        }
-                        .menuStyle(.borderlessButton)
-                        .controlSize(.small)
-                        .fixedSize()
-                        .disabled(generatingID != nil)
-
-                        Button("Add notes") {
-                            notesText = meeting.notes
-                            editingNotes = true
-                            notesOpen = true
-                        }
-                        .buttonStyle(.linearQuietCompact)
-                    }
-                } else {
-                    // No transcript to work from — only manual notes.
-                    Button(meeting.hasNotes ? "Edit" : "Add notes") {
-                        notesText = meeting.notes
-                        editingNotes = true
-                        notesOpen = true
-                    }
-                    .buttonStyle(.linearQuietCompact)
-                }
+    private var exportMenu: some View {
+        Menu {
+            Button("Copy as Markdown") { MeetingExporter.copyMarkdown(meeting) }
+            Button("Copy transcript") { copyToPasteboard(meeting.transcriptText) }
+            Divider()
+            Button("Export as Markdown…") { MeetingExporter.exportMarkdown(meeting) }
+            Button("Export as PDF…") { MeetingExporter.exportPDF(meeting) }
+            Section(proTitle("More formats", .advancedExport)) {
+                Button("Export as Word (.docx)…") { gatedExport { AdvancedExporter.exportDocx(meeting) } }
+                Button("Export subtitles (.srt)…") { gatedExport { AdvancedExporter.exportSRT(meeting) } }
+                Button("Export subtitles (.vtt)…") { gatedExport { AdvancedExporter.exportVTT(meeting) } }
             }
-
-            if generating {
-                if case .downloading(let p) = embeddedStatus.phase {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Downloading the on-device notes model… \(Int(p * 100))%")
-                            .font(Theme.sub).foregroundStyle(.secondary)
-                        ProgressView(value: p).frame(maxWidth: 320)
-                    }
-                } else {
-                    ProgressLabel(text: "Generating notes… (\(engineLabel))")
-                }
-            } else if let generateError {
-                Text(generateError).font(Theme.sub).foregroundStyle(Theme.red)
-            }
-            if reshaping {
-                ProgressLabel(text: "Reshaping notes… (\(engineLabel))")
-            }
-
-            if notesOpen {
-                if editingNotes {
-                    TextEditor(text: $notesText)
-                        .font(Theme.body)
-                        .scrollContentBackground(.hidden)
-                        .frame(minHeight: 220)
-                        .padding(8)
-                        .insetPanel(radius: 6)
-                } else if meeting.hasNotes {
-                    NotesView(notes: meeting.notes)
-                } else if !generating {
-                    Text("No notes yet — Generate Notes builds them from the transcript and your jotted notes.")
-                        .font(Theme.body)
-                        .foregroundStyle(.tertiary)
-                }
-            }
+            Divider()
+            Button("Report a problem…") { showReportProblem = true }
+        } label: {
+            Label("Export", systemImage: "square.and.arrow.up")
         }
     }
 
-    private func saveTitle() {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        var updated = meeting
-        updated.title = trimmed.isEmpty ? Meeting.defaultTitle : trimmed
-        title = updated.title
-        store.save(updated)
+    private func proTitle(_ title: String, _ feature: ProFeature) -> String {
+        entitlements.allows(feature) ? title : "\(title) — Seal Pro"
     }
 
-    private func saveNotes() {
-        var updated = meeting
-        updated.notes = notesText
-        store.save(updated)
-        editingNotes = false
+    private func gatedExport(_ export: () -> Void) {
+        guard entitlements.allows(.advancedExport) else {
+            return entitlements.requestUpgrade(for: .advancedExport)
+        }
+        export()
     }
 
-    /// Builds (or rebuilds) the meeting's notes from its stored transcript and
-    /// the notes the user jotted during it — available anytime.
-    private func generateNotes() {
-        guard !meeting.lines.isEmpty, generatingID == nil else { return }
+    // MARK: - Jotted notes
+
+    private func addJot(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        // Attach to the tapped line, else the meeting's opening — a note must
+        // always land somewhere so its time link works when reviewed later.
+        let at = anchor ?? meeting.lines.first?.at ?? meeting.date
+        jots.append(NoteBlock(text: NoteMark.normalized(trimmed), at: at))
+    }
+
+    /// Persists note changes into the meeting, debounced so a burst of typing
+    /// writes once. Rebased on the freshest copy from the store so a concurrent
+    /// save (AI notes, title) is never clobbered. `userNotes` is kept in sync so
+    /// the notes generator sees the latest jottings.
+    private func scheduleJotSave() {
+        guard jotsFor == meeting.id else { return }
+        jotSaveTask?.cancel()
+        let snapshot = jots
         let id = meeting.id
-        generatingID = id
-        generateError = nil
-        let b = backend
-        let hint = languageHint
-        let transcript = meeting.aiTranscript
-        let jotted = meeting.notesForAI
-        let chosenTemplateID = templateID
-        let template = NotesTemplate.byID(chosenTemplateID)
-        Task {
-            do {
-                let result = try await generator.generate(transcript: transcript, userNotes: jotted,
-                                                          template: template, languageHint: hint, backend: b)
-                await MainActor.run {
-                    generatingID = nil
-                    // Rebase on the freshest stored copy — the user may have
-                    // retitled or tagged the meeting while the model ran, and
-                    // saving the captured snapshot would erase that.
-                    if var updated = store.meetings.first(where: { $0.id == id }) {
-                        updated.notes = result
-                        updated.templateID = chosenTemplateID
-                        store.save(updated)
-                    }
-                    // On-screen state belongs to whichever meeting is open now.
-                    guard meeting.id == id else { return }
-                    notesText = result
-                    withAnimation(Self.sectionSpring) { notesOpen = true }
-                }
-            } catch {
-                await MainActor.run {
-                    generatingID = nil
-                    if meeting.id == id { generateError = error.localizedDescription }
-                }
-            }
+        jotSaveTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            guard !Task.isCancelled else { return }
+            guard var updated = store.meetings.first(where: { $0.id == id }) else { return }
+            let stored = updated.noteBlocks ?? []
+            guard stored != snapshot else { return }
+            updated.noteBlocks = snapshot.isEmpty ? nil : snapshot
+            let joined = snapshot.map(\.text).joined(separator: "\n")
+            updated.userNotes = joined.isEmpty ? nil : joined
+            // Checkbox notes flow into the meeting's action items.
+            updated.syncActionItems(fromNoteBlocks: snapshot)
+            store.save(updated)
         }
     }
 
-    private func gatedReshape(_ instruction: String) {
-        guard entitlements.allows(.reshapeSummary) else {
-            return entitlements.requestUpgrade(for: .reshapeSummary)
-        }
-        reshape(instruction)
-    }
-
-    private func reshape(_ instruction: String) {
-        guard meeting.hasNotes, reshapingID == nil else { return }
-        let id = meeting.id
-        reshapingID = id
-        let b = backend
-        let hint = languageHint
-        let transcript = meeting.aiTranscript
-        let current = meeting.notes
-        Task {
-            do {
-                let result = try await generator.reshape(currentNotes: current, transcript: transcript,
-                                                         instruction: instruction, languageHint: hint, backend: b)
-                await MainActor.run {
-                    reshapingID = nil
-                    if var updated = store.meetings.first(where: { $0.id == id }) {
-                        updated.notes = result
-                        store.save(updated)
-                    }
-                    guard meeting.id == id else { return }
-                    notesText = result
-                }
-            } catch {
-                await MainActor.run { reshapingID = nil }
-            }
-        }
-    }
-
-    // MARK: - Transcript
-
-    private var transcriptSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                sectionHeader("Notes & transcript", isOpen: $transcriptOpen)
-                if !meeting.lines.isEmpty {
-                    Text("\(meeting.lines.count) lines")
-                        .font(Theme.meta)
-                        .foregroundStyle(.tertiary)
-                }
-                Spacer()
-                if store.existingAudioURLs(for: meeting.id).system != nil,
-                   meeting.lines.contains(where: { $0.speaker == "Others" }) {
-                    HStack(spacing: 5) {
-                        Button("Identify speakers", action: identifySpeakers)
-                            .buttonStyle(.linearQuietCompact)
-                            .disabled(store.identifyingSpeakers.contains(meeting.id))
-                            .help("Tell the far side's voices apart in the saved call audio, so each line says who spoke")
-                        ProBadge()
-                    }
-                    .proGated(.speakerSplit)
-                }
-                if store.hasAudio(for: meeting.id) {
-                    HStack(spacing: 5) {
-                        Button("Improve transcript", action: polishTranscript)
-                            .buttonStyle(.linearQuietCompact)
-                            .disabled(polishingID != nil)
-                            .help("Re-transcribe the whole meeting from its saved audio with the accurate model")
-                        ProBadge()
-                    }
-                    .proGated(.polishPass)
-                }
-                if !meeting.lines.isEmpty {
-                    Button(copiedTranscript ? "Copied" : "Copy") {
-                        copyToPasteboard(meeting.transcriptText)
-                        copiedTranscript = true
-                        Task { @MainActor in
-                            try? await Task.sleep(nanoseconds: 1_400_000_000)
-                            copiedTranscript = false
-                        }
-                    }
-                    .buttonStyle(.linearQuietCompact)
-                }
-            }
-
-            if polishing {
-                ProgressLabel(text: "Re-transcribing with the accurate model — this takes a few minutes for long meetings…")
-            } else if let polishError {
-                Text(polishError).font(Theme.sub).foregroundStyle(Theme.red)
-            }
-
-            if store.identifyingSpeakers.contains(meeting.id) {
-                ProgressLabel(text: "Listening for who's who — under a minute, even for a long meeting…")
-            } else if let identifyError {
-                Text(identifyError).font(Theme.sub).foregroundStyle(Theme.red)
-            }
-
-            // The model thinks it heard who's who — propose, never apply.
-            if let names = suggestedNames, !names.isEmpty, meeting.speakerNames == nil {
-                HStack(spacing: 10) {
-                    Image(systemName: "person.wave.2")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.accent)
-                    Text(suggestionLine(names))
-                        .font(Theme.sub)
-                        .lineLimit(1)
-                    Spacer()
-                    Button("Use names", action: applySuggestedNames)
-                        .buttonStyle(.linearPrimaryCompact)
-                    Button("Not now", action: dismissSuggestedNames)
-                        .buttonStyle(.linearQuietCompact)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .surfacePanel(radius: 6)
-            }
-
-            if transcriptOpen {
-                if meeting.lines.isEmpty {
-                    Text("No transcript.")
-                        .font(Theme.body)
-                        .foregroundStyle(.tertiary)
-                } else {
-                    notesPreview
-                    Button {
-                        workspaceJump = nil
-                        showWorkspace = true
-                    } label: {
-                        Label("Open notes & transcript", systemImage: "rectangle.split.2x1")
-                    }
-                    .buttonStyle(.linearQuietCompact)
-                }
-            }
-        }
-    }
-
-    /// Tells the far side's voices apart in the saved call audio and labels
-    /// the transcript's lines with them. Also how old meetings — recorded
-    /// before Seal did this automatically — get their labels.
-    private func identifySpeakers() {
-        identifyError = nil
-        let id = meeting.id
-        Task {
-            let problem = await SpeakerLabeler.identify(meetingID: id, store: store)
-            await MainActor.run {
-                if meeting.id == id { identifyError = problem }
-            }
-        }
-    }
-
-    /// Re-transcribes the whole meeting from its saved audio with the
-    /// accurate model and replaces the lines; notes/tags/actions are kept.
-    private func polishTranscript() {
-        guard polishingID == nil else { return }
-        let id = meeting.id
-        polishingID = id
-        polishError = nil
-        let target = meeting
-        let audio = store.existingAudioURLs(for: target.id)
-        let terms = vocabulary.terms
-        Task {
-            do {
-                let lines = try await TranscriptPolisher().polish(meeting: target,
-                                                                  micURL: audio.mic,
-                                                                  systemURL: audio.system,
-                                                                  vocabulary: terms)
-                await MainActor.run {
-                    polishingID = nil
-                    guard !lines.isEmpty else {
-                        if meeting.id == id {
-                            polishError = "The pass produced no lines — kept the original transcript."
-                        }
-                        return
-                    }
-                    if var updated = store.meetings.first(where: { $0.id == id }) {
-                        updated.lines = lines
-                        store.save(updated)
-                        // The rebuilt lines are new objects with no voices —
-                        // re-identify so the labels survive the polish.
-                        Task { _ = await SpeakerLabeler.identify(meetingID: id, store: store) }
-                    }
-                    guard meeting.id == id else { return }
-                    showFullTranscript = false
-                }
-            } catch {
-                await MainActor.run {
-                    polishingID = nil
-                    if meeting.id == id { polishError = error.localizedDescription }
-                }
-            }
-        }
-    }
-
-    // MARK: - Notes & transcript workspace
-
-    private static let noteTimeFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        return f
-    }()
-
-    /// A compact, read-only glance at the notes taken during the call, right in
-    /// the page. Clicking one opens the full workspace scrolled to that moment;
-    /// the "Open" button below opens it at the top.
-    private var notesPreview: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if let nb = meeting.noteBlocks, !nb.isEmpty {
-                ForEach(nb) { block in
-                    Button {
-                        workspaceJump = block.at
-                        showWorkspace = true
-                    } label: {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(Self.noteTimeFormatter.string(from: block.at))
-                                .font(Theme.meta).monospacedDigit()
-                                .foregroundStyle(Theme.accent.opacity(0.7))
-                            notePreviewBody(block)
-                            Spacer(minLength: 0)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .help("Open the transcript at this moment")
-                }
+    /// Opens the companion on `target`, or closes it when that tab is already
+    /// showing. Opening Ask puts the cursor in its composer.
+    private func toggleCompanion(_ target: CompanionTab) {
+        withAnimation(Self.spring) {
+            if companionVisible && companionTab.wrappedValue == target {
+                companionVisible = false
             } else {
-                HStack(alignment: .center, spacing: 14) {
-                    NotesSeal(width: 108)
-                    Text("No notes were taken during this meeting. Open the workspace to add notes anchored to the transcript.")
-                        .font(Theme.sub)
-                        .foregroundStyle(.tertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .insetPanel(radius: 8)
-    }
-
-    /// One preview line of a jotted note, marker-aware: checkboxes show their
-    /// state, bullets their dot, starred moments their star (see NoteMark).
-    @ViewBuilder
-    private func notePreviewBody(_ block: NoteBlock) -> some View {
-        switch NoteMark.parse(block.text) {
-        case .plain(let s):
-            Text(s)
-                .font(Theme.body)
-                .foregroundStyle(.primary)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-        case .bullet(let s):
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("•").foregroundStyle(.tertiary)
-                Text(s)
-                    .font(Theme.body)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-            }
-        case .task(let done, let body):
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: done ? "checkmark.square" : "square")
-                    .font(.system(size: 11))
-                    .foregroundStyle(done ? Theme.green : .secondary)
-                Text(body)
-                    .font(Theme.body)
-                    .strikethrough(done)
-                    .foregroundStyle(done ? .secondary : .primary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-            }
-        case .highlight(let s):
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: "star.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Theme.amber)
-                Text(s.isEmpty ? "Marked important" : s)
-                    .font(Theme.body)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+                companionTab.wrappedValue = target
+                companionVisible = true
+                if target == .ask { askFocusPulse += 1 }
             }
         }
     }
 
-    /// The full-height notes ↔ transcript workspace in a resizable sheet, so the
-    /// transcript has room to scroll and a jump is easy to follow.
-    private var workspaceSheet: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Notes & transcript")
-                    .font(Theme.bodyMedium)
-                Spacer()
-                Button("Done") { showWorkspace = false }
-                    .buttonStyle(.linearPrimaryCompact)
-                    .keyboardShortcut(.cancelAction)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            ThemeDivider()
-            MeetingNotesWorkspace(meeting: meeting, initialJump: workspaceJump)
-                .environmentObject(store)
-                .padding(12)
+    /// A note's time label was clicked: show the transcript at that moment.
+    private func jumpToMoment(_ date: Date) {
+        withAnimation(Self.spring) {
+            companionTab.wrappedValue = .transcript
+            companionVisible = true
         }
-        .frame(minWidth: 820, idealWidth: 1060, maxWidth: .infinity,
-               minHeight: 540, idealHeight: 720, maxHeight: .infinity)
+        jumpDate = date
+        Task { @MainActor in jumpPulse += 1 }
+    }
+
+    private static func time(_ date: Date) -> String {
+        EditableNoteRow.timeFormatter.string(from: date)
     }
 
     // MARK: - Tags
 
-    private var tagsSection: some View {
+    private var tagsRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 Image(systemName: "tag")
@@ -858,6 +649,7 @@ struct MeetingDetailView: View {
                 }
             }
         }
+        .padding(.top, 4)
     }
 
     private func addTag() {
@@ -912,27 +704,27 @@ struct MeetingDetailView: View {
     // MARK: - Action items
 
     private var actionItemsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                sectionHeader("Action items", isOpen: $actionsOpen)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                DocumentSectionLabel("Action items")
                 let open = meeting.openActionItems.count
                 if open > 0 {
                     Text("\(open) open")
                         .font(Theme.meta)
                         .foregroundStyle(.tertiary)
+                        .padding(.top, 28)
+                        .padding(.bottom, 10)
                 }
                 Spacer()
-                if !meeting.lines.isEmpty {
+                if !meeting.lines.isEmpty && (meeting.actionItems ?? []).isEmpty && !extractingActions {
                     HStack(spacing: 5) {
-                        Button("Find action items") {
-                            actionsOpen = true
-                            extractActions()
-                        }
-                        .buttonStyle(.linearQuietCompact)
-                        .disabled(extractingActionsID != nil)
+                        Button("Find action items") { extractActions() }
+                            .buttonStyle(.linearQuietCompact)
                         ProBadge()
                     }
                     .proGated(.actionTracking)
+                    .padding(.top, 28)
+                    .padding(.bottom, 10)
                 }
             }
             if extractingActions {
@@ -941,52 +733,46 @@ struct MeetingDetailView: View {
                 Text(actionsError).font(Theme.sub).foregroundStyle(Theme.red)
             }
 
-            if actionsOpen {
-                let items = meeting.actionItems ?? []
-                // Items finished on an earlier visit stay out of the way; what
-                // you check right now stays on screen, struck through.
-                let previouslyDone = items.filter { $0.done && completedAtOpen.contains($0.id) }
-                let visible = showCompletedActions
-                    ? items
-                    : items.filter { !$0.done || !completedAtOpen.contains($0.id) }
-                if items.isEmpty && !extractingActions {
-                    Text("No action items yet. Find them from the transcript, or add one below.")
-                        .font(Theme.body)
-                        .foregroundStyle(.tertiary)
-                } else {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(visible) { item in
-                            Toggle(isOn: actionBinding(item)) {
-                                Text(item.text)
-                                    .font(Theme.body)
-                                    .strikethrough(item.done)
-                                    .foregroundStyle(item.done ? .secondary : .primary)
-                            }
-                            .toggleStyle(.checkbox)
-                        }
-                        if !previouslyDone.isEmpty {
-                            Button(showCompletedActions
-                                   ? "Hide completed"
-                                   : "Show \(previouslyDone.count) completed") {
-                                withAnimation(Self.sectionSpring) { showCompletedActions.toggle() }
-                            }
-                            .buttonStyle(.plain)
-                            .font(Theme.meta)
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 2)
-                        }
+            let items = meeting.actionItems ?? []
+            // Items finished on an earlier visit stay out of the way; what you
+            // check right now stays on screen, struck through.
+            let previouslyDone = items.filter { $0.done && completedAtOpen.contains($0.id) }
+            let visible = showCompletedActions
+                ? items
+                : items.filter { !$0.done || !completedAtOpen.contains($0.id) }
+            VStack(alignment: .leading, spacing: 7) {
+                ForEach(visible) { item in
+                    Toggle(isOn: actionBinding(item)) {
+                        Text(item.text)
+                            .font(Theme.docSmall)
+                            .strikethrough(item.done)
+                            .foregroundStyle(item.done ? .secondary : .primary)
                     }
+                    .toggleStyle(.checkbox)
                 }
-
-                HStack(spacing: 8) {
-                    TextField("Add an action item…", text: $newAction)
-                        .linearField()
-                        .onSubmit(addAction)
-                    Button("Add", action: addAction)
-                        .buttonStyle(.linearQuietCompact)
-                        .disabled(newAction.trimmingCharacters(in: .whitespaces).isEmpty)
+                if !previouslyDone.isEmpty {
+                    Button(showCompletedActions
+                           ? "Hide completed"
+                           : "Show \(previouslyDone.count) completed") {
+                        withAnimation(Self.spring) { showCompletedActions.toggle() }
+                    }
+                    .buttonStyle(.plain)
+                    .font(Theme.meta)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
                 }
             }
+
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                TextField("Add an action item…", text: $newAction)
+                    .textFieldStyle(.plain)
+                    .font(Theme.docSmall)
+                    .onSubmit(addAction)
+            }
+            .padding(.top, items.isEmpty ? 0 : 4)
         }
     }
 
@@ -1014,6 +800,13 @@ struct MeetingDetailView: View {
         store.save(updated)
     }
 
+    private func gatedExtractActions() {
+        guard entitlements.allows(.actionTracking) else {
+            return entitlements.requestUpgrade(for: .actionTracking)
+        }
+        extractActions()
+    }
+
     private func extractActions() {
         guard extractingActionsID == nil else { return }
         let id = meeting.id
@@ -1021,7 +814,7 @@ struct MeetingDetailView: View {
         actionsError = nil
         let b = backend
         let hint = languageHint
-        let transcript = meeting.aiTranscript
+        let transcript = meeting.aiTranscript(userName: settings.userName)
         let notes = meeting.notes
         Task {
             do {
@@ -1050,23 +843,15 @@ struct MeetingDetailView: View {
     // MARK: - Follow-up
 
     private var followUpSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
-                sectionHeader("Follow-up", isOpen: $followUpOpen)
+                DocumentSectionLabel("Follow-up")
                 Spacer()
-                HStack(spacing: 5) {
-                    Button(followUp.isEmpty ? "Draft follow-up" : "Redraft") {
-                        followUpOpen = true
-                        draftFollowUp()
-                    }
-                    .buttonStyle(.linearQuietCompact)
-                    .disabled(draftingFollowUpID != nil || meeting.lines.isEmpty)
-                    ProBadge()
-                }
-                .proGated(.followUpDraft)
                 if !followUp.isEmpty {
                     Button("Copy") { copyToPasteboard(followUp) }
                         .buttonStyle(.linearQuietCompact)
+                        .padding(.top, 28)
+                        .padding(.bottom, 10)
                 }
             }
             if draftingFollowUp {
@@ -1074,32 +859,35 @@ struct MeetingDetailView: View {
             } else if let followUpError {
                 Text(followUpError).font(Theme.sub).foregroundStyle(Theme.red)
             }
-            if followUpOpen {
-                if !followUp.isEmpty {
-                    Text(followUp)
-                        .font(Theme.body)
-                        .lineSpacing(2)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                        .insetPanel(radius: 6)
-                } else if !draftingFollowUp {
-                    Text("Draft a ready-to-send follow-up email from this meeting. You copy it out — nothing is sent.")
-                        .font(Theme.body)
-                        .foregroundStyle(.tertiary)
-                }
+            if !followUp.isEmpty {
+                Text(followUp)
+                    .font(Theme.docBody)
+                    .foregroundStyle(Theme.inkAI)
+                    .lineSpacing(Theme.docLineSpacing)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Drafted from the meeting. You copy it out — nothing is sent.")
+                    .font(Theme.meta)
+                    .foregroundStyle(.tertiary)
             }
         }
     }
 
+    private func gatedDraftFollowUp() {
+        guard entitlements.allows(.followUpDraft) else {
+            return entitlements.requestUpgrade(for: .followUpDraft)
+        }
+        draftFollowUp()
+    }
+
     private func draftFollowUp() {
-        guard draftingFollowUpID == nil else { return }
+        guard draftingFollowUpID == nil, !meeting.lines.isEmpty else { return }
         let id = meeting.id
         draftingFollowUpID = id
         followUpError = nil
         let b = backend
         let hint = languageHint
-        let transcript = meeting.aiTranscript
+        let transcript = meeting.aiTranscript(userName: settings.userName)
         let notes = meeting.notes
         Task {
             do {
@@ -1108,7 +896,6 @@ struct MeetingDetailView: View {
                     draftingFollowUpID = nil
                     guard meeting.id == id else { return }   // drafted for a meeting no longer on screen
                     followUp = result
-                    withAnimation(Self.sectionSpring) { followUpOpen = true }
                 }
             } catch {
                 await MainActor.run {
@@ -1119,206 +906,266 @@ struct MeetingDetailView: View {
         }
     }
 
-    // MARK: - Chat ("Ask this meeting")
+    // MARK: - Transcript companion
 
-    /// The closed-state launcher: a small accent pill in the bottom-right that
-    /// opens the docked chat. It covers almost nothing, so it can float.
-    private var chatLauncher: some View {
-        Button {
-            withAnimation(Self.sectionSpring) { chatOpen = true }
-            chatFocused = true
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 12, weight: .semibold))
-                Text(chat.isEmpty ? "Ask this meeting" : "Ask · \(chat.filter { $0.role == .user }.count)")
-                    .font(Theme.bodyMedium)
-            }
-            .foregroundStyle(Theme.onAccent)
-            .padding(.horizontal, 15)
-            .padding(.vertical, 10)
-            .background(Capsule().fill(Theme.accent))
-            .shadow(color: .black.opacity(0.20), radius: 10, y: 3)
+    private var transcriptPanel: some View {
+        let order = meeting.voiceOrder
+        let items = meeting.lines.map { line in
+            TranscriptItem(id: line.id,
+                           speaker: meeting.displayLabel(for: line),
+                           text: line.text,
+                           at: line.at,
+                           isYou: line.speaker == "You",
+                           voiceIndex: meeting.voiceIndex(for: line, in: order),
+                           voice: line.voice,
+                           live: false)
         }
-        .buttonStyle(.plain)
-        .help("Ask a question about this meeting")
-        .proGated(.askMeeting)
+        return TranscriptPanel(items: items,
+                               recording: false,
+                               jumpDate: jumpDate,
+                               jumpPulse: jumpPulse,
+                               fallbackStart: meeting.date,
+                               fallbackDuration: meeting.duration,
+                               copyText: { meeting.transcriptText },
+                               onAnchor: { anchor = $0 },
+                               onRenameVoice: { item in
+                                   renamingVoice = item.voice
+                                   renameDraft = meeting.speakerNames?[item.voice ?? ""] ?? ""
+                               },
+                               banner: { transcriptBanner },
+                               actions: {
+                                   Button("Identify speakers") { gatedIdentifySpeakers() }
+                                       .disabled(!canIdentifySpeakers || store.identifyingSpeakers.contains(meeting.id))
+                                   Button("Improve the transcript") { gatedPolishTranscript() }
+                                       .disabled(!store.hasAudio(for: meeting.id) || polishing)
+                                   if let anchor {
+                                       Divider()
+                                       Button("Stop attaching notes to \(Self.time(anchor))") { self.anchor = nil }
+                                   }
+                               })
     }
 
-    /// The open chat, docked as a full-height right-hand column. Because it's a
-    /// real column and not an overlay, the page reflows beside it and nothing is
-    /// ever hidden behind it. Header, thread, then composer — top to bottom.
-    private var chatDock: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 6) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-                Text("Ask this meeting")
-                    .font(Theme.bodyMedium)
-                Spacer()
-                if !chat.isEmpty {
-                    Button { chat = [] } label: {
-                        Image(systemName: "trash")
+    /// What's happening to the transcript, right above it: a job in flight,
+    /// its error, or the model's guess at who was talking — proposed, never
+    /// applied.
+    @ViewBuilder
+    private var transcriptBanner: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if polishing {
+                ProgressLabel(text: "Re-transcribing with the accurate model — a few minutes for a long meeting…")
+            } else if let polishError {
+                Text(polishError).font(Theme.sub).foregroundStyle(Theme.red)
+            }
+            if store.identifyingSpeakers.contains(meeting.id) {
+                ProgressLabel(text: "Listening for who's who — under a minute…")
+            } else if let identifyError {
+                Text(identifyError).font(Theme.sub).foregroundStyle(Theme.red)
+            }
+            if let names = suggestedNames, !names.isEmpty, meeting.speakerNames == nil {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.wave.2")
                             .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.accent)
+                        Text(suggestionLine(names))
+                            .font(Theme.sub)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .buttonStyle(.plain)
-                    .help("Clear this conversation")
+                    HStack(spacing: 6) {
+                        Button("Use names", action: applySuggestedNames)
+                            .buttonStyle(.linearPrimaryCompact)
+                        Button("Not now", action: dismissSuggestedNames)
+                            .buttonStyle(.linearQuietCompact)
+                    }
                 }
-                Button {
-                    withAnimation(Self.sectionSpring) { chatOpen = false }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Close")
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .surfacePanel(radius: 6)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-
-            ThemeDivider()
-
-            if chat.isEmpty && !chatBusy {
-                chatEmptyState
-            } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 8) {
-                            ForEach(chat) { message in
-                                DetailChatBubble(message: message)
-                            }
-                            if chatBusy {
-                                HStack {
-                                    ProgressLabel(text: "Thinking…")
-                                    Spacer()
-                                }
-                            }
-                            Color.clear.frame(height: 1).id("chat-bottom")
-                        }
-                        .padding(14)
-                    }
-                    .onChange(of: chat.count) { _, _ in
-                        withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
-                    }
-                    .onChange(of: chatBusy) { _, _ in
-                        proxy.scrollTo("chat-bottom", anchor: .bottom)
-                    }
+            if let anchor {
+                HStack(spacing: 4) {
+                    Image(systemName: "pin.fill").font(.system(size: 8))
+                    Text("New notes attach to \(Self.time(anchor))")
+                        .font(Theme.meta).monospacedDigit()
                 }
-                .frame(maxHeight: .infinity)
+                .foregroundStyle(Theme.accent.opacity(0.8))
             }
-
-            ThemeDivider()
-
-            HStack(spacing: 8) {
-                TextField("Ask about this meeting…", text: $chatInput)
-                    .textFieldStyle(.plain)
-                    .font(Theme.body)
-                    .focused($chatFocused)
-                    .onSubmit(sendChat)
-                Button(action: sendChat) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 19))
-                        .foregroundStyle(canSendChat ? Theme.accent : Color.secondary.opacity(0.4))
-                }
-                .buttonStyle(.plain)
-                .disabled(!canSendChat)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
         }
-        .frame(maxHeight: .infinity)
-        .background(Theme.background)
-        .overlay(alignment: .leading) {
-            Rectangle().fill(Theme.border).frame(width: 1)
+        .padding(.horizontal, 12)
+        .padding(.bottom, polishing || polishError != nil || identifyError != nil
+                 || store.identifyingSpeakers.contains(meeting.id)
+                 || (suggestedNames?.isEmpty == false && meeting.speakerNames == nil)
+                 || anchor != nil ? 8 : 0)
+    }
+
+    private var canIdentifySpeakers: Bool {
+        store.existingAudioURLs(for: meeting.id).system != nil
+            && meeting.lines.contains(where: { $0.speaker == "Others" })
+    }
+
+    private func gatedIdentifySpeakers() {
+        guard entitlements.allows(.speakerSplit) else {
+            return entitlements.requestUpgrade(for: .speakerSplit)
         }
+        identifySpeakers()
     }
 
-    /// Shown before the first question: a one-liner on what Ask does, then a few
-    /// tappable starter questions so nobody stares at an empty box.
-    private var chatEmptyState: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Answered only from this meeting's transcript, on your Mac.")
-                .font(Theme.sub)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            VStack(spacing: 6) {
-                ForEach(Self.suggestedQuestions, id: \.self) { question in
-                    Button { ask(question) } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 10))
-                                .foregroundStyle(Theme.accent)
-                            Text(question)
-                                .font(Theme.sub)
-                                .foregroundStyle(.primary)
-                                .multilineTextAlignment(.leading)
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 8))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(chatBusy)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    }
-
-    private static let suggestedQuestions = [
-        "Summarize the key points",
-        "What was decided?",
-        "List the action items and owners",
-        "Give me a 3-sentence recap",
-    ]
-
-    /// Fills the composer with a starter question and sends it.
-    private func ask(_ question: String) {
-        guard !chatBusy, !meeting.lines.isEmpty else { return }
-        chatInput = question
-        sendChat()
-    }
-
-    private var canSendChat: Bool {
-        !chatInput.trimmingCharacters(in: .whitespaces).isEmpty && !chatBusy && !meeting.lines.isEmpty
-    }
-
-    private func sendChat() {
-        guard canSendChat else { return }
-        let question = chatInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        chatInput = ""
-        chat.append(ChatMessage(role: .user, text: question))
-        chatBusy = true
-        let b = backend
-        let hint = languageHint
-        let transcript = meeting.aiTranscript
-        let meetingID = meeting.id
+    /// Tells the far side's voices apart in the saved call audio and labels
+    /// the transcript's lines with them. Also how old meetings — recorded
+    /// before Seal did this automatically — get their labels.
+    private func identifySpeakers() {
+        identifyError = nil
+        let id = meeting.id
         Task {
-            var reply: String
-            do {
-                reply = try await generator.answer(question: question, transcript: transcript, languageHint: hint, backend: b)
-            } catch {
-                reply = error.localizedDescription
-            }
+            let problem = await SpeakerLabeler.identify(meetingID: id, store: store)
             await MainActor.run {
-                guard meeting.id == meetingID else { return }   // navigated away
-                chat.append(ChatMessage(role: .assistant, text: reply))
-                chatBusy = false
+                if meeting.id == id { identifyError = problem }
             }
         }
+    }
+
+    private func gatedPolishTranscript() {
+        guard entitlements.allows(.polishPass) else {
+            return entitlements.requestUpgrade(for: .polishPass)
+        }
+        polishTranscript()
+    }
+
+    /// Re-transcribes the whole meeting from its saved audio with the
+    /// accurate model and replaces the lines; notes/tags/actions are kept.
+    private func polishTranscript() {
+        guard polishingID == nil else { return }
+        let id = meeting.id
+        polishingID = id
+        polishError = nil
+        let target = meeting
+        let audio = store.existingAudioURLs(for: target.id)
+        let terms = vocabulary.terms
+        Task {
+            do {
+                let lines = try await TranscriptPolisher().polish(meeting: target,
+                                                                  micURL: audio.mic,
+                                                                  systemURL: audio.system,
+                                                                  vocabulary: terms)
+                await MainActor.run {
+                    polishingID = nil
+                    guard !lines.isEmpty else {
+                        if meeting.id == id {
+                            polishError = "The pass produced no lines — kept the original transcript."
+                        }
+                        return
+                    }
+                    if var updated = store.meetings.first(where: { $0.id == id }) {
+                        updated.lines = lines
+                        store.save(updated)
+                        // The rebuilt lines are new objects with no voices —
+                        // re-identify so the labels survive the polish.
+                        Task { _ = await SpeakerLabeler.identify(meetingID: id, store: store) }
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    polishingID = nil
+                    if meeting.id == id { polishError = error.localizedDescription }
+                }
+            }
+        }
+    }
+
+    /// Asks the local model who was actually talking (from self-intros and
+    /// address forms) the first time a meeting is opened. Proposes, never
+    /// applies: the banner above the transcript waits for the user. Silent
+    /// on failure; declining is remembered (speakerNames == [:]).
+    private func maybeSuggestSpeakers() {
+        guard meeting.speakerNames == nil, !meeting.lines.isEmpty else { return }
+        let transcript = meeting.transcriptText
+        guard transcript.count >= 80 else { return }
+        let id = meeting.id
+        let b = titleBackend
+        Task {
+            guard let names = try? await generator.suggestSpeakerNames(transcript: transcript, backend: b),
+                  !names.isEmpty else { return }
+            await MainActor.run {
+                guard meeting.id == id, meeting.speakerNames == nil else { return }
+                suggestedNames = names
+            }
+        }
+    }
+
+    private func applySuggestedNames() {
+        guard let names = suggestedNames, !names.isEmpty else { return }
+        var updated = meeting
+        updated.speakerNames = names
+        store.save(updated)
+        suggestedNames = nil
+    }
+
+    private func dismissSuggestedNames() {
+        var updated = meeting
+        updated.speakerNames = [:]   // remembered: asked, and the labels stay
+        store.save(updated)
+        suggestedNames = nil
+    }
+
+    private func suggestionLine(_ names: [String: String]) -> String {
+        var parts: [String] = []
+        if let others = names["Others"] { parts.append("\(others) — the other side") }
+        if let you = names["You"] { parts.append("\(you) — you") }
+        return "Sounds like: " + parts.joined(separator: " · ")
+    }
+
+    /// Retries naming a meeting that Stop couldn't name — e.g. the local model
+    /// wasn't ready then, so it kept the placeholder. Runs once when the
+    /// meeting is opened, only ever replaces the placeholder (a title the user
+    /// typed is never touched), and stays silent on failure.
+    private func maybeSuggestTitle() {
+        let current = meeting.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard current.isEmpty || current == Meeting.defaultTitle else { return }
+        let transcript = meeting.aiTranscript(userName: settings.userName)
+        guard transcript.count >= 80 else { return }   // too little to name well
+        let id = meeting.id
+        let hint = languageHint
+        let b = titleBackend
+        Task {
+            guard let suggested = try? await generator.suggestTitle(
+                transcript: transcript, languageHint: hint, backend: b) else { return }
+            await MainActor.run {
+                guard var m = store.meetings.first(where: { $0.id == id }) else { return }
+                let existing = m.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard existing.isEmpty || existing == Meeting.defaultTitle else { return }
+                m.title = suggested
+                store.save(m)
+                if meeting.id == id { title = suggested }   // reflect in the open header
+            }
+        }
+    }
+
+    // MARK: - Ask companion
+
+    private var askContext: AskContext {
+        let meeting = meeting
+        let userName = settings.userName
+        return AskContext(
+            meetingID: meeting.id,
+            live: false,
+            languageHint: languageHint,
+            backend: backend,
+            lines: {
+                meeting.lines.map { line in
+                    var label = meeting.displayLabel(for: line)
+                    if let at = line.at {
+                        label = "\(AskTranscriptFeed.stamp(at.timeIntervalSince(meeting.date))) \(label)"
+                    }
+                    return AskTranscriptFeed.Line(id: line.id, label: label, text: line.text)
+                }
+            },
+            transcriptText: { meeting.aiTranscript(userName: userName) },
+            participants: { meeting.aiParticipants(userName: userName) })
     }
 
     // MARK: - Shared helpers
 
-    /// Heavy jobs: notes, reshape, follow-up, chat.
+    /// Heavy jobs: notes, reshape, follow-up, Ask.
     private var backend: NotesBackend {
         settings.usingCloudNotes
             ? .cloudOpenAICompatible(baseURL: settings.cloudBaseURL, apiKey: settings.cloudAPIKey, model: settings.cloudModel)
@@ -1346,41 +1193,6 @@ struct MeetingDetailView: View {
         let m = total / 60
         let s = total % 60
         return m > 0 ? "\(m)m \(s)s" : "\(s)s"
-    }
-}
-
-// MARK: - Chat pieces
-
-private struct ChatMessage: Identifiable {
-    enum Role { case user, assistant }
-    let id = UUID()
-    let role: Role
-    let text: String
-}
-
-private struct DetailChatBubble: View {
-    let message: ChatMessage
-
-    var body: some View {
-        HStack(spacing: 0) {
-            if message.role == .user { Spacer(minLength: 60) }
-            Text(message.text)
-                .font(Theme.body)
-                .lineSpacing(2)
-                .textSelection(.enabled)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(message.role == .user ? Theme.accent.opacity(0.13) : Theme.surface)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(message.role == .user ? Theme.accent.opacity(0.25) : Theme.border,
-                                      lineWidth: 1)
-                )
-            if message.role == .assistant { Spacer(minLength: 60) }
-        }
     }
 }
 

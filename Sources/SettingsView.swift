@@ -219,6 +219,14 @@ private struct GeneralSettings: View {
 
     var body: some View {
         Form {
+            Section("You") {
+                TextField("Your name", text: $settings.userName, prompt: Text("Optional"))
+                Text("How the notes and Ask refer to you — \"Dmytro will send the deck\" instead of \"the user will\". Stays on your Mac.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Section("Appearance") {
                 Picker("Theme", selection: $settings.appearance) {
                     ForEach(AppAppearance.allCases) { Text($0.label).tag($0) }

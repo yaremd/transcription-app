@@ -79,6 +79,11 @@ struct Meeting: Codable, Identifiable, Hashable {
     var language: String
     var lines: [StoredLine]
     var notes: String
+    /// The notes exactly as the model last wrote them, kept beside the
+    /// editable `notes` so the page can tell the model's lines from the
+    /// user's (see `NotesProvenance`). nil for meetings saved before this
+    /// existed, and for notes written entirely by hand.
+    var generatedNotes: String? = nil
     /// The user's own rough notes jotted during the meeting (optional; nil for
     /// meetings saved before this field existed). Kept as joined plain text —
     /// notes generation and older meetings read this.
@@ -168,17 +173,19 @@ extension Meeting {
     /// semantics, far-side lines are labeled by voice (S1, S2, …) when it is
     /// known, and a participants header maps every label to a real name the
     /// user (or the name suggester) has provided.
-    var aiTranscript: String {
+    var aiTranscript: String { aiTranscript(userName: nil) }
+
+    /// `aiTranscript` with the app's user named: when the meeting has no
+    /// confirmed name for "You" but Settings does, the participants header
+    /// carries it, so the notes can say "Dmytro will…" instead of talking
+    /// about "the user".
+    func aiTranscript(userName: String?) -> String {
         let body = lines
             .map { "\($0.voice ?? $0.speaker): \($0.text)" }
             .joined(separator: "\n")
         var header: [String] = []
-        if let names = speakerNames, !names.isEmpty {
-            let parts = names
-                .filter { !$0.value.trimmingCharacters(in: .whitespaces).isEmpty }
-                .map { "\($0.key) = \($0.value)" }
-                .sorted()
-            if !parts.isEmpty { header.append("PARTICIPANTS: " + parts.joined(separator: "; ")) }
+        if let participants = aiParticipants(userName: userName) {
+            header.append(participants)
         }
         // Who the calendar says was invited — context for notes and the
         // speaker-name suggester, clearly labeled as the invite list rather
@@ -188,6 +195,22 @@ extension Meeting {
         }
         guard !header.isEmpty else { return body }
         return header.joined(separator: "\n") + "\n\n" + body
+    }
+
+    /// The "PARTICIPANTS: You = Dmytro; S1 = Daniel" header the prompts carry —
+    /// every label the user (or the name suggester) has put a name to, plus
+    /// the user's own name from Settings when the meeting has none for "You".
+    /// nil when nobody is named.
+    func aiParticipants(userName: String?) -> String? {
+        var names = (speakerNames ?? [:])
+            .filter { !$0.value.trimmingCharacters(in: .whitespaces).isEmpty }
+        if names["You"] == nil,
+           let userName = userName?.trimmingCharacters(in: .whitespaces), !userName.isEmpty {
+            names["You"] = userName
+        }
+        guard !names.isEmpty else { return nil }
+        let parts = names.map { "\($0.key) = \($0.value)" }.sorted()
+        return "PARTICIPANTS: " + parts.joined(separator: "; ")
     }
 
     /// The title a session should persist with: a name the user (or a past

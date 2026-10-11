@@ -209,6 +209,35 @@ struct RootView: View {
             if newSelection == .record { monitor.resetFinishedSession() }
         }
         .onAppear {
+            #if DEBUG
+            // Screenshot hooks for an isolated demo run (see DemoMode): open
+            // the newest meeting, or start a scripted live session.
+            if DemoMode.isActive {
+                let env = ProcessInfo.processInfo.environment
+                // "1280x800": size the window for the shot, since nothing can
+                // drag it from a session.
+                if let size = env["SEAL_DEMO_WINDOW"]?.split(separator: "x").compactMap({ Double($0) }),
+                   size.count == 2 {
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        if let window = NSApp.windows.first(where: { $0.canBecomeMain && !($0 is NSPanel) }),
+                           let screen = window.screen ?? NSScreen.main {
+                            let frame = NSRect(x: screen.visibleFrame.midX - size[0] / 2,
+                                               y: screen.visibleFrame.midY - size[1] / 2,
+                                               width: size[0], height: size[1])
+                            window.setFrame(frame, display: true, animate: false)
+                        }
+                    }
+                }
+                if env["SEAL_DEMO_LIVE"] == "1" {
+                    monitor.beginDemoSession()
+                    selection = .record
+                } else if env["SEAL_DEMO_OPEN"] == "latest",
+                          let newest = store.meetings.max(by: { $0.date < $1.date }) {
+                    selection = .meeting(newest.id)
+                }
+            }
+            #endif
             if !settings.hasOnboarded { showOnboarding = true }
             // Warm the transcription model now so the first ⌘N of the app
             // run starts hearing immediately.
