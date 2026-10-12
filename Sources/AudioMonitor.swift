@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import AppKit
 
 struct TranscriptLine: Identifiable {
     var id = UUID()
@@ -211,6 +212,9 @@ final class AudioMonitor: ObservableObject {
     /// on every save after), where it outranks the calendar's and the
     /// placeholder the auto-titler later replaces.
     @Published var liveTitle = ""
+    /// Screen captures taken during this session, each already read into
+    /// text, in time order.
+    @Published var frames: [ScreenFrame] = []
 
     /// The notes as plain text — what generation prompts and exports consume.
     var joinedNotes: String {
@@ -430,6 +434,7 @@ final class AudioMonitor: ObservableObject {
         notesError = nil
         noteBlocks = []
         liveTitle = ""
+        frames = []
         isPaused = false
         discarding = false
         sessionStart = Date()
@@ -576,6 +581,8 @@ final class AudioMonitor: ObservableObject {
         Task { await transcriber.endSession() }   // recording done — Whisper may be freed for notes once idle
         sessionEnd = Date()
         persistCurrentSession()
+        // A session with no speech saves nothing — its captures go with it.
+        if transcript.isEmpty { store.deleteFrames(for: currentMeetingID) }
         statusMessage = transcript.isEmpty ? "Stopped." : "Saved to your library."
         autoTitleCurrentSession()
         identifySpeakersAfterStop()
@@ -625,6 +632,7 @@ final class AudioMonitor: ObservableObject {
         notesError = nil
         noteBlocks = []
         liveTitle = ""
+        frames = []
         errorMessage = nil
         clearNotice()
         statusMessage = "Press Start. You and the call will both be transcribed."
@@ -686,14 +694,16 @@ final class AudioMonitor: ObservableObject {
         let idToRemove = currentMeetingID
         teardownCapture(flush: false)
         if let existing = store.meetings.first(where: { $0.id == idToRemove }) {
-            store.delete(existing)   // removes its audio too
+            store.delete(existing)   // removes its audio and captures too
         } else {
             store.deleteAudio(for: idToRemove)   // nothing persisted yet, but audio may be
+            store.deleteFrames(for: idToRemove)
         }
         transcript = []
         liveLines = [:]
         notes = ""
         noteBlocks = []
+        frames = []
         statusMessage = "Discarded."
     }
 
@@ -771,6 +781,80 @@ final class AudioMonitor: ObservableObject {
         }
     }
 
+    // MARK: - Screen captures
+
+    /// Captures what's on screen right now, reads its text, and files it at
+    /// this moment of the meeting — the slide, the shared document — so the
+    /// notes and Ask can see it. One picture per press; nothing streams. The
+    /// first use asks macOS for screen capture permission.
+    func snapScreen() {
+        guard EntitlementService.shared?.allows(.screenContext) == true else {
+            EntitlementService.shared?.requestUpgrade(for: .screenContext)
+            return
+        }
+        guard isRunning else {
+            showNotice("Start a recording first — a screen capture is filed at a moment of the meeting.", for: 5)
+            return
+        }
+        guard ScreenSnapper.hasPermission || ScreenSnapper.requestPermission() else {
+            showNotice("Allow screen capture for Seal in System Settings → Privacy & Security, then try again.", for: 12)
+            NSWorkspace.shared.open(ScreenSnapper.settingsURL)
+            return
+        }
+        let at = Date()
+        let meetingID = currentMeetingID
+        Task { [weak self] in
+            do {
+                let snapshot = try await ScreenSnapper.capture()
+                await self?.file(snapshot.image, sourceApp: snapshot.sourceApp, at: at, meetingID: meetingID)
+            } catch {
+                await MainActor.run {
+                    self?.showNotice("Couldn't capture the screen: \(error.localizedDescription)", for: 8)
+                }
+            }
+        }
+    }
+
+    /// Reads the capture's text, writes the image beside the meeting, and
+    /// adds the frame to the session (and to the saved meeting, if it has
+    /// been saved yet).
+    private func file(_ image: CGImage, sourceApp: String?, at: Date, meetingID: UUID) async {
+        let text = (try? await ScreenTextReader.text(in: image)) ?? ""
+        let fileName = "\(Int(at.timeIntervalSince1970)).jpg"
+        do {
+            let directory = store.framesDirectory(for: meetingID)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try ScreenTextReader.writeJPEG(image, to: directory.appendingPathComponent(fileName))
+        } catch {
+            await MainActor.run { showNotice("Couldn't keep the screen capture: \(error.localizedDescription)", for: 8) }
+            return
+        }
+        let frame = ScreenFrame(at: at, text: text, sourceApp: sourceApp, fileName: fileName)
+        await MainActor.run {
+            guard currentMeetingID == meetingID else { return }   // the session moved on
+            frames.append(frame)
+            frames.sort { $0.at < $1.at }
+            if store.meetings.contains(where: { $0.id == meetingID }) { persistCurrentSession() }
+            let lines = text.split(separator: "\n").count
+            diagnosticsLog?.write("screen: captured \(sourceApp ?? "display"), \(text.count) chars in \(lines) lines")
+            showNotice(text.isEmpty
+                       ? "Screen captured — nothing readable was on it, but the picture is kept."
+                       : "Screen captured — \(lines) line\(lines == 1 ? "" : "s") of text read into the meeting.", for: 5)
+        }
+    }
+
+    #if DEBUG
+    /// Screenshot hook: files an image from disk as if it had just been
+    /// captured, so the capture path can be seen without touching the real
+    /// screen (or its permission) from a session.
+    func snapDemoImage(_ url: URL) {
+        guard isRunning, let image = NSImage(contentsOf: url)?.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+        let at = Date()
+        let meetingID = currentMeetingID
+        Task { [weak self] in await self?.file(image, sourceApp: "Zoom", at: at, meetingID: meetingID) }
+    }
+    #endif
+
     #if DEBUG
     // MARK: - Demo session (debug builds only)
 
@@ -792,6 +876,7 @@ final class AudioMonitor: ObservableObject {
         notesError = nil
         noteBlocks = []
         liveTitle = ""
+        frames = []
         isPaused = false
         discarding = false
         sessionStart = Date()
@@ -878,7 +963,8 @@ final class AudioMonitor: ObservableObject {
             folder: existing?.folder,
             actionItems: existing?.actionItems,
             calendarTitle: sessionCalendarContext?.title ?? existing?.calendarTitle,
-            calendarAttendees: sessionCalendarContext?.attendees ?? existing?.calendarAttendees)
+            calendarAttendees: sessionCalendarContext?.attendees ?? existing?.calendarAttendees,
+            frames: frames.isEmpty ? existing?.frames : frames)
         // Checkbox notes taken during the call flow into the action items.
         meeting.syncActionItems(fromNoteBlocks: blocksToStore)
         store.save(meeting)

@@ -910,7 +910,7 @@ struct MeetingDetailView: View {
 
     private var transcriptPanel: some View {
         let order = meeting.voiceOrder
-        let items = meeting.lines.map { line in
+        let speech = meeting.lines.map { line in
             TranscriptItem(id: line.id,
                            speaker: meeting.displayLabel(for: line),
                            text: line.text,
@@ -920,6 +920,9 @@ struct MeetingDetailView: View {
                            voice: line.voice,
                            live: false)
         }
+        let meetingID = meeting.id
+        let items = TranscriptItem.merging(speech, frames: meeting.frames ?? [],
+                                           url: { store.frameURL(for: meetingID, fileName: $0.fileName) })
         return TranscriptPanel(items: items,
                                recording: false,
                                jumpDate: jumpDate,
@@ -1150,15 +1153,7 @@ struct MeetingDetailView: View {
             live: false,
             languageHint: languageHint,
             backend: backend,
-            lines: {
-                meeting.lines.map { line in
-                    var label = meeting.displayLabel(for: line)
-                    if let at = line.at {
-                        label = "\(AskTranscriptFeed.stamp(at.timeIntervalSince(meeting.date))) \(label)"
-                    }
-                    return AskTranscriptFeed.Line(id: line.id, label: label, text: line.text)
-                }
-            },
+            lines: { meeting.askLines },
             transcriptText: { meeting.aiTranscript(userName: userName) },
             participants: { meeting.aiParticipants(userName: userName) })
     }

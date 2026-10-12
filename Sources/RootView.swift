@@ -232,6 +232,14 @@ struct RootView: View {
                 if env["SEAL_DEMO_LIVE"] == "1" {
                     monitor.beginDemoSession()
                     selection = .record
+                    // An image from disk stands in for the screen, so the
+                    // capture path is visible without the real screen.
+                    if let path = env["SEAL_DEMO_SNAP"], !path.isEmpty {
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 7_000_000_000)
+                            monitor.snapDemoImage(URL(fileURLWithPath: path))
+                        }
+                    }
                 } else if env["SEAL_DEMO_OPEN"] == "latest",
                           let newest = store.meetings.max(by: { $0.date < $1.date }) {
                     selection = .meeting(newest.id)

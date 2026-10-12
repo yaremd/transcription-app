@@ -100,6 +100,9 @@ struct LocalScribeApp: App {
                 Button("Star This Moment") { monitor.addHighlight() }
                     .keyboardShortcut("h", modifiers: [.command, .shift])
                     .disabled(!monitor.isRunning)
+                Button("Snap the Screen") { monitor.snapScreen() }
+                    .keyboardShortcut("s", modifiers: [.command, .shift])
+                    .disabled(!monitor.isRunning)
             }
         }
 

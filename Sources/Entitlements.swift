@@ -22,6 +22,10 @@ enum ProFeature: String, CaseIterable, Identifiable {
     case calendarContext
     case byoCloudKey
     case semanticMemory
+    /// On-demand screen captures during a meeting, read into text for the
+    /// notes and Ask. A capture feature, gated like the other deeper passes;
+    /// it never touches history or export.
+    case screenContext
 
     var id: String { rawValue }
 
@@ -38,6 +42,7 @@ enum ProFeature: String, CaseIterable, Identifiable {
         case .calendarContext: return "Calendar context"
         case .byoCloudKey: return "Cloud notes (your key)"
         case .semanticMemory: return "Meeting memory"
+        case .screenContext: return "Screen context"
         }
     }
 
@@ -55,6 +60,7 @@ enum ProFeature: String, CaseIterable, Identifiable {
         case .calendarContext: return "Titles and attendees from your calendar"
         case .byoCloudKey: return "Frontier-model notes, your own key"
         case .semanticMemory: return "Search meetings by meaning"
+        case .screenContext: return "The slide on screen, read into the notes"
         }
     }
 
@@ -72,6 +78,7 @@ enum ProFeature: String, CaseIterable, Identifiable {
         case .calendarContext: return "calendar"
         case .byoCloudKey: return "cloud"
         case .semanticMemory: return "sparkle.magnifyingglass"
+        case .screenContext: return "camera.viewfinder"
         }
     }
 
@@ -90,6 +97,7 @@ enum ProFeature: String, CaseIterable, Identifiable {
         case .calendarContext: return "Meetings that name themselves."
         case .byoCloudKey: return "Your key, your frontier model."
         case .semanticMemory: return "Find it by meaning."
+        case .screenContext: return "The slide, in your notes."
         }
     }
 }

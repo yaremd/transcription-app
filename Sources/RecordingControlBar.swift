@@ -46,6 +46,17 @@ struct RecordingControlBar: View {
                     }
                     .buttonStyle(.plain)
                     .help("Star this moment — the notes will cover it (⇧⌘H)")
+
+                    Button {
+                        monitor.snapScreen()
+                    } label: {
+                        Image(systemName: "camera.viewfinder")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Snap the screen — the slide or document on it is read into the notes (⇧⌘S)")
+                    .proGated(.screenContext)
                 }
 
                 Button(monitor.isPaused ? "Resume" : "Pause") {
