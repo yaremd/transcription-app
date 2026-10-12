@@ -13,6 +13,31 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 1.4</title>
+      <sparkle:version>29</sparkle:version>
+      <sparkle:shortVersionString>1.4</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Mon, 12 Oct 2026 12:41:30 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Seal 1.4</h3>
+        <h3>Ask grows with the question, and takes files beside it</h3>
+        <p>The question box now grows as you type, up to eight lines, and
+        scrolls past that. Return sends; Shift-Return starts a new line; the
+        up arrow in an empty box brings your last question back to edit.</p>
+        <p>Put a file beside a question: a plan, a slide, a photo of the
+        whiteboard, or what's on your screen right now. Use the paperclip,
+        paste it, or drop it on the box. Seal reads it into text on your Mac
+        (PDF, Word, RTF, HTML, text, and the text on images) and the answer
+        draws on it alongside the transcript. Nothing is uploaded and nothing
+        is kept.</p>
+        <p>Right-click any answer to copy it.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v1.4/Seal.dmg"
+        sparkle:edSignature="vcFb+zN/af9nBNDyiw/oEW29X8dQwdFaL3UAkmCIa9SjuysKFK5FsRnqmMaIcLwCI8e0BXhZZBz08cMnXIFEAw==" length="20825010"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 1.3</title>
       <sparkle:version>28</sparkle:version>
       <sparkle:shortVersionString>1.3</sparkle:shortVersionString>
