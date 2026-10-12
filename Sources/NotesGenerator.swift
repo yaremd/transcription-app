@@ -143,36 +143,44 @@ final class NotesGenerator {
     /// written. On device the conversation remembers the transcript it has
     /// already read (see `MLXEngine.ask`), so asking during a meeting only
     /// pays for what was said since the last question; the cloud backend is
-    /// sent the whole transcript each time and answers in one piece.
+    /// sent the whole transcript each time and answers in one piece. Files
+    /// put beside the question (`documents`) go in front of it, under their
+    /// names, in both cases.
     func ask(question: String,
              meetingID: UUID,
              lines: [AskTranscriptFeed.Line],
              transcriptText: String,
              participants: String?,
              languageHint: String,
-             backend: NotesBackend) async throws -> AsyncThrowingStream<String, Error> {
+             backend: NotesBackend,
+             documents: [AskDocument] = []) async throws -> AsyncThrowingStream<String, Error> {
         let language = Self.writeLanguage(hint: languageHint, transcript: transcriptText)
         var system = """
-        You answer questions about a meeting using ONLY its transcript, which you receive in pieces as the meeting goes on — later messages add what was said since. \
+        You answer questions about a meeting using ONLY its transcript and the files the asker attaches. The transcript reaches you in pieces as the meeting goes on — later messages add what was said since. \
         Each line reads "[time] Speaker: words". Lines labeled "You" were spoken by the person asking you — address them as "you", never as "the user". \
         "Others" and voice labels ("S1", "S2", …) are the other participants — each voice label is one distinct person. \
         Lines labeled "On screen" are text read from the asker's screen at that moment — a shared slide or document; context, not speech. \
-        If the transcript doesn't contain the answer, say you don't see it in the meeting so far. \
+        A block labeled ATTACHED is a file the asker put beside their question — a document they brought, not something anyone said; use it when the question is about it, and say so when it and the transcript disagree. \
+        If neither the transcript nor an attached file holds the answer, say you don't see it in the meeting so far. \
         Be concise and factual. \(languageRule(language))
         """
         if let participants, !participants.isEmpty {
             system += "\n\(participants)"
         }
+        let attached = AskDocument.promptBlock(documents)
         switch backend {
         case let .localEmbedded(model):
             do {
                 return try await MLXEngine.shared.ask(meetingID: meetingID, instructions: system,
-                                                      lines: lines, question: question, modelID: model)
+                                                      lines: lines, question: question,
+                                                      attachments: attached.isEmpty ? nil : attached, modelID: model)
             } catch let error as MLXEngine.EngineError {
                 throw GenerationError(message: error.message)
             }
         case let .cloudOpenAICompatible(baseURL, apiKey, model):
-            let user = "TRANSCRIPT:\n\(transcriptText)\n\nQUESTION: \(question)"
+            var user = "TRANSCRIPT:\n\(transcriptText)\n\n"
+            if !attached.isEmpty { user += attached + "\n\n" }
+            user += "QUESTION: \(question)"
             let reply = try await sendOpenAICompatible(baseURL: baseURL, apiKey: apiKey, model: model,
                                                        system: system, user: user)
             return AsyncThrowingStream { continuation in

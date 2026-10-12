@@ -52,6 +52,12 @@ real document app runs 15–17pt on a 480–700pt measure. Side panels (transcri
 - Buttons: `LinearButtonStyle` — `.linearPrimary` / `.linearQuiet` / `.linearDestructive` (+`Compact` variants). 6pt radius, hairline border, hover wash, 0.97 press dip.
 - Panels: `.insetPanel(radius: 8)` for wells (transcript, editors); `.surfacePanel()` for raised tiles/cards.
 - Inputs: `.linearField()`; plain TextFields inside composed rows.
+- Ask composer: `AskComposer` — a `surface` well (radius 8) whose text grows from one line to eight, then scrolls;
+  Return sends, ⇧↩ breaks the line, ↑ in an empty box recalls the last question. Files go beside the question by
+  the paperclip menu (file, or what's on the screen), by paste, or by drop — each listed as an `inset` row above
+  the text with its size, read into text on the Mac before the question can go. The border takes the accent at
+  45% on focus and fully while a drop hovers. The text view is AppKit (`ComposerTextView`): SwiftUI's field
+  can't be asked who pressed Return, what was pasted, or what was dropped.
 - Chips: `TagChip` (dot + 11pt label + optional ✕).
 - Icon buttons: `.buttonStyle(.plain)`, 11pt SF Symbol, `.secondary` — and always a `.help()` tooltip.
 - Icon menus: `Menu { … }` + `.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(…)`.
