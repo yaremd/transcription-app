@@ -61,7 +61,22 @@ actor MLXEngine {
     /// this long — an active notes session keeps it; a critical event releases it
     /// regardless.
     private static let idleUnloadSeconds: TimeInterval = 30
+
+    /// Idle unload: the model is freed this long after its last job, pressure
+    /// or not. Loaded, it holds 2–4 GB of the Mac's memory for as long as the
+    /// app runs; freed, the next job reloads it from disk in a few seconds —
+    /// invisible under a notes job that takes a minute, and a short pause
+    /// before the first Ask answer after a quiet spell. Nothing is downloaded
+    /// again.
+    private var idleUnloadAfter: TimeInterval = 5 * 60
+    private var idleUnloadTask: Task<Void, Never>?
     private let log = Logger(subsystem: "com.yarem.Seal", category: "MLXEngine")
+
+    /// Tests shorten the idle interval to seconds.
+    func setIdleUnloadInterval(_ seconds: TimeInterval) {
+        idleUnloadAfter = seconds
+        if container != nil { scheduleIdleUnload() }
+    }
 
     /// Lets the UI observe first-run download progress.
     func setProgressObserver(_ observer: (@Sendable (Double) -> Void)?) {
@@ -109,11 +124,20 @@ actor MLXEngine {
         } else {
             output = try await session.respond(to: user)
         }
+        touch()
         let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw EngineError(message: "The on-device model returned an empty response. Try again.")
         }
         return trimmed
+    }
+
+    /// Marks the model as in use right now: the idle clock restarts. Jobs
+    /// call it as they start and finish; a streamed Ask answer's consumer
+    /// calls it when the last token lands.
+    func touch() {
+        lastUsedAt = Date()
+        if container != nil { scheduleIdleUnload() }
     }
 
     /// Pre-download / warm the model without generating (for onboarding).
@@ -162,6 +186,7 @@ actor MLXEngine {
         }
         lastUsedAt = Date()
         let container = try await ensureLoaded(modelID: modelID)
+        touch()
 
         var conversation = conversations[meetingID]
         if let existing = conversation, existing.modelID != modelID {
@@ -228,10 +253,17 @@ actor MLXEngine {
         await preLoadHook?()
 
         loadedModelID = modelID
-        let downloader = HubSnapshotDownloader(hubApi: Self.makeHubApi())
+        let hubApi = Self.makeHubApi()
+        let downloader = HubSnapshotDownloader(hubApi: hubApi)
         let tokenizerLoader = TransformersTokenizerLoader()
+        // Weights already on disk load without a download, so their progress
+        // must not reach the UI: after an idle unload, every reload would
+        // otherwise flash "Downloading the on-device notes model…".
+        let cached = Self.isDownloaded(modelID, hubApi: hubApi)
+        if cached { log.notice("MLXEngine: loading \(modelID, privacy: .public) from disk") }
         let task = Task { () throws -> ModelContainer in
             try await loadModelContainer(from: downloader, using: tokenizerLoader, id: modelID) { progress in
+                guard !cached else { return }
                 let fraction = progress.fractionCompleted
                 Task { await self.updateProgress(fraction) }
             }
@@ -244,6 +276,7 @@ actor MLXEngine {
             progressObserver?(1)
             lastUsedAt = Date()
             startPressureMonitoringIfNeeded()
+            scheduleIdleUnload()
             return loaded
         } catch {
             // Allow a retry after a failed download/load.
@@ -286,12 +319,48 @@ actor MLXEngine {
     private func handleMemoryPressure(critical: Bool) {
         guard container != nil else { return }   // nothing loaded (or a load is mid-flight)
         if !critical && Date().timeIntervalSince(lastUsedAt) < Self.idleUnloadSeconds { return }
+        release()
+        log.notice("MLXEngine: released the model under \(critical ? "critical" : "warning", privacy: .public) memory pressure")
+    }
+
+    /// Arms (or re-arms) the idle unload for `idleUnloadAfter` from now.
+    private func scheduleIdleUnload() {
+        idleUnloadTask?.cancel()
+        let delay = idleUnloadAfter
+        idleUnloadTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            await self?.unloadIfIdle()
+        }
+    }
+
+    /// The timer fired: free the model unless something used it since the
+    /// timer was armed (a job re-arms it on every touch, so a fire that finds
+    /// recent use is a stale timer, not a bug).
+    private func unloadIfIdle() {
+        guard container != nil else { return }
+        guard Date().timeIntervalSince(lastUsedAt) >= idleUnloadAfter - 0.5 else { return }
+        release()
+        log.notice("MLXEngine: released the model after \(Int(self.idleUnloadAfter)) s idle; weights stay on disk")
+    }
+
+    /// Drops the model and every Ask conversation (each pins its own cache of
+    /// the model's state). The weights stay on disk, so the next job reloads
+    /// in seconds and the UI's "ready" state is still true.
+    private func release() {
+        idleUnloadTask?.cancel()
+        idleUnloadTask = nil
         conversations = [:]
         container = nil
         loadedModelID = nil
         loadTask = nil          // the completed load task also retains the model — drop it
-        downloadProgress = 0
-        log.notice("MLXEngine: released the model under \(critical ? "critical" : "warning", privacy: .public) memory pressure")
+    }
+
+    /// Whether a model's weights are already in the local download folder.
+    private static func isDownloaded(_ modelID: String, hubApi: HubApi) -> Bool {
+        let folder = hubApi.localRepoLocation(HubApi.Repo(id: modelID))
+        guard let files = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else { return false }
+        return files.contains { $0.hasSuffix(".safetensors") }
     }
 
     /// Models live under Application Support so they persist and stay out of the

@@ -90,6 +90,10 @@ final class MeetingDetector: ObservableObject {
             log.notice("effect: \(String(describing: effect), privacy: .public)")
             switch effect {
             case .offer(let app):
+                // Warm the speech model while the nudge is on screen, so a
+                // click on "Record" starts hearing at once even after the
+                // model was released for idling.
+                monitor.prewarmModel()
                 showStartNudge(for: app)
             case .startRecording(let app):
                 monitor.start()

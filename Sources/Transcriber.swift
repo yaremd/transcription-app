@@ -107,7 +107,7 @@ actor Transcriber {
         guard pipe != nil, !recordingActive, activeDecodes == 0,
               Date().timeIntervalSince(lastTranscribeAt) >= minIdle else { return }
         reset()
-        log.notice("released the speech model to free memory for notes")
+        log.notice("released the speech model after \(Int(minIdle)) s idle; it reloads at the next recording")
     }
 
     /// Unloads the current model so the next load() can pick a different one
@@ -126,6 +126,10 @@ actor Transcriber {
             do {
                 let loaded = try await WhisperKit(WhisperModelStore.config(model: name, prewarm: true))
                 pipe = loaded
+                // The idle clock starts now, not at the dawn of time: a model
+                // warmed for the next meeting is idle from its load, and must
+                // not look like it has been unused forever.
+                lastTranscribeAt = Date()
                 loadedModel = name
                 // Warm the Russian-marker suppress list while we're already in
                 // "loading" — scanning the vocabulary once beats stalling the

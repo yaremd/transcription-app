@@ -286,6 +286,10 @@ final class AudioMonitor: ObservableObject {
     /// resident at once (they run at different times — recording vs. post-meeting
     /// notes); at or above it, both stay loaded for speed.
     private static let bothModelsRAMFloor: UInt64 = 16 * 1_073_741_824   // 16 GB
+    /// How long the speech model may sit unused before it is released, and
+    /// how often that is checked.
+    private static let speechIdleUnloadAfter: TimeInterval = 30 * 60
+    private static let speechIdleCheckEvery: TimeInterval = 5 * 60
 
     init(store: MeetingStore, vocabulary: VocabularyStore, settings: AppSettings) {
         self.store = store
@@ -297,6 +301,17 @@ final class AudioMonitor: ObservableObject {
         if ProcessInfo.processInfo.physicalMemory < Self.bothModelsRAMFloor {
             let t = transcriber
             Task { await MLXEngine.shared.setPreLoadHook { await t.releaseIfIdle(minIdle: 3) } }
+        }
+        // The speech model holds ~1.5 GB from the moment it is warmed until the
+        // app quits. Once it has sat unused for half an hour it is released;
+        // the next recording (or a detected call — see MeetingDetector) loads
+        // it again in a few seconds, from disk. `releaseIfIdle` never touches
+        // a model that is recording or mid-decode.
+        Task { [transcriber] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(Self.speechIdleCheckEvery * 1_000_000_000))
+                await transcriber.releaseIfIdle(minIdle: Self.speechIdleUnloadAfter)
+            }
         }
     }
 
@@ -451,7 +466,7 @@ final class AudioMonitor: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             if !(await self.transcriber.isLoaded) {
-                await MainActor.run { self.modelStatus = "Preparing model (first run downloads + warms it up)…" }
+                await MainActor.run { self.modelStatus = "Preparing the speech model…" }
                 do {
                     try await self.transcriber.load(candidates: self.speed.modelCandidates)
                 } catch {

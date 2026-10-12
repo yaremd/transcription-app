@@ -249,6 +249,9 @@ struct AskPanel: View {
                     await MainActor.run { Self.append(chunk, to: id, in: store) }
                 }
                 await MainActor.run { Self.finish(id, in: store, error: nil) }
+                if case .localEmbedded = backend {
+                    await MLXEngine.shared.touch()   // idle counts from the answer's end
+                }
             } catch {
                 await MainActor.run { Self.finish(id, in: store, error: error.localizedDescription) }
                 if case .localEmbedded = backend {
