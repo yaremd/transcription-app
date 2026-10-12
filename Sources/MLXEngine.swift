@@ -180,6 +180,7 @@ actor MLXEngine {
              instructions: String,
              lines: [AskTranscriptFeed.Line],
              question: String,
+             attachments: String? = nil,
              modelID: String = MLXEngine.defaultModelID) async throws -> AsyncThrowingStream<String, Error> {
         guard Self.isSupported else {
             throw EngineError(message: "Ask needs an Apple-silicon Mac. Turn on a cloud model in Settings to use it here.")
@@ -208,14 +209,18 @@ actor MLXEngine {
         guard let conversation else { throw EngineError(message: "Couldn't start the conversation.") }
         conversation.lastUsed = Date()
 
+        // Files beside the question sit between what was said and the
+        // question itself, so the model reads the meeting first and the
+        // document in its light.
+        let ask = (attachments.map { $0 + "\n\n" } ?? "") + "QUESTION: \(question)"
         let user: String
         switch step {
         case .nothing:
-            user = "QUESTION: \(question)"
+            user = ask
         case .append(let text):
-            user = "SAID SINCE YOUR LAST ANSWER:\n\(text)\n\nQUESTION: \(question)"
+            user = "SAID SINCE YOUR LAST ANSWER:\n\(text)\n\n" + ask
         case .restart(let text):
-            user = "TRANSCRIPT SO FAR:\n\(text)\n\nQUESTION: \(question)"
+            user = "TRANSCRIPT SO FAR:\n\(text)\n\n" + ask
         }
         return conversation.session.streamResponse(to: user)
     }

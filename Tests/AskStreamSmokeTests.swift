@@ -44,4 +44,35 @@ final class AskStreamSmokeTests: XCTestCase {
 
         await MLXEngine.shared.dropConversation(for: meetingID)
     }
+
+    /// A file beside the question is answered from, and told apart from the
+    /// meeting: the transcript never names the budget, the attached plan does.
+    func testAQuestionAboutAnAttachedFileIsAnsweredFromIt() async throws {
+        try XCTSkipUnless(MLXEngine.isSupported, "MLX requires Apple silicon")
+
+        let meetingID = UUID()
+        let lines = [
+            AskTranscriptFeed.Line(id: UUID(), label: "[00:10] Others", text: "Let's go through the rollout plan I sent."),
+            AskTranscriptFeed.Line(id: UUID(), label: "[00:14] You", text: "Sure, I have it open."),
+        ]
+        let instructions = """
+        You answer questions about a meeting using ONLY its transcript and the files the asker attaches. \
+        Lines read "[time] Speaker: words". A block labeled ATTACHED is a file the asker put beside their question. \
+        Be concise. Write in English.
+        """
+        let attached = AskDocument.promptBlock([
+            AskDocument(name: "Q3 rollout plan.md",
+                        text: "# Q3 rollout plan\n- Support team first\n- Budget: 1.2M, owner Maria\n- Sales after legal sign-off"),
+        ])
+        var answer = ""
+        let stream = try await MLXEngine.shared.ask(meetingID: meetingID, instructions: instructions, lines: lines,
+                                                    question: "What budget does the attached plan give, and who owns it?",
+                                                    attachments: attached)
+        for try await chunk in stream { answer += chunk }
+        print("=== ASK ATTACHMENT SMOKE: '\(answer)' ===")
+        XCTAssertTrue(answer.contains("1.2M") || answer.contains("1.2 M") || answer.contains("1,2"), "the budget comes from the file")
+        XCTAssertTrue(answer.localizedCaseInsensitiveContains("Maria"), "the owner comes from the file")
+
+        await MLXEngine.shared.dropConversation(for: meetingID)
+    }
 }
