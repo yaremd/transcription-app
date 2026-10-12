@@ -254,7 +254,7 @@ struct RootView: View {
             // One-time note for installs that predate the Free/Pro line
             // (YAR-101): thanks, what stays free, and their free-Pro code.
             // Never for licensed installs, fresh installs, or over onboarding.
-            if !betaThankYouShown, !showOnboarding, entitlements.license == nil,
+            if entitlements.isMonetized, !betaThankYouShown, !showOnboarding, entitlements.license == nil,
                store.meetings.contains(where: { $0.date < Self.paywallEpoch }) {
                 showBetaThanks = true
             }

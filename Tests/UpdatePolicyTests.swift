@@ -57,6 +57,7 @@ final class UpdatePolicyTests: XCTestCase {
         let service = EntitlementService(fileURL: dir.appendingPathComponent("e.json"),
                                          macKey: SymmetricKey(data: Data(repeating: 3, count: 32)),
                                          now: { clock })
+        service.isMonetized = true   // the update window only exists while something is sold
         service.apply(license: LicenseRecord(key: "K", activationID: "a", tier: .pro,
                                              purchased: clock,
                                              updatesThrough: clock.addingTimeInterval(365 * day)))

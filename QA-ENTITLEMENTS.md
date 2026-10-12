@@ -1,3 +1,5 @@
+> **Since 1.3 Seal is free** (`Monetization.enabled = false`): none of the surfaces below show in the shipping app. This matrix applies only when the switch is flipped back; the tests keep pinning it meanwhile.
+
 # Entitlement QA matrix (YAR-102)
 
 Licensing bugs are trust bugs for this audience. Run this before any v1.0-era

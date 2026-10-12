@@ -133,6 +133,25 @@ struct UpgradePrompt: Identifiable, Equatable {
     var feature: ProFeature?
 }
 
+// MARK: - The money switch
+
+/// Whether Seal charges for anything.
+///
+/// Off (since 1.3): every feature is free for everyone, no Pro surface shows
+/// — no badges, no "— Seal Pro" menu sections, no upgrade sheet, no License
+/// tab, no trial, no beta thank-you — and a licence key someone bought in
+/// the paid era still activates quietly and keeps its record, so nothing
+/// anyone paid for is ever taken away. On: the Free/Pro line exactly as
+/// 1.0–1.2 shipped it, store and all.
+///
+/// Nothing else in the app decides this. Views ask `EntitlementService` —
+/// `allows`, `isMonetized`, `ProBadge` — and the service reads this one
+/// constant, so going back to paid is flipping it (and bringing the site's
+/// pricing section back).
+enum Monetization {
+    static let enabled = false
+}
+
 // MARK: - Pricing (single source of truth for UI copy)
 
 enum Pricing {
@@ -159,6 +178,9 @@ enum Pricing {
 /// audience is buying trust, not DRM.
 final class EntitlementService: ObservableObject {
     @Published private(set) var entitlement: Entitlement = .free
+    /// `Monetization.enabled`, as an instance value so the gating tests can
+    /// exercise the paid matrix while the shipping app is free.
+    @Published var isMonetized: Bool = Monetization.enabled
     /// Non-nil while the upgrade sheet should be on screen.
     @Published var upgradePrompt: UpgradePrompt?
 #if DEBUG
@@ -292,6 +314,7 @@ final class EntitlementService: ObservableObject {
     /// cached `entitlement`) so a trial that lapsed mid-session answers
     /// truthfully without waiting for a `refresh()`.
     func allows(_ feature: ProFeature) -> Bool {
+        guard isMonetized else { return true }
         switch derived() {
         case .free: return false
         case .trial, .pro, .lifetime: return true
@@ -301,6 +324,7 @@ final class EntitlementService: ObservableObject {
     /// Opens the upgrade sheet for a locked feature (no-op when allowed —
     /// callers can invoke unconditionally).
     func requestUpgrade(for feature: ProFeature? = nil) {
+        guard isMonetized else { return }
         if let feature, allows(feature) { return }
         upgradePrompt = UpgradePrompt(feature: feature)
     }
@@ -308,7 +332,7 @@ final class EntitlementService: ObservableObject {
     // MARK: Trial
 
     /// A trial exists to be started exactly once, explicitly.
-    var trialAvailable: Bool { state.trialStarted == nil && state.license == nil }
+    var trialAvailable: Bool { isMonetized && state.trialStarted == nil && state.license == nil }
 
     var trialDaysLeft: Int? {
         guard case .trial(let expires) = derived() else { return nil }
@@ -380,6 +404,7 @@ final class EntitlementService: ObservableObject {
     /// the Sparkle update-window rule (YAR-99). Free installs always update:
     /// every feature they use is free in every build.
     func coversUpdates(publishedOn date: Date) -> Bool {
+        guard isMonetized else { return true }   // nothing is sold, so nothing can lapse
         switch derived() {
         case .free, .trial, .lifetime: return true
         case .pro(let updatesThrough): return date <= updatesThrough

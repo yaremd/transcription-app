@@ -19,7 +19,7 @@ product
 ## Strategic principles
 - Lightweight, simple, fast — the standing priority. Prefer removing chrome over adding it.
 - Native macOS components with Linear-style restraint (see DESIGN.md); no invented affordances for standard tasks.
-- Free core stays generous (recording, transcription, notes, search, export); Pro gates advanced AI passes, never history or export.
+- Everything is free since 1.3 (`Monetization.enabled = false`). The Free/Pro line, store and licensing stay in the code behind that one switch; if it is ever flipped back, Pro gates only the deeper AI passes, never history or export.
 - No telemetry, ever. The in-app problem report is the only feedback channel.
 
 ## Anti-references

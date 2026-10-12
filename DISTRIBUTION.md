@@ -137,7 +137,11 @@ than left to memory:
 - Create the purchasing-power-parity coupon (~50% off) in Freemius.
 - Connect the Freemius payout method (Wise/Payoneer) if not done yet.
 
-### At v1.1
+### Since v1.3: Seal is free
+
+Monetization is off (`Monetization.enabled` in Entitlements.swift): every feature is free, no Pro surface shows, and keys sold in the paid era still activate quietly. The site has no pricing section. The licensing steps below only apply if that switch is ever flipped back — pause or unlist the Freemius plans meanwhile.
+
+### At v1.1 (paid era — only if monetization returns)
 - **Early-bird ends**: change plan 61232 to $59 in Freemius, then update
   `Pricing.earlyBird` and the site's price block in the same release.
 
