@@ -13,6 +13,30 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 1.3</title>
+      <sparkle:version>28</sparkle:version>
+      <sparkle:shortVersionString>1.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Mon, 12 Oct 2026 07:22:17 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Seal 1.3</h3>
+        <h3>Seal is free</h3>
+        <p>Everything in Seal is now free for everyone: speaker split, asking
+        the meeting questions during or after, follow-up drafts, action items,
+        the maximum-accuracy re-pass, your own templates, every export,
+        calendar titles, cloud notes with your own key, and the new screen
+        capture. There is no trial, no Pro, no License tab, and nothing to buy.
+        Nothing else about the app changed.</p>
+        <p>If you bought a Seal Pro key: thank you. It still activates and is
+        still recorded, and nothing you paid for is ever taken away — it is
+        simply what everyone has now.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v1.3/Seal.dmg"
+        sparkle:edSignature="0r7eV0b3lu1s9LM45NyZp9LDxZI7Rf3USr/Pz3tT2uFXeXJMS12U4fG6n+t7dEm0okuHCuGkWfTt1ub8xjyAAw==" length="20713880"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 1.2</title>
       <sparkle:version>27</sparkle:version>
       <sparkle:shortVersionString>1.2</sparkle:shortVersionString>
