@@ -92,6 +92,7 @@
 		EA31B2FE916F43890327667A /* NotesProvenance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 736BCD76B6A79FA51505E64E /* NotesProvenance.swift */; };
 		EC5B7AF4715716BD39438009 /* CalendarContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = F03BAF141485200D35147698 /* CalendarContext.swift */; };
 		ED18F5C77D242AE1AE164557 /* NotesVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C72D406B510A7416F16FD4F3 /* NotesVoiceTests.swift */; };
+		F9C62D5C7FBCA1A039BC8A7E /* MonetizationSwitchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D7EAA5D214E52CE6A3BA64 /* MonetizationSwitchTests.swift */; };
 		FA66A1AAFA5E7B0B07793801 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11B412BF0268188B8148BCDB /* OnboardingView.swift */; };
 		FC8A4FA4129462EDBEC6C6E4 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 858FA575BD12FEDC32F46DDC /* RootView.swift */; };
 		FE68256A1C751B356D6B68E7 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C293EA6E9349FDA5D864F0 /* MenuBarView.swift */; };
@@ -166,6 +167,7 @@
 		A26D0B442919AFB58493F528 /* AskStreamSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskStreamSmokeTests.swift; sourceTree = "<group>"; };
 		AC48AAD800A33EE8241D2C27 /* ProGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProGate.swift; sourceTree = "<group>"; };
 		B0962CF81AC38FA4CDD423E0 /* Entitlements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Entitlements.swift; sourceTree = "<group>"; };
+		B2D7EAA5D214E52CE6A3BA64 /* MonetizationSwitchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonetizationSwitchTests.swift; sourceTree = "<group>"; };
 		B2DE5D18F32DD17A765354AF /* MeetingDetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetectionTests.swift; sourceTree = "<group>"; };
 		B4C0E212FE60127FFBA349FE /* MicWatchdogSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicWatchdogSmokeTests.swift; sourceTree = "<group>"; };
 		B88081D95553C82C16260F96 /* SealMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SealMark.swift; sourceTree = "<group>"; };
@@ -304,6 +306,7 @@
 				B4C0E212FE60127FFBA349FE /* MicWatchdogSmokeTests.swift */,
 				61FD98B55AEFEE5884CD181F /* MLXEngineIdleUnloadTests.swift */,
 				293CED8E6BF6F039CE78D60D /* MLXEngineSmokeTests.swift */,
+				B2D7EAA5D214E52CE6A3BA64 /* MonetizationSwitchTests.swift */,
 				704F22DDE1ADDD513CA30D03 /* NotesProvenanceTests.swift */,
 				C72D406B510A7416F16FD4F3 /* NotesVoiceTests.swift */,
 				0B58B59C6BA3A35B4042FCD9 /* OfflineModelLoadTests.swift */,
@@ -452,6 +455,7 @@
 				84CC0F7251B15C1F9EFC2CAE /* MLXEngineSmokeTests.swift in Sources */,
 				929EEAE0C9B16493F4D3F273 /* MeetingDetectionTests.swift in Sources */,
 				892F0A9190304CADCF94DCFD /* MicWatchdogSmokeTests.swift in Sources */,
+				F9C62D5C7FBCA1A039BC8A7E /* MonetizationSwitchTests.swift in Sources */,
 				8F850957E51D031532FDF078 /* NotesProvenanceTests.swift in Sources */,
 				ED18F5C77D242AE1AE164557 /* NotesVoiceTests.swift in Sources */,
 				7C29C456A9EFF8C41A8F9575 /* OfflineModelLoadTests.swift in Sources */,

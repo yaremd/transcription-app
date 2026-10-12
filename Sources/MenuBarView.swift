@@ -46,6 +46,7 @@ struct MenuBarView: View {
     }
 
     private var proTag: String? {
+        guard entitlements.isMonetized else { return nil }
         switch entitlements.entitlement {
         case .pro, .lifetime: return "Seal Pro"
         case .free, .trial: return nil

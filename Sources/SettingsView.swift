@@ -17,8 +17,10 @@ struct SettingsView: View {
                 .tabItem { Label("Vocabulary", systemImage: "text.book.closed") }
             RecordingSettings(settings: settings, monitor: monitor)
                 .tabItem { Label("Recording", systemImage: "waveform") }
-            LicenseSettings(entitlements: entitlements)
-                .tabItem { Label("License", systemImage: "checkmark.seal") }
+            if entitlements.isMonetized {
+                LicenseSettings(entitlements: entitlements)
+                    .tabItem { Label("License", systemImage: "checkmark.seal") }
+            }
         }
         .frame(width: 540, height: 460)
         // The window behind the panes, once each Form stops painting its own.

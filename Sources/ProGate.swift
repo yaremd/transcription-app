@@ -65,7 +65,7 @@ struct ProBadge: View {
     @EnvironmentObject private var entitlements: EntitlementService
 
     var body: some View {
-        if case .free = entitlements.entitlement {
+        if entitlements.isMonetized, case .free = entitlements.entitlement {
             Text("PRO")
                 .font(.system(size: 9, weight: .semibold))
                 .tracking(0.5)

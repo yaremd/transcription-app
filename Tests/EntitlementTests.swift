@@ -24,8 +24,12 @@ final class EntitlementTests: XCTestCase {
 
     private var fileURL: URL { directory.appendingPathComponent("entitlement.json") }
 
+    /// The paid matrix: these tests pin how the Free/Pro line behaves when
+    /// money is switched on, whatever the shipping default is.
     private func makeService() -> EntitlementService {
-        EntitlementService(fileURL: fileURL, macKey: key) { [self] in clock }
+        let service = EntitlementService(fileURL: fileURL, macKey: key) { [self] in clock }
+        service.isMonetized = true
+        return service
     }
 
     private func advance(days: Double) {
