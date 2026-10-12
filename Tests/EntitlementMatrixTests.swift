@@ -156,7 +156,7 @@ final class EntitlementMatrixTests: XCTestCase {
             Set(ProFeature.allCases.map(\.rawValue)),
             ["speakerSplit", "askMeeting", "reshapeSummary", "followUpDraft",
              "actionTracking", "polishPass", "customTemplates", "advancedExport",
-             "calendarContext", "byoCloudKey", "semanticMemory"],
+             "calendarContext", "byoCloudKey", "semanticMemory", "screenContext"],
             "New Pro gate? Re-read the trust rules atop Entitlements.swift — history access and raw export must never join this enum.")
     }
 }

@@ -156,6 +156,7 @@ final class NotesGenerator {
         You answer questions about a meeting using ONLY its transcript, which you receive in pieces as the meeting goes on — later messages add what was said since. \
         Each line reads "[time] Speaker: words". Lines labeled "You" were spoken by the person asking you — address them as "you", never as "the user". \
         "Others" and voice labels ("S1", "S2", …) are the other participants — each voice label is one distinct person. \
+        Lines labeled "On screen" are text read from the asker's screen at that moment — a shared slide or document; context, not speech. \
         If the transcript doesn't contain the answer, say you don't see it in the meeting so far. \
         Be concise and factual. \(languageRule(language))
         """
@@ -321,6 +322,7 @@ final class NotesGenerator {
         var system = """
         You are a meeting-notes assistant. You will receive a transcript of a spoken conversation. \
         Lines labeled "You" were spoken by the person these notes are for; lines labeled "Others" are the other participants. Far-side lines may instead carry a voice label — "S1", "S2", … — each of which is one distinct participant; the PARTICIPANTS header, when present, gives their real names. \
+        Lines labeled "On screen" are text Seal read from that person's screen at that moment — a shared slide or document; use them as context for what was discussed, never as something anyone said. \
         Write these as that person's own meeting notes: call people by the names the PARTICIPANTS header gives. Where "You" has no name, write impersonally ("Discussed…", "Agreed to…") or in the first person — never as "the user" or "the speaker".
         """
         if !template.guidance.isEmpty {

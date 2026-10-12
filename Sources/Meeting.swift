@@ -109,6 +109,9 @@ struct Meeting: Codable, Identifiable, Hashable {
     /// the feature was off.
     var calendarTitle: String? = nil
     var calendarAttendees: [String]? = nil
+    /// Screen captures the user took during the meeting, each read into text
+    /// (see `ScreenFrame`). nil for meetings without any.
+    var frames: [ScreenFrame]? = nil
 
     /// The placeholder title for a meeting that hasn't been named yet. The
     /// date/time is shown separately in the UI, so the title's job is to say
@@ -180,9 +183,10 @@ extension Meeting {
     /// carries it, so the notes can say "Dmytro will…" instead of talking
     /// about "the user".
     func aiTranscript(userName: String?) -> String {
-        let body = lines
-            .map { "\($0.voice ?? $0.speaker): \($0.text)" }
-            .joined(separator: "\n")
+        let body = Self.interleaved(
+            speech: lines.map { (at: $0.at, text: "\($0.voice ?? $0.speaker): \($0.text)") },
+            frames: frames ?? []
+        ).joined(separator: "\n")
         var header: [String] = []
         if let participants = aiParticipants(userName: userName) {
             header.append(participants)
@@ -195,6 +199,50 @@ extension Meeting {
         }
         guard !header.isEmpty else { return body }
         return header.joined(separator: "\n") + "\n\n" + body
+    }
+
+    /// Speech and screen captures in one time order: a frame goes right
+    /// before the first line spoken after it, so the model reads the slide
+    /// where the conversation reached it. Lines saved without timestamps
+    /// keep their order and any frames follow them.
+    static func interleaved(speech: [(at: Date?, text: String)], frames: [ScreenFrame]) -> [String] {
+        let frames = frames.sorted { $0.at < $1.at }
+        var out: [String] = []
+        var next = 0
+        for line in speech {
+            if let at = line.at {
+                while next < frames.count, frames[next].at <= at {
+                    out.append("\(frames[next].label): \(frames[next].transcriptLine)")
+                    next += 1
+                }
+            }
+            out.append(line.text)
+        }
+        while next < frames.count {
+            out.append("\(frames[next].label): \(frames[next].transcriptLine)")
+            next += 1
+        }
+        return out
+    }
+
+    /// The transcript as Ask's conversation reads it — every line and every
+    /// screen capture, each with its own id so the conversation can tell
+    /// what it has already been given (see `AskTranscriptFeed`).
+    var askLines: [AskTranscriptFeed.Line] {
+        var out: [AskTranscriptFeed.Line] = lines.map { line in
+            var label = displayLabel(for: line)
+            if let at = line.at {
+                label = "\(AskTranscriptFeed.stamp(at.timeIntervalSince(date))) \(label)"
+            }
+            return AskTranscriptFeed.Line(id: line.id, label: label, text: line.text)
+        }
+        for frame in frames ?? [] {
+            out.append(AskTranscriptFeed.Line(
+                id: frame.id,
+                label: "\(AskTranscriptFeed.stamp(frame.at.timeIntervalSince(date))) \(frame.label)",
+                text: frame.transcriptLine))
+        }
+        return out
     }
 
     /// The "PARTICIPANTS: You = Dmytro; S1 = Daniel" header the prompts carry —

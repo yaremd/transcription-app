@@ -99,6 +99,7 @@ final class MeetingStore: ObservableObject {
         try? FileManager.default.removeItem(at: fileURL(for: meeting.id))
         try? FileManager.default.removeItem(at: diagnosticsURL(for: meeting.id))
         deleteAudio(for: meeting.id)
+        deleteFrames(for: meeting.id)
         meetings.removeAll { $0.id == meeting.id }
     }
 
@@ -132,6 +133,21 @@ final class MeetingStore: ObservableObject {
     func deleteAudio(for id: UUID) {
         try? FileManager.default.removeItem(at: audioURL(for: id, stream: "mic"))
         try? FileManager.default.removeItem(at: audioURL(for: id, stream: "system"))
+    }
+
+    // MARK: - Screen captures (a sibling folder of JPEGs, one per capture;
+    // their text lives in the meeting's JSON)
+
+    func framesDirectory(for id: UUID) -> URL {
+        directory.appendingPathComponent("\(id.uuidString).frames", isDirectory: true)
+    }
+
+    func frameURL(for id: UUID, fileName: String) -> URL {
+        framesDirectory(for: id).appendingPathComponent(fileName)
+    }
+
+    func deleteFrames(for id: UUID) {
+        try? FileManager.default.removeItem(at: framesDirectory(for: id))
     }
 
     private func fileURL(for id: UUID) -> URL {

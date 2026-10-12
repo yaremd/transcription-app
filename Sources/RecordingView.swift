@@ -10,6 +10,7 @@ import AppKit
 struct RecordingView: View {
     @ObservedObject var monitor: AudioMonitor
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var store: MeetingStore
     /// The companion's visibility and tab — preferences shared with the saved
     /// page, so the choice survives Stop, new recordings, and relaunches.
     @AppStorage(CompanionPrefs.visibleKey) private var companionVisible = true
@@ -189,6 +190,9 @@ struct RecordingView: View {
             TranscriptItem(id: $0.id, speaker: $0.speaker, text: $0.text, at: $0.at,
                            isYou: $0.speaker == "You", voiceIndex: nil, voice: nil, live: false)
         }
+        let meetingID = monitor.currentMeetingID
+        items = TranscriptItem.merging(items, frames: monitor.frames,
+                                       url: { store.frameURL(for: meetingID, fileName: $0.fileName) })
         for speaker in monitor.liveLines.keys.sorted(by: { first, _ in first == "You" }) {
             guard let text = monitor.liveLines[speaker], !text.isEmpty else { continue }
             items.append(TranscriptItem(id: Self.liveIDs[speaker] ?? UUID(), speaker: speaker, text: text,
@@ -210,14 +214,22 @@ struct RecordingView: View {
             backend: backend,
             lines: {
                 let start = monitor.recordingStart ?? monitor.transcript.first?.at ?? Date()
-                return monitor.transcript.map {
+                var lines = monitor.transcript.map {
                     AskTranscriptFeed.Line(id: $0.id,
                                            label: "\(AskTranscriptFeed.stamp($0.at.timeIntervalSince(start))) \($0.speaker)",
                                            text: $0.text)
                 }
+                for frame in monitor.frames {
+                    lines.append(AskTranscriptFeed.Line(
+                        id: frame.id,
+                        label: "\(AskTranscriptFeed.stamp(frame.at.timeIntervalSince(start))) \(frame.label)",
+                        text: frame.transcriptLine))
+                }
+                return lines
             },
             transcriptText: {
-                monitor.transcript.map { "\($0.speaker): \($0.text)" }.joined(separator: "\n")
+                Meeting.interleaved(speech: monitor.transcript.map { (at: $0.at, text: "\($0.speaker): \($0.text)") },
+                                    frames: monitor.frames).joined(separator: "\n")
             },
             participants: {
                 let name = userName.trimmingCharacters(in: .whitespaces)

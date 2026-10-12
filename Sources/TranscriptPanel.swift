@@ -14,6 +14,38 @@ struct TranscriptItem: Identifiable, Equatable {
     let voice: String?
     /// Still being spoken: shown dimmed, after the committed lines.
     let live: Bool
+    /// A screen capture at this moment rather than speech.
+    var frame: ScreenFrame? = nil
+    var frameURL: URL? = nil
+
+    /// Speech items with the meeting's screen captures slotted in at their
+    /// moment — each before the first line spoken after it; lines without
+    /// timestamps keep their order and any captures follow them.
+    static func merging(_ speech: [TranscriptItem], frames: [ScreenFrame], url: (ScreenFrame) -> URL) -> [TranscriptItem] {
+        guard !frames.isEmpty else { return speech }
+        let frames = frames.sorted { $0.at < $1.at }
+        var out: [TranscriptItem] = []
+        var next = 0
+        func item(_ frame: ScreenFrame) -> TranscriptItem {
+            TranscriptItem(id: frame.id, speaker: frame.label, text: frame.text, at: frame.at,
+                           isYou: false, voiceIndex: nil, voice: nil, live: false,
+                           frame: frame, frameURL: url(frame))
+        }
+        for line in speech {
+            if let at = line.at {
+                while next < frames.count, frames[next].at <= at {
+                    out.append(item(frames[next]))
+                    next += 1
+                }
+            }
+            out.append(line)
+        }
+        while next < frames.count {
+            out.append(item(frames[next]))
+            next += 1
+        }
+        return out
+    }
 }
 
 /// The transcript as a companion column: speaker-labeled paragraphs, a slim
@@ -61,17 +93,26 @@ struct TranscriptPanel<Banner: View, Actions: View>: View {
                     LazyVStack(alignment: .leading, spacing: 8) {
                         if items.isEmpty { emptyState }
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                            TranscriptRow(speaker: item.speaker,
-                                          text: item.text,
-                                          live: item.live,
-                                          showSpeaker: index == 0 || items[index - 1].speaker != item.speaker,
-                                          highlighted: highlighted.contains(item.id) || tapped == item.id,
-                                          isYou: item.isYou,
-                                          voiceIndex: item.voiceIndex)
-                                .id(item.id)
-                                .contentShape(Rectangle())
-                                .onTapGesture { anchor(index) }
-                                .contextMenu { contextMenu(item) }
+                            Group {
+                                if let frame = item.frame {
+                                    ScreenFrameRow(frame: frame, url: item.frameURL,
+                                                   highlighted: highlighted.contains(item.id) || tapped == item.id)
+                                } else {
+                                    TranscriptRow(speaker: item.speaker,
+                                                  text: item.text,
+                                                  live: item.live,
+                                                  showSpeaker: index == 0
+                                                      || items[index - 1].speaker != item.speaker
+                                                      || items[index - 1].frame != nil,
+                                                  highlighted: highlighted.contains(item.id) || tapped == item.id,
+                                                  isYou: item.isYou,
+                                                  voiceIndex: item.voiceIndex)
+                                }
+                            }
+                            .id(item.id)
+                            .contentShape(Rectangle())
+                            .onTapGesture { anchor(index) }
+                            .contextMenu { contextMenu(item) }
                         }
                         Color.clear.frame(height: 1).id("transcript-bottom")
                     }
@@ -95,7 +136,7 @@ struct TranscriptPanel<Banner: View, Actions: View>: View {
                     PulsingDot(color: Theme.red)
                 }
             }
-            let committed = items.filter { !$0.live }.count
+            let committed = items.filter { !$0.live && $0.frame == nil }.count
             if committed > 0 {
                 Text("\(committed) lines")
                     .font(Theme.meta)
@@ -153,7 +194,12 @@ struct TranscriptPanel<Banner: View, Actions: View>: View {
         if item.voice != nil, let onRenameVoice {
             Button("Name \(item.speaker)…") { onRenameVoice(item) }
         }
-        Button("Copy line") { copyToPasteboard("\(item.speaker): \(item.text)") }
+        if let url = item.frameURL {
+            Button("Open the capture") { NSWorkspace.shared.open(url) }
+            Button("Copy the text on screen") { copyToPasteboard(item.text) }
+        } else {
+            Button("Copy line") { copyToPasteboard("\(item.speaker): \(item.text)") }
+        }
     }
 
     /// Changes whenever the transcript gains content. Line count alone is not
@@ -208,6 +254,72 @@ struct TranscriptPanel<Banner: View, Actions: View>: View {
             try? await Task.sleep(nanoseconds: 1_800_000_000)
             withAnimation { highlighted = [] }
             suspendAutoScroll = false
+        }
+    }
+}
+
+// MARK: - A screen capture in the transcript
+
+/// One capture where it happened: the picture small, the text Seal read off
+/// it beside it, both quiet next to the speech. Click the picture to open
+/// it full size.
+struct ScreenFrameRow: View {
+    let frame: ScreenFrame
+    let url: URL?
+    var highlighted = false
+
+    @State private var thumbnail: NSImage?
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 5) {
+                Image(systemName: "camera.viewfinder")
+                    .font(.system(size: 9, weight: .semibold))
+                Text(frame.label.uppercased())
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(0.6)
+            }
+            .foregroundStyle(.secondary)
+
+            HStack(alignment: .top, spacing: 10) {
+                Group {
+                    if let thumbnail {
+                        Image(nsImage: thumbnail)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        Rectangle().fill(Theme.inset)
+                    }
+                }
+                .frame(width: 112, height: 70)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.border, lineWidth: 1))
+                .onTapGesture { if let url { NSWorkspace.shared.open(url) } }
+                .help("Open the capture")
+
+                if frame.text.isEmpty {
+                    Text("Nothing readable was on screen.")
+                        .font(Theme.sub)
+                        .foregroundStyle(.tertiary)
+                } else {
+                    Text(frame.text)
+                        .font(Theme.sub)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(expanded ? nil : 4)
+                        .textSelection(.enabled)
+                        .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() } }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(highlighted ? Theme.hover : .clear, in: RoundedRectangle(cornerRadius: 6))
+        .task(id: url) {
+            guard let url else { return }
+            let loaded = await Task.detached(priority: .utility) { NSImage(contentsOf: url) }.value
+            thumbnail = loaded
         }
     }
 }
