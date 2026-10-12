@@ -13,6 +13,37 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 1.2</title>
+      <sparkle:version>27</sparkle:version>
+      <sparkle:shortVersionString>1.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Mon, 12 Oct 2026 06:11:27 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Seal 1.2</h3>
+        <h3>Snap the screen</h3>
+        <p>A transcript hears the meeting and misses what it was looking at:
+        the slide, the shared document, the exercise on screen. During a
+        recording, press the camera in the control bar (or ⇧⌘S) and Seal
+        captures the screen once, reads the text off it on your Mac, and files
+        it at that moment as an "On screen" line. The notes and Ask see it as
+        context; the transcript shows the picture where it happened, click to
+        open it. One picture per press, nothing streams, and the call's window
+        is what gets captured when one is on screen. macOS asks for screen
+        capture permission the first time. Seal Pro.</p>
+        <h3>Seal lets go of memory when it is idle</h3>
+        <p>The notes model used to stay loaded from its first use until you
+        quit, holding two to four gigabytes for a job that runs a few times a
+        day. It now leaves memory five minutes after its last job and comes
+        back from disk in a few seconds when needed; nothing is downloaded
+        again. The speech model does the same after half an hour unused, and
+        is warmed again the moment Seal spots a call starting.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v1.2/Seal.dmg"
+        sparkle:edSignature="zIb0MrgpvpdXjadyOzbt55yjFpv/hnZBNotQTkssvU2LJgzjR9pH+B8lYlvAfZsCOhrjssh+kpl7BjKTuf2mBg==" length="20711300"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 1.1</title>
       <sparkle:version>26</sparkle:version>
       <sparkle:shortVersionString>1.1</sparkle:shortVersionString>
