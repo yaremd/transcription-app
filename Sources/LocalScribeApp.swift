@@ -158,23 +158,28 @@ final class CheckForUpdatesViewModel: ObservableObject {
 // MARK: - Floating recording tab
 
 /// While a recording runs and Seal isn't in front, a tab waits against the
-/// edge of the screen: proof the app still hears you, made as small as it can
-/// be. Under the pointer it slides out with the time, pause, stop, star, snap
-/// and a note box (see `EdgeTabView`); dragged, it settles on the nearer side
-/// and remembers the side and the height it was left at. Hidden the moment
-/// the app is visibly in front or the recording stops.
+/// edge of the screen: the seal peeking out, proof the app still hears you.
+/// Rest the pointer on it and it slides out with the time and the quick
+/// actions (see `EdgeTabView`); dragged by the seal, it settles on
+/// the nearer side and remembers the screen, the side and the height it was
+/// left at. Hidden the moment the app is visibly in front or the recording
+/// stops.
 final class FloatingPillController: ObservableObject {
     private var panel: EdgeTabPanel?
     private let monitor: AudioMonitor
     private let model: EdgeTabModel
     private var cancellables: [AnyCancellable] = []
     private var collapseWork: DispatchWorkItem?
+    private var expandWork: DispatchWorkItem?
     private var dragStart: (mouse: NSPoint, origin: NSPoint)?
+    /// The screen the tab is on: the one it was last dropped on, else the one
+    /// Seal's window is on.
+    private var screen: NSScreen?
 
     private static let sideKey = "edgeTabSide"
     private static let heightKey = "edgeTabHeight"
-    private static let collapsedWidth: CGFloat = 18
-    private static let expandedWidth: CGFloat = 420
+    private static let screenKey = "edgeTabScreen"
+    private static let collapsedWidth = EdgeTabView.peekWidth
 
     init(monitor: AudioMonitor) {
         self.monitor = monitor
@@ -202,12 +207,15 @@ final class FloatingPillController: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] running in self?.refresh(running: running) }
             .store(in: &cancellables)
-        // The note box let go of the cursor: the tab can fold away again.
-        model.$noteFocused
-            .dropFirst()
-            .filter { !$0 }
+        // The open face measured a new width (the time gained a digit): an
+        // open panel follows it.
+        model.$openWidth
+            .removeDuplicates()
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.scheduleCollapse() }
+            .sink { [weak self] width in
+                guard let self, self.model.expanded else { return }
+                self.place(width: width)
+            }
             .store(in: &cancellables)
     }
 
@@ -254,12 +262,14 @@ final class FloatingPillController: ObservableObject {
 
     private func show() {
         if panel == nil { panel = makePanel() }
-        place(width: model.expanded ? Self.expandedWidth : Self.collapsedWidth)
+        screen = Self.savedScreen ?? mainWindow?.screen ?? NSScreen.main ?? NSScreen.screens.first
+        place(width: model.expanded ? model.openWidth : Self.collapsedWidth)
         panel?.orderFrontRegardless()
     }
 
     private func hide() {
         collapseWork?.cancel()
+        expandWork?.cancel()
         model.expanded = false
         panel?.orderOut(nil)
     }
@@ -275,19 +285,14 @@ final class FloatingPillController: ObservableObject {
                 }
             },
             hover: { [weak self] inside in self?.hover(inside) },
-            drag: { [weak self] phase in self?.drag(phase) },
-            endNote: { [weak self] in
-                self?.panel?.makeFirstResponder(nil)
-                self?.scheduleCollapse()
-            })
+            drag: { [weak self] phase in self?.drag(phase) })
         let hosting = NSHostingView(rootView: content)
         // The panel's size is this controller's to set; left to itself the
         // hosting view would resize the window to its content on every change.
         hosting.sizingOptions = []
 
         // Non-activating: its buttons work without stealing focus from the
-        // app the user is actually in (the call, the browser). It still takes
-        // the keyboard for the note box, without bringing Seal forward.
+        // app the user is actually in (the call, the browser).
         let size = NSSize(width: Self.collapsedWidth, height: EdgeTabView.faceHeight)
         let panel = EdgeTabPanel(contentRect: NSRect(origin: .zero, size: size),
                                  styleMask: [.borderless, .nonactivatingPanel],
@@ -307,10 +312,11 @@ final class FloatingPillController: ObservableObject {
         return panel
     }
 
-    /// Puts the panel against its side of the screen it is on, at the height
-    /// it was left at (near the top the first time).
+    /// Puts the panel against its side of its screen, at the height it was
+    /// left at (near the top the first time).
     private func place(width: CGFloat, animate: Bool = false) {
-        guard let panel, let screen = panel.screen ?? NSScreen.main ?? NSScreen.screens.first else { return }
+        guard let panel, let screen = screen ?? NSScreen.main ?? NSScreen.screens.first else { return }
+        model.side = Self.dockSide(on: screen, wanted: model.side)
         let frame = screen.visibleFrame
         let height = EdgeTabView.faceHeight
         let fraction = UserDefaults.standard.object(forKey: Self.heightKey) as? Double ?? 0.8
@@ -321,22 +327,54 @@ final class FloatingPillController: ObservableObject {
         panel.invalidateShadow()
     }
 
+    /// The display a screen is, as the system numbers it.
+    private static func number(of screen: NSScreen) -> Int? {
+        (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.intValue
+    }
+
+    /// The screen the tab was last dropped on, if it is still connected.
+    private static var savedScreen: NSScreen? {
+        guard let saved = UserDefaults.standard.object(forKey: screenKey) as? Int else { return nil }
+        return NSScreen.screens.first { number(of: $0) == saved }
+    }
+
+    /// The side of a screen the tab docks on: the one wanted, unless another
+    /// display sits against it and not against the other side — the tab
+    /// never hangs in the seam the pointer crosses between two screens.
+    private static func dockSide(on screen: NSScreen, wanted: EdgeSide) -> EdgeSide {
+        let f = screen.frame
+        let beside = NSScreen.screens.filter { $0 != screen }.map(\.frame)
+            .filter { $0.maxY > f.minY && $0.minY < f.maxY }
+        let rightShared = beside.contains { abs($0.minX - f.maxX) < 2 }
+        let leftShared = beside.contains { abs($0.maxX - f.minX) < 2 }
+        switch wanted {
+        case .right: return rightShared && !leftShared ? .left : .right
+        case .left: return leftShared && !rightShared ? .right : .left
+        }
+    }
+
     // MARK: Opening and folding
 
+    /// Opens after a moment's rest, not on contact: the pointer crossing on
+    /// its way to another screen leaves it folded, and a quick grab drags the
+    /// folded tab instead of opening it.
     private func hover(_ inside: Bool) {
+        expandWork?.cancel()
         if inside {
             collapseWork?.cancel()
-            expand()
+            let work = DispatchWorkItem { [weak self] in self?.expand() }
+            expandWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
         } else {
             scheduleCollapse()
         }
     }
 
     /// The panel grows first, then the face opens inside it, so nothing is
-    /// ever drawn outside the window.
+    /// ever drawn outside the window. Not while it is pressed or dragged.
     private func expand() {
-        guard !model.expanded else { return }
-        place(width: Self.expandedWidth)
+        guard !model.expanded, !model.dragging, NSEvent.pressedMouseButtons & 1 == 0 else { return }
+        place(width: model.openWidth)
         withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) { model.expanded = true }
     }
 
@@ -347,13 +385,13 @@ final class FloatingPillController: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
-    /// The face folds first, then the panel shrinks to the sliver. Never while
-    /// a note is being typed or the tab is being dragged.
+    /// The face folds first, then the panel shrinks to the seal. Never while
+    /// the tab is being dragged.
     private func collapse() {
         #if DEBUG
         if DemoMode.isActive, ProcessInfo.processInfo.environment["SEAL_DEMO_PILL"] == "expanded" { return }
         #endif
-        guard model.expanded, !model.noteFocused, !model.dragging else { return }
+        guard model.expanded, !model.dragging else { return }
         withAnimation(.easeOut(duration: 0.16)) { model.expanded = false }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
             guard let self, !self.model.expanded else { return }
@@ -364,7 +402,8 @@ final class FloatingPillController: ObservableObject {
     // MARK: Dragging
 
     /// Follows the pointer anywhere; let go, it settles on the nearer side of
-    /// the screen it was dropped on, at that height, and remembers both.
+    /// the screen it was dropped on (the outer one, if the nearer is shared
+    /// with another display), at that height, and remembers all three.
     private func drag(_ phase: EdgeTabDrag) {
         guard let panel else { return }
         let mouse = NSEvent.mouseLocation
@@ -374,6 +413,7 @@ final class FloatingPillController: ObservableObject {
                 dragStart = (mouse, panel.frame.origin)
                 model.dragging = true
                 collapseWork?.cancel()
+                expandWork?.cancel()
             }
             guard let start = dragStart else { return }
             panel.setFrameOrigin(NSPoint(x: start.origin.x + mouse.x - start.mouse.x,
@@ -382,11 +422,16 @@ final class FloatingPillController: ObservableObject {
             dragStart = nil
             model.dragging = false
             guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? panel.screen else { return }
+            self.screen = screen
             let frame = screen.visibleFrame
-            let side: EdgeSide = panel.frame.midX < frame.midX ? .left : .right
+            let nearer: EdgeSide = panel.frame.midX < frame.midX ? .left : .right
+            let side = Self.dockSide(on: screen, wanted: nearer)
             let fraction = min(max((panel.frame.midY - frame.minY) / frame.height, 0.05), 0.95)
             UserDefaults.standard.set(side.rawValue, forKey: Self.sideKey)
             UserDefaults.standard.set(Double(fraction), forKey: Self.heightKey)
+            if let number = Self.number(of: screen) {
+                UserDefaults.standard.set(number, forKey: Self.screenKey)
+            }
             model.side = side
             let width = panel.frame.width
             let y = frame.minY + frame.height * fraction - panel.frame.height / 2
