@@ -16,102 +16,12 @@ enum ComposerKey {
     }
 }
 
-/// The question box: one line that grows with what is typed, up to eight
-/// lines and then scrolls, with the files that go with the question listed
-/// above the text. Files come in by the paperclip, by paste, or by drop.
-struct AskComposer: View {
-    @Binding var text: String
-    @Binding var attachments: [AskAttachment]
-    let placeholder: String
-    let canSend: Bool
-    /// Bumped by ⌘J so the box takes focus.
-    var focusPulse = 0
-    let onSend: () -> Void
-    let onAttachFiles: ([URL]) -> Void
-    let onAttachImage: (CGImage) -> Void
-    let onAttachScreen: () -> Void
-    /// The last question asked, for ↑ in an empty box.
-    let lastQuestion: () -> String?
-
-    @State private var height: CGFloat = 17
-    @State private var focused = false
-    @State private var dropTargeted = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if !attachments.isEmpty {
-                VStack(spacing: 4) {
-                    ForEach(attachments) { attachment in
-                        AttachmentRow(attachment: attachment) {
-                            attachments.removeAll { $0.id == attachment.id }
-                        }
-                    }
-                }
-                .padding(.horizontal, 8)
-                .padding(.top, 8)
-            }
-            GrowingTextView(text: $text, height: $height, focused: $focused, dragTargeted: $dropTargeted,
-                            placeholder: placeholder, focusPulse: focusPulse, maxLines: 8,
-                            onSend: onSend, onFiles: onAttachFiles, onImage: onAttachImage, onRecall: lastQuestion)
-                .frame(maxWidth: .infinity)
-                .frame(height: height)
-                .padding(.horizontal, 10)
-                .padding(.top, 8)
-                .padding(.bottom, 2)
-            HStack(spacing: 6) {
-                attachMenu
-                Spacer(minLength: 0)
-                if !text.isEmpty {
-                    Text("⇧↩ new line")
-                        .font(Theme.meta)
-                        .foregroundStyle(.tertiary)
-                        .transition(.opacity)
-                }
-                Button(action: onSend) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 19))
-                        .foregroundStyle(canSend ? Theme.accent : Color.secondary.opacity(0.4))
-                }
-                .buttonStyle(.plain)
-                .disabled(!canSend)
-                .help("Send (Return)")
-            }
-            .padding(.leading, 6)
-            .padding(.trailing, 8)
-            .padding(.vertical, 4)
-        }
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(borderColor, lineWidth: 1))
-        .onDrop(of: [.fileURL], isTargeted: $dropTargeted, perform: drop)
-        .animation(.easeOut(duration: 0.12), value: focused)
-        .animation(.easeOut(duration: 0.12), value: dropTargeted)
-        .animation(.easeOut(duration: 0.12), value: height)
-        .animation(.easeOut(duration: 0.12), value: text.isEmpty)
-    }
-
-    private var borderColor: Color {
-        if dropTargeted { return Theme.accent }
-        return focused ? Theme.accent.opacity(0.45) : Theme.border
-    }
-
-    private var attachMenu: some View {
-        Menu {
-            Button("Attach a file…", action: chooseFiles)
-            Button("What's on the screen", action: onAttachScreen)
-        } label: {
-            Image(systemName: "paperclip")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 22, height: 22)
-                .contentShape(Rectangle())
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help("Put a file beside your question — or paste one, or drop it here. \(AskAttachmentReader.readableSummary)")
-    }
-
-    private func chooseFiles() {
+/// Files beside a question come in three ways: the paperclip's file picker,
+/// a paste, or a drop. The text view takes pastes and drops on its own text
+/// (see `ComposerTextView`); these cover the picker and a drop anywhere else
+/// on the box around it.
+enum AskFiles {
+    static func choose(_ onFiles: @escaping ([URL]) -> Void) {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
@@ -119,13 +29,11 @@ struct AskComposer: View {
         panel.message = "Files to put beside your question. Their text is read on this Mac and goes nowhere else."
         panel.begin { response in
             guard response == .OK, !panel.urls.isEmpty else { return }
-            onAttachFiles(panel.urls)
+            onFiles(panel.urls)
         }
     }
 
-    /// Files dropped on the box outside the text itself; the text view takes
-    /// its own drops (see `ComposerTextView`).
-    private func drop(_ providers: [NSItemProvider]) -> Bool {
+    static func drop(_ providers: [NSItemProvider], onFiles: @escaping ([URL]) -> Void) -> Bool {
         let fileProviders = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
         guard !fileProviders.isEmpty else { return false }
         for provider in fileProviders {
@@ -134,7 +42,7 @@ struct AskComposer: View {
                 if let data = item as? Data { url = URL(dataRepresentation: data, relativeTo: nil) }
                 else { url = item as? URL }
                 guard let url else { return }
-                DispatchQueue.main.async { onAttachFiles([url]) }
+                DispatchQueue.main.async { onFiles([url]) }
             }
         }
         return true
@@ -143,7 +51,7 @@ struct AskComposer: View {
 
 /// One file beside the question: what it is, how much of it will go, and a
 /// way to take it off. A file that couldn't be read says why, in place.
-private struct AttachmentRow: View {
+struct AttachmentRow: View {
     let attachment: AskAttachment
     let remove: () -> Void
 
@@ -223,6 +131,11 @@ struct GrowingTextView: NSViewRepresentable {
     let onFiles: ([URL]) -> Void
     let onImage: (CGImage) -> Void
     let onRecall: () -> String?
+    /// ↑ (-1) or ↓ (+1), offered first to a list hanging off the box; true
+    /// when the list used the key.
+    var onMove: (Int) -> Bool = { _ in false }
+    /// Escape, offered first to that list; true when it closed.
+    var onCancel: () -> Bool = { false }
 
     static let font = NSFont.systemFont(ofSize: 13)
 
@@ -281,7 +194,7 @@ struct GrowingTextView: NSViewRepresentable {
         }
         if context.coordinator.focusPulse != focusPulse {
             context.coordinator.focusPulse = focusPulse
-            DispatchQueue.main.async { view.window?.makeFirstResponder(view) }
+            DispatchQueue.main.async { view.takeFocus() }
         }
     }
 
@@ -302,6 +215,8 @@ struct GrowingTextView: NSViewRepresentable {
             view.onFiles = { [weak self] in self?.parent.onFiles($0) }
             view.onImage = { [weak self] in self?.parent.onImage($0) }
             view.onRecall = { [weak self] in self?.parent.onRecall() }
+            view.onMove = { [weak self] in self?.parent.onMove($0) ?? false }
+            view.onCancel = { [weak self] in self?.parent.onCancel() ?? false }
             view.onFocusChange = { [weak self] in self?.parent.focused = $0 }
             view.onDragTargeted = { [weak self] in self?.parent.dragTargeted = $0 }
             // The panel is 280–360 wide and the text rewraps with it.
@@ -345,8 +260,35 @@ final class ComposerTextView: NSTextView {
     var onFiles: ([URL]) -> Void = { _ in }
     var onImage: (CGImage) -> Void = { _ in }
     var onRecall: () -> String? = { nil }
+    var onMove: (Int) -> Bool = { _ in false }
+    var onCancel: () -> Bool = { false }
     var onFocusChange: (Bool) -> Void = { _ in }
     var onDragTargeted: (Bool) -> Void = { _ in }
+    private var focusAsked = false
+
+    /// Focus only when it is asked for: a click in the box, Tab into it, or
+    /// `takeFocus()` (⌘J). Left to AppKit, the first text view in a window
+    /// takes focus whenever the window becomes key, and the cursor would wait
+    /// in the Ask bar instead of in the notes, so a note typed during a
+    /// meeting would go to Ask.
+    override var acceptsFirstResponder: Bool {
+        if focusAsked { return true }
+        guard let event = NSApp.currentEvent, event.window === window else { return false }
+        switch event.type {
+        case .leftMouseDown, .rightMouseDown:
+            return bounds.contains(convert(event.locationInWindow, from: nil))
+        case .keyDown:
+            return event.keyCode == 48   // Tab
+        default:
+            return false
+        }
+    }
+
+    func takeFocus() {
+        focusAsked = true
+        window?.makeFirstResponder(self)
+        focusAsked = false
+    }
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
@@ -378,6 +320,11 @@ final class ComposerTextView: NSTextView {
             }
             return
         }
+        // A list open under the box takes the arrows and Escape first. Escape
+        // reaches a text view as completion as well as cancel.
+        if selector == #selector(moveDown(_:)), onMove(1) { return }
+        if selector == #selector(moveUp(_:)), onMove(-1) { return }
+        if selector == #selector(cancelOperation(_:)) || selector == #selector(complete(_:)), onCancel() { return }
         if selector == #selector(moveUp(_:)), string.isEmpty, let last = onRecall(), !last.isEmpty {
             insertText(last, replacementRange: NSRange(location: 0, length: 0))
             return

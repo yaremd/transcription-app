@@ -9,10 +9,11 @@ enum Panel: Hashable {
 
 /// Top-level layout, meeting-first: the sidebar is the library — folders
 /// first (collapsible, one per project/client), then the rest grouped by
-/// day — plus Action Items; recording is an *action*, not a place — the "+"
-/// toolbar button (⌘N) creates a meeting and starts listening immediately.
-/// While recording, the live meeting shows as a red-dot row pinned on top of
-/// the sidebar. With nothing selected the detail area is a welcome screen.
+/// day — plus Action Items; recording is an *action*, not a place — the
+/// sidebar's first row, New meeting (⌘N, also File → New Meeting), creates a
+/// meeting and starts listening immediately. While recording, that row is the
+/// live meeting instead: a red dot and the running time, pinned on top. With
+/// nothing selected the detail area is a welcome screen.
 /// The AudioMonitor lives here (above the detail switch) so browsing past
 /// meetings never interrupts an in-progress recording.
 struct RootView: View {
@@ -44,30 +45,12 @@ struct RootView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
-                if monitor.isRunning {
-                    Section {
-                        Label {
-                            HStack {
-                                Text(monitor.isPaused ? "Paused" : "Recording…")
-                                    .font(Theme.bodyMedium)
-                                Spacer()
-                                if !monitor.isPaused {
-                                    Circle()
-                                        .fill(Theme.red)
-                                        .frame(width: 7, height: 7)
-                                        .shadow(color: Theme.red.opacity(0.5), radius: 3)
-                                }
-                            }
-                        } icon: {
-                            Image(systemName: "record.circle")
-                                .font(.system(size: 12))
-                                .foregroundStyle(Theme.red)
-                        }
-                        .tag(Panel.record)
-                    }
-                }
-
                 Section {
+                    if monitor.isRunning {
+                        liveRow.tag(Panel.record)
+                    } else {
+                        newMeetingRow
+                    }
                     Label {
                         HStack {
                             Text("Action Items").font(Theme.body)
@@ -142,6 +125,7 @@ struct RootView: View {
                 switch selection {
                 case .tasks:
                     TasksView(openMeeting: { selection = .meeting($0) })
+                        .clipped()
                 case .meeting(let id):
                     if let meeting = store.meetings.first(where: { $0.id == id }) {
                         MeetingDetailView(meeting: meeting)
@@ -154,32 +138,23 @@ struct RootView: View {
                         RecordingView(monitor: monitor)
                     } else {
                         WelcomeView(monitor: monitor, newMeeting: newMeeting)
+                            .clipped()
                     }
                 }
             }
-            .clipped()
+            // No clip here: the companion's divider runs up through the
+            // toolbar. The document column clips itself (MeetingPageLayout),
+            // so a meeting's text still never scrolls over the toolbar.
             .background { Theme.background.ignoresSafeArea() }
         }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                // Native prominent + capsule: the toolbar draws exactly one
-                // filled pill (a custom-painted background here would sit
-                // inside the system's button bezel and read as a double
-                // outline). tint colors it; it turns red while recording.
-                Button(action: newMeeting) {
-                    Label(monitor.isRunning ? "Recording…" : "New Meeting",
-                          systemImage: monitor.isRunning ? "record.circle" : "plus")
-                }
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.capsule)
-                .tint(monitor.isRunning ? Theme.red : Theme.accent)
-                // `.borderedProminent` hard-codes a white label, which is
-                // unreadable on the lime dark-appearance accent.
-                .foregroundStyle(monitor.isRunning ? Color.white : Theme.onAccent)
-                .keyboardShortcut("n", modifiers: .command)
-                .help(monitor.isRunning ? "Back to the live meeting" : "New meeting — starts listening right away (⌘N)")
-            }
-        }
+        // The page carries its title in large type right below; the same words
+        // in the strip above only repeated it.
+        .withoutToolbarTitle()
+        // File → New Meeting (⌘N) reaches the sidebar's row from anywhere,
+        // even with the sidebar hidden.
+        .onReceive(NotificationCenter.default.publisher(for: .sealNewMeeting)) { _ in newMeeting() }
+        .onAppear { Self.onScreen += 1 }
+        .onDisappear { Self.onScreen -= 1 }
         // `selection`, not `accent`: this tint reaches List row selection and
         // toggle tracks, which macOS draws with a white foreground we can't
         // override. See Theme.selection.
@@ -438,6 +413,57 @@ struct RootView: View {
 
     /// "+" / ⌘N: create a meeting and start listening immediately. If one is
     /// already being recorded, just go to it.
+    /// How many windows are showing the library, so File → New Meeting knows
+    /// whether there is one to send to or one to open first.
+    static var onScreen = 0
+
+    /// The first row of the sidebar while nothing records: where every new
+    /// thing in a Mac library starts, one click, listening at once.
+    private var newMeetingRow: some View {
+        Button(action: newMeeting) {
+            Label {
+                HStack {
+                    Text("New meeting")
+                        .font(Theme.bodyMedium)
+                    Spacer()
+                    Text("⌘N")
+                        .font(Theme.meta)
+                        .foregroundStyle(.tertiary)
+                }
+            } icon: {
+                Image(systemName: "plus")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Theme.onAccent)
+                    .frame(width: 16, height: 16)
+                    .background(Circle().fill(Theme.accent))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("New meeting: starts listening right away (⌘N)")
+    }
+
+    /// The live meeting, pinned where New meeting was: a red dot, and the
+    /// time running so a glance at the library says it is still listening.
+    private var liveRow: some View {
+        Label {
+            HStack {
+                Text(monitor.isPaused ? "Paused" : "Recording")
+                    .font(Theme.bodyMedium)
+                Spacer()
+                if let start = monitor.recordingStart, !monitor.isPaused {
+                    RecordingTimerLabel(start: start)
+                }
+            }
+        } icon: {
+            Circle()
+                .fill(monitor.isPaused ? Color.secondary : Theme.red)
+                .frame(width: 8, height: 8)
+                .shadow(color: Theme.red.opacity(monitor.isPaused ? 0 : 0.45), radius: 3)
+                .frame(width: 16, height: 16)
+        }
+    }
+
     private func newMeeting() {
         if monitor.isRunning {
             selection = .record
@@ -657,5 +683,25 @@ private struct MeetingRow: View {
     private var secondaryText: String? {
         guard !isUnnamed, !meeting.preview.isEmpty else { return nil }
         return meeting.preview
+    }
+}
+
+extension Notification.Name {
+    /// File → New Meeting: start one, or go back to the one already running.
+    static let sealNewMeeting = Notification.Name("SealNewMeeting")
+}
+
+private extension View {
+    /// The window keeps its title (the Window menu, Mission Control, VoiceOver
+    /// read it); only the toolbar's copy of it goes. macOS 26 only: that is
+    /// where a toolbar spacer can hold Share at the trailing edge without the
+    /// title (see `shareToolbar`); earlier systems keep the title.
+    @ViewBuilder
+    func withoutToolbarTitle() -> some View {
+        if #available(macOS 26.0, *) {
+            toolbar(removing: .title)
+        } else {
+            self
+        }
     }
 }

@@ -499,6 +499,23 @@ private struct RecordingSettings: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            Section("Transcription") {
+                Picker("Speed", selection: $monitor.speed) {
+                    ForEach(TranscriptionSpeed.allCases) { speed in
+                        Text(speed.label).tag(speed)
+                    }
+                }
+                .pickerStyle(.segmented)
+                // Switching unloads the speech model the recording is using.
+                .disabled(monitor.isRunning)
+                Text(monitor.isRunning
+                     ? "You can switch once this recording stops."
+                     : "Fast shows your words sooner and is nearly as accurate. Accurate runs the full speech model, which takes longer. Applies from the next recording.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Section {
                 Toggle("Keep meeting audio", isOn: $settings.keepAudio)
                 Text("Saves each meeting's audio on your Mac, next to its transcript (~15 MB per hour). This powers \"Improve transcript\" — re-transcribing a finished meeting with the accurate model. Nothing ever leaves your Mac; deleting a meeting deletes its audio.")

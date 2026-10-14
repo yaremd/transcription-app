@@ -114,6 +114,13 @@ enum TranscriptionSpeed: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    static let defaultsKey = "transcriptionSpeed"
+
+    /// The speed last chosen in Settings; Fast until one is.
+    static var saved: TranscriptionSpeed {
+        UserDefaults.standard.string(forKey: defaultsKey).flatMap(TranscriptionSpeed.init(rawValue:)) ?? .fast
+    }
+
     var label: String {
         switch self {
         case .fast: return "Fast"
@@ -194,8 +201,13 @@ final class AudioMonitor: ObservableObject {
             Task { await transcriber.setLanguagePolicy(forced: lang.code, allowed: lang.allowedCodes) }
         }
     }
-    @Published var speed: TranscriptionSpeed = .fast {
-        didSet { Task { await transcriber.reset() } }   // reload the matching model on next Start
+    /// Chosen in Settings → Recording, and remembered. Never changed while a
+    /// recording runs: switching unloads the model the session is using.
+    @Published var speed: TranscriptionSpeed = .saved {
+        didSet {
+            UserDefaults.standard.set(speed.rawValue, forKey: TranscriptionSpeed.defaultsKey)
+            Task { await transcriber.reset() }   // reload the matching model on next Start
+        }
     }
 
     // Notes (Stage 3)
@@ -419,6 +431,17 @@ final class AudioMonitor: ObservableObject {
     func toggle() { isRunning ? stop() : start() }
 
     func start() {
+        #if DEBUG
+        // A demo run is a window put up for a screenshot, and whoever is at
+        // the Mac may click it or type into it while it is up. On 2026-10-14
+        // one stray click on New meeting recorded ten seconds of the room into
+        // a scratch container. Demo runs never capture; the scripted session
+        // (`beginDemoSession`) shows the live page without a microphone.
+        if DemoMode.isActive, ProcessInfo.processInfo.environment["SEAL_DEMO_ALLOW_CAPTURE"] != "1" {
+            showNotice("Demo run: recording is off.", for: 4)
+            return
+        }
+        #endif
         errorMessage = nil
         clearNotice()
         transcript = []
