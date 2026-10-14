@@ -13,6 +13,39 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 1.5</title>
+      <sparkle:version>30</sparkle:version>
+      <sparkle:shortVersionString>1.5</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 14 Oct 2026 13:14:15 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Seal 1.5</h3>
+        <h3>One bar under your notes, and slides that catch themselves</h3>
+        <p>The buttons in the meeting's top-right corner are gone. Everything
+        they did is in one bar under your notes: ask about the meeting there,
+        or type / to rewrite the notes, apply a template, draft a follow-up or
+        export. Answers open beside the notes, and the box follows them for
+        your next question. The transcript and Ask now run the full height of
+        the window, and New meeting is the first row of the sidebar (⌘N).</p>
+        <p>While you record, the bar starts with the time and a pause button.
+        Click the time for stop, star, snap, and the microphone and language.
+        Transcription speed has moved to Settings → Recording.</p>
+        <p>In another app while recording, a small seal peeks out from the
+        edge of the screen. Rest the pointer on it for pause, stop, snap and
+        star, click it to come back to Seal, or drag it wherever you like.</p>
+        <p>Slides catch themselves: while you record a call, Seal watches the
+        call's window, and only that window. When a new slide or page appears
+        and holds still, it's captured and its text read into the meeting, on
+        your Mac. And when someone says your name, or a decision or a task with
+        a deadline is said, the moment gets a ☆ in your notes with what was
+        said. Both can be turned off in Settings → Recording.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v1.5/Seal.dmg"
+        sparkle:edSignature="LAYdPH/4ylPfDCNwogVobr6lWvHdKYl8JViGqSjopdOUG/DFYgsJf1Kzm9FydCsknH94I8nUvo+46us9EANuDA==" length="21135080"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 1.4</title>
       <sparkle:version>29</sparkle:version>
       <sparkle:shortVersionString>1.4</sparkle:shortVersionString>
