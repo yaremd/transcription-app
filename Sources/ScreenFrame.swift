@@ -3,9 +3,10 @@ import Vision
 import CoreGraphics
 import AppKit
 
-/// What was on the user's screen at one moment of a meeting — captured on
-/// demand, read into text on the Mac, and kept beside the transcript so the
-/// notes and Ask can see the slide, the shared document, the demo.
+/// What was on the user's screen at one moment of a meeting — snapped on
+/// demand, or caught from the call's window as a new slide appeared — read
+/// into text on the Mac, and kept beside the transcript so the notes and Ask
+/// can see the slide, the shared document, the demo.
 struct ScreenFrame: Codable, Identifiable, Hashable {
     var id: UUID = UUID()
     /// When it was captured.
@@ -17,6 +18,9 @@ struct ScreenFrame: Codable, Identifiable, Hashable {
     var sourceApp: String? = nil
     /// The image file's name inside the meeting's frames folder.
     var fileName: String
+    /// Caught by `SlideCatcher` as the shared screen changed, rather than
+    /// snapped by hand. Absent in meetings saved before it existed.
+    var caught: Bool? = nil
 
     /// How the frame is labelled wherever it is listed beside speech.
     var label: String { sourceApp.map { "On screen (\($0))" } ?? "On screen" }
@@ -46,6 +50,11 @@ enum ScreenTextReader {
     /// Lines of text in reading order, joined with newlines. Empty if the
     /// image holds nothing legible.
     static func text(in image: CGImage) async throws -> String {
+        try await lines(in: image).map(\.text).joined(separator: "\n")
+    }
+
+    /// The lines of text in reading order, each with where it sits.
+    static func lines(in image: CGImage) async throws -> [ReadLine] {
         try await withCheckedThrowingContinuation { continuation in
             let request = VNRecognizeTextRequest { request, error in
                 if let error {
@@ -57,7 +66,7 @@ enum ScreenTextReader {
                     guard let best = observation.topCandidates(1).first else { return nil }
                     return ReadLine(text: best.string, box: observation.boundingBox)
                 }
-                continuation.resume(returning: readingOrder(lines).map(\.text).joined(separator: "\n"))
+                continuation.resume(returning: readingOrder(lines))
             }
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = true

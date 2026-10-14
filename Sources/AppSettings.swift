@@ -64,6 +64,15 @@ final class AppSettings: ObservableObject {
     /// deck" reads as notes; "the user will send the deck" reads as a log.
     /// Optional, and only ever read on this Mac.
     @Published var userName: String { didSet { d.set(userName, forKey: "userName") } }
+    /// While recording, catch what is shared in the call's window as the
+    /// slide changes (`SlideCatcher`) — that window only, on this Mac. On by
+    /// default; the first catch says so, and where to turn it off.
+    @Published var catchSlides: Bool { didSet { d.set(catchSlides, forKey: "catchSlides") } }
+    /// The first caught slide has said where this is switched off.
+    @Published var slideCatchIntroduced: Bool { didSet { d.set(slideCatchIntroduced, forKey: "slideCatchIntroduced") } }
+    /// Star the moments someone says your name, or a decision or a task is
+    /// said (`AutoStar`). On by default.
+    @Published var autoStars: Bool { didSet { d.set(autoStars, forKey: "autoStars") } }
 
     private let d = UserDefaults.standard
     private static let apiKeyAccount = "cloudAPIKey"
@@ -83,6 +92,9 @@ final class AppSettings: ObservableObject {
         autoStopAfterMeeting = d.object(forKey: "autoStopAfterMeeting") == nil ? true : d.bool(forKey: "autoStopAfterMeeting")
         calendarContextEnabled = d.bool(forKey: "calendarContextEnabled")
         userName = d.string(forKey: "userName") ?? ""
+        catchSlides = d.object(forKey: "catchSlides") == nil ? true : d.bool(forKey: "catchSlides")
+        slideCatchIntroduced = d.bool(forKey: "slideCatchIntroduced")
+        autoStars = d.object(forKey: "autoStars") == nil ? true : d.bool(forKey: "autoStars")
 
         // The API key lives in the macOS Keychain, not UserDefaults. Migrate any
         // legacy plaintext key an earlier build may have stored in UserDefaults.

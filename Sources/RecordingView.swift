@@ -5,8 +5,8 @@ import AppKit
 /// notes document on the left — a title, and the notes you type, each stamped
 /// with the moment — and the companion beside it, the transcript arriving
 /// line by line or Ask, which answers from everything said so far. Every
-/// session control lives in one floating bar docked under the document, so
-/// Stop never moves no matter what else is open.
+/// session control lives in one floating bar docked under the document,
+/// paired with the Ask bar, so Stop never moves no matter what else is open.
 struct RecordingView: View {
     @ObservedObject var monitor: AudioMonitor
     @EnvironmentObject private var settings: AppSettings
@@ -19,10 +19,9 @@ struct RecordingView: View {
     @State private var showDiscardConfirm = false
     @State private var jumpDate: Date?
     @State private var jumpPulse = 0
-    @State private var askFocusPulse = 0
     @State private var jotFocusPulse = 0
-    /// The document column's width, for the control bar's compact mode.
-    @State private var documentWidth: CGFloat = 1000
+    /// The whole page's width, for the companion's toolbar tabs.
+    @State private var pageWidth: CGFloat = 1000
 
     private var companionTab: Binding<CompanionTab> {
         Binding(get: { CompanionTab(rawValue: companionTabRaw) ?? .transcript },
@@ -33,15 +32,8 @@ struct RecordingView: View {
         MeetingPageLayout(companionVisible: companionVisible) {
             DocumentColumn { document }
                 .safeAreaInset(edge: .bottom, spacing: 10) { controls }
-                .background {
-                    GeometryReader { geo in
-                        Color.clear
-                            .onChange(of: geo.size.width, initial: true) { _, width in documentWidth = width }
-                    }
-                }
         } companion: {
-            CompanionPanel(tab: companionTab,
-                           close: { withAnimation(MeetingPageLayout<EmptyView, EmptyView>.spring) { companionVisible = false } }) {
+            CompanionPanel(tab: companionTab.wrappedValue) {
                 TranscriptPanel(items: liveItems,
                                 recording: monitor.isRunning,
                                 paused: monitor.isPaused,
@@ -54,14 +46,16 @@ struct RecordingView: View {
                                 banner: { EmptyView() },
                                 actions: { EmptyView() })
             } ask: {
-                AskPanel(context: askContext, focusPulse: askFocusPulse)
+                AskPanel(context: askContext, composer: AnyView(liveBox(inPanel: true)))
             }
         }
         .frame(minWidth: 640, minHeight: 480)
-        .toolbar {
-            CompanionToolbarItems(visible: companionVisible, tab: companionTab.wrappedValue,
-                                  toggle: toggleCompanion)
-        }
+        .trackingWidth($pageWidth)
+        .meetingPageToolbar(
+            share: nil,
+            companion: CompanionToolbar(visible: companionVisible, tab: companionTab,
+                                        width: MeetingPageLayout<EmptyView, EmptyView>.companionWidth(for: pageWidth),
+                                        close: { withAnimation(MeetingPageLayout<EmptyView, EmptyView>.spring) { companionVisible = false } }))
         .confirmationDialog("Discard this recording?",
                             isPresented: $showDiscardConfirm,
                             titleVisibility: .visible) {
@@ -139,20 +133,83 @@ struct RecordingView: View {
                     .foregroundStyle(Theme.amber)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            RecordingControlBar(monitor: monitor,
-                                transcriptVisible: companionVisible && companionTab.wrappedValue == .transcript,
-                                toggleTranscript: toggleTranscript,
-                                requestDiscard: { showDiscardConfirm = true },
-                                compact: documentWidth < 480)
+            if askOpen {
+                // The Ask box is under the answers; the session keeps its chip.
+                RecordingChip(monitor: monitor, requestDiscard: { showDiscardConfirm = true })
+                    .padding(7)
+                    .floatingGlass(in: Capsule())
+            } else {
+                liveBar
+            }
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
     }
 
+    private var askOpen: Bool { companionVisible && companionTab.wrappedValue == .ask }
+
+    /// The one bar under the live page: the recording chip (pause, stop and
+    /// the rest are a click on it), the transcript button, and the box that
+    /// asks what's been said. The same bar as a saved meeting's, plus the chip.
+    private var liveBar: some View {
+        liveBox(inPanel: false)
+            .frame(maxWidth: 560)
+    }
+
+    /// The Ask box, under the notes (with the recording chip first) or at the
+    /// foot of the Ask tab: one draft, whichever is showing.
+    private func liveBox(inPanel: Bool) -> AskBar {
+        AskBar(context: askContext,
+               hasTranscript: !monitor.transcript.isEmpty,
+               transcriptOpen: companionVisible && companionTab.wrappedValue == .transcript,
+               toggleTranscript: toggleTranscript,
+               actions: liveActions,
+               showAnswers: showAnswers,
+               draft: AskStore.shared.draft(for: monitor.currentMeetingID),
+               leading: inPanel ? nil : AnyView(RecordingChip(monitor: monitor, requestDiscard: { showDiscardConfirm = true })),
+               showsTranscriptButton: !inPanel,
+               takesFocusRequests: inPanel)
+    }
+
+    /// What the bar's "/" can do while recording. Stop, star and snap keep
+    /// their menu shortcuts, so they are shown here, not registered twice.
+    private var liveActions: [AskBarAction] {
+        let transcriptShowing = companionVisible && companionTab.wrappedValue == .transcript
+        return [
+            AskBarAction(id: "pause", title: monitor.isPaused ? "Resume the recording" : "Pause the recording",
+                         symbol: monitor.isPaused ? "play" : "pause", group: .session,
+                         enabled: monitor.isRunning,
+                         perform: { monitor.pauseResume() }),
+            AskBarAction(id: "stop", title: "Stop and save", symbol: "stop", group: .session,
+                         enabled: monitor.isRunning, hint: "⇧⌘R",
+                         perform: { monitor.toggle() }),
+            AskBarAction(id: "star", title: "Star this moment", symbol: "star", group: .session,
+                         enabled: monitor.isRunning, featured: true, hint: "⇧⌘H",
+                         perform: { monitor.addHighlight() }),
+            AskBarAction(id: "snap", title: "Snap the screen", symbol: "camera.viewfinder", group: .session,
+                         enabled: monitor.isRunning, featured: true, hint: "⇧⌘S",
+                         perform: { monitor.snapScreen() }),
+            AskBarAction(id: "transcript", title: transcriptShowing ? "Hide the transcript" : "Show the transcript",
+                         symbol: "waveform", group: .transcript, hint: "⇧⌘T",
+                         perform: toggleTranscript),
+        ]
+    }
+
+    /// A question went from the bar: its answer streams in the companion, and
+    /// the box moves there with the cursor, ready for the follow-up.
+    private func showAnswers() {
+        guard !askOpen else { return }
+        AskStore.shared.draft(for: monitor.currentMeetingID).focusRequested = true
+        withAnimation(MeetingPageLayout<EmptyView, EmptyView>.spring) {
+            companionTab.wrappedValue = .ask
+            companionVisible = true
+        }
+    }
+
     private func toggleTranscript() { toggleCompanion(.transcript) }
 
     /// Opens the companion on `target`, or closes it when that tab is already
-    /// showing. Opening Ask puts the cursor in its composer.
+    /// showing.
     private func toggleCompanion(_ target: CompanionTab) {
         withAnimation(MeetingPageLayout<EmptyView, EmptyView>.spring) {
             if companionVisible && companionTab.wrappedValue == target {
@@ -160,7 +217,6 @@ struct RecordingView: View {
             } else {
                 companionTab.wrappedValue = target
                 companionVisible = true
-                if target == .ask { askFocusPulse += 1 }
             }
         }
     }
@@ -238,45 +294,15 @@ struct RecordingView: View {
     }
 }
 
-// MARK: - Companion toolbar items (shared with the saved page)
-
-/// Two toolbar buttons that open the companion on a tab — Transcript (⇧⌘T)
-/// and Ask (⌘J) — and close it when that tab is already showing. The one
-/// whose tab is open is drawn in the accent. Separate items, not a group:
-/// macOS fuses grouped toolbar buttons into one capsule, and these are two
-/// different places, not two settings of one control.
-struct CompanionToolbarItems: ToolbarContent {
-    let visible: Bool
-    let tab: CompanionTab
-    let toggle: (CompanionTab) -> Void
-
-    var body: some ToolbarContent {
-        ToolbarItem {
-            Button { toggle(.transcript) } label: {
-                Label("Transcript", systemImage: "text.quote")
-                    .foregroundStyle(visible && tab == .transcript ? Theme.accent : Color.primary)
-            }
-            .keyboardShortcut("t", modifiers: [.command, .shift])
-            .help(visible && tab == .transcript ? "Hide the transcript (⇧⌘T)" : "Show the transcript (⇧⌘T)")
-        }
-        ToolbarItem {
-            Button { toggle(.ask) } label: {
-                Label("Ask", systemImage: "questionmark.bubble")
-                    .foregroundStyle(visible && tab == .ask ? Theme.accent : Color.primary)
-            }
-            .keyboardShortcut("j", modifiers: .command)
-            .help(visible && tab == .ask ? "Hide Ask (⌘J)" : "Ask this meeting (⌘J)")
-        }
-    }
-}
-
 // MARK: - A jotted note
 
 /// One editable timestamped note — the live page and the saved page share
-/// it. A note carries its formatting in its own text ("- ", "[ ]", "★" — see
-/// NoteMark): bullets get a dot, checkboxes a real toggle that strikes the
-/// text, starred moments an amber star. The marker stays in the stored text,
-/// so plain-text exports and older versions read naturally.
+/// it. A note carries its formatting in its own text ("- ", "[ ]", "★", "☆" —
+/// see NoteMark): bullets get a dot, checkboxes a real toggle that strikes the
+/// text, starred moments an amber star, and moments Seal starred an outlined
+/// one with its reason and the quote, quieter — click that star to make it
+/// yours. The marker stays in the stored text, so plain-text exports and
+/// older versions read naturally.
 struct EditableNoteRow: View {
     @Binding var block: NoteBlock
     let onJump: (Date) -> Void
@@ -319,6 +345,19 @@ struct EditableNoteRow: View {
                           text: highlightBodyBinding(), axis: .vertical)
                     .textFieldStyle(.plain)
                     .font(Theme.docBody)
+            case .flagged(let body):
+                Button { block.text = "★ " + body } label: {
+                    Image(systemName: "star")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Theme.amber)
+                }
+                .buttonStyle(.plain)
+                .help("Starred by Seal — click to keep it as your own star")
+                Text(body)
+                    .font(Theme.docBody)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             case .plain:
                 TextField("", text: $block.text, axis: .vertical)
                     .textFieldStyle(.plain)

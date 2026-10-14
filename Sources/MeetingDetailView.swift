@@ -4,8 +4,8 @@ import SwiftUI
 /// title, the notes you jotted, the write-up Seal built from them and the
 /// transcript (the model's lines in muted ink, yours in ink), action items,
 /// a follow-up when one has been drafted — and the companion beside it, the
-/// transcript or Ask. Everything the model can do for the page lives in one
-/// menu; everything about the transcript lives on the transcript.
+/// transcript or Ask. Everything the model can do for the page lives in the
+/// Ask bar under it; the toolbar keeps only Share.
 struct MeetingDetailView: View {
     let meeting: Meeting
     @EnvironmentObject private var store: MeetingStore
@@ -81,7 +81,8 @@ struct MeetingDetailView: View {
     // Companion.
     @State private var jumpDate: Date?
     @State private var jumpPulse = 0
-    @State private var askFocusPulse = 0
+    /// The whole page's width, for the companion's toolbar tabs.
+    @State private var pageWidth: CGFloat = 1000
 
     @State private var showReportProblem = false
     @State private var showTemplateEditor = false
@@ -100,21 +101,24 @@ struct MeetingDetailView: View {
     var body: some View {
         MeetingPageLayout(companionVisible: companionVisible) {
             DocumentColumn { document }
+                .safeAreaInset(edge: .bottom, spacing: 10) {
+                    // With the Ask tab open the box sits under the answers.
+                    if !askOpen { askBar }
+                }
         } companion: {
-            CompanionPanel(tab: companionTab,
-                           close: { withAnimation(Self.spring) { companionVisible = false } }) {
+            CompanionPanel(tab: companionTab.wrappedValue) {
                 transcriptPanel
             } ask: {
-                AskPanel(context: askContext, focusPulse: askFocusPulse)
+                AskPanel(context: askContext, composer: AnyView(askBox(inPanel: true)))
             }
         }
+        .trackingWidth($pageWidth)
         .navigationTitle(meeting.title)
-        .toolbar {
-            CompanionToolbarItems(visible: companionVisible, tab: companionTab.wrappedValue,
-                                  toggle: toggleCompanion)
-            ToolbarItem { aiMenu }
-            ToolbarItem { exportMenu }
-        }
+        .meetingPageToolbar(
+            share: AnyView(shareMenu),
+            companion: CompanionToolbar(visible: companionVisible, tab: companionTab,
+                                        width: MeetingPageLayout<EmptyView, EmptyView>.companionWidth(for: pageWidth),
+                                        close: { withAnimation(Self.spring) { companionVisible = false } }))
         .onChange(of: meeting.id, initial: true) { _, _ in load() }
         .onChange(of: jots) { _, _ in scheduleJotSave() }
         .onChange(of: notesFocused) { _, focused in
@@ -460,70 +464,139 @@ struct MeetingDetailView: View {
         showTemplateEditor = true
     }
 
-    // MARK: - Seal AI menu
+    // MARK: - The Ask bar
 
-    /// One menu for everything the model can do for this page. Menu items
-    /// can't host the .proGated overlay, so each Pro action gates itself and
-    /// its section title carries the honesty ("— Seal Pro").
-    private var aiMenu: some View {
-        Menu {
-            if !meeting.lines.isEmpty {
-                Section("Notes") {
-                    Button(meeting.hasNotes ? "Rewrite the notes" : "Write the notes", action: generateNotes)
-                        .disabled(generating || reshaping)
-                    Menu(meeting.hasNotes ? "Rewrite as…" : "Write as…") {
-                        ForEach(NotesTemplate.all) { t in
-                            Button(t.name) { templateID = t.id; generateNotes() }
-                        }
-                        if !customTemplates.templates.isEmpty {
-                            Section(proTitle("Yours", .customTemplates)) {
-                                ForEach(customTemplates.templates) { t in
-                                    Button(t.name.isEmpty ? "Untitled" : t.name) { gatedTemplate(t) }
-                                }
-                            }
-                        }
-                        Divider()
-                        Button("Manage templates…") { gatedManageTemplates() }
-                    }
-                    .disabled(generating || reshaping)
-                }
-                if meeting.hasNotes {
-                    Section(proTitle("Reshape", .reshapeSummary)) {
-                        Button("Make shorter") { gatedReshape("Make the notes shorter and tighter.") }
-                        Button("Add more detail") { gatedReshape("Expand the notes with more detail from the transcript.") }
-                        Button("More formal") { gatedReshape("Rewrite in a more formal, professional tone.") }
-                        Button("Bullet points") { gatedReshape("Convert the notes to concise bullet points under each heading.") }
-                        Button("Plain language") { gatedReshape("Rewrite in plain, simple language.") }
-                    }
-                    .disabled(generating || reshaping)
-                }
-            }
-            Section {
-                Button("Edit the notes", action: beginEditingNotes)
-                    .keyboardShortcut("e", modifiers: .command)
-                    .disabled(generating || reshaping || editingNotes)
-            }
-            if !meeting.lines.isEmpty {
-                Section(proTitle("Meeting", .actionTracking)) {
-                    Button("Find action items") { gatedExtractActions() }
-                        .disabled(extractingActions)
-                    Button(followUp.isEmpty ? "Draft a follow-up" : "Redraft the follow-up") { gatedDraftFollowUp() }
-                        .disabled(draftingFollowUp)
-                }
-                Section("Transcript") {
-                    Button("Identify speakers…") { gatedIdentifySpeakers() }
-                        .disabled(!canIdentifySpeakers || store.identifyingSpeakers.contains(meeting.id))
-                    Button("Improve the transcript…") { gatedPolishTranscript() }
-                        .disabled(!store.hasAudio(for: meeting.id) || polishing)
-                }
-            }
-        } label: {
-            Label("Seal AI", systemImage: "sparkles")
-        }
-        .help("Everything Seal can write for this meeting — on your Mac")
+    /// The bar under the page: the transcript button, and one box that asks
+    /// this meeting a question or, after a "/", runs anything the model can do
+    /// for the page. It replaced the toolbar's menus; each action gates itself.
+    private var askBar: some View {
+        askBox(inPanel: false)
+            .frame(maxWidth: 560)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
     }
 
-    private var exportMenu: some View {
+    /// The Ask box, under the notes or at the foot of the Ask tab: one draft,
+    /// whichever is showing.
+    private func askBox(inPanel: Bool) -> AskBar {
+        AskBar(context: askContext,
+               hasTranscript: !meeting.lines.isEmpty,
+               transcriptOpen: companionVisible && companionTab.wrappedValue == .transcript,
+               toggleTranscript: { toggleCompanion(.transcript) },
+               actions: askBarActions,
+               showAnswers: showAnswers,
+               draft: AskStore.shared.draft(for: meeting.id),
+               showsTranscriptButton: !inPanel,
+               takesFocusRequests: inPanel)
+    }
+
+    private var askOpen: Bool { companionVisible && companionTab.wrappedValue == .ask }
+
+    /// Everything the bar can run for this meeting, in the order its list
+    /// shows them. Featured ones are listed before anything is typed.
+    private var askBarActions: [AskBarAction] {
+        let hasLines = !meeting.lines.isEmpty
+        let notesBusy = generating || reshaping
+        var actions: [AskBarAction] = []
+        if hasLines {
+            actions.append(AskBarAction(
+                id: "rewrite", title: meeting.hasNotes ? "Rewrite the notes" : "Write the notes",
+                symbol: "arrow.triangle.2.circlepath", group: .notes, enabled: !notesBusy,
+                perform: generateNotes))
+            actions.append(AskBarAction(
+                id: "as", title: meeting.hasNotes ? "Rewrite as a 1-on-1, a sales call…" : "Write as a 1-on-1, a sales call…",
+                symbol: "doc.text", group: .notes, enabled: !notesBusy, featured: true, refine: "/as "))
+            for template in NotesTemplate.all {
+                actions.append(AskBarAction(
+                    id: "as-\(template.id)", title: "\(meeting.hasNotes ? "Rewrite" : "Write") as \(template.name)",
+                    symbol: "doc.text", group: .notes, enabled: !notesBusy, showsKeyword: false,
+                    perform: { templateID = template.id; generateNotes() }))
+            }
+            for template in customTemplates.templates {
+                let name = template.name.isEmpty ? "Untitled" : template.name
+                actions.append(AskBarAction(
+                    id: "as-\(template.id)", title: "\(meeting.hasNotes ? "Rewrite" : "Write") as \(name)",
+                    symbol: "doc.text", group: .notes, enabled: !notesBusy, showsKeyword: false,
+                    perform: { gatedTemplate(template) }))
+            }
+        }
+        if meeting.hasNotes {
+            let reshapes: [(id: String, title: String, symbol: String, instruction: String, featured: Bool)] = [
+                ("shorter", "Make the notes shorter", "text.badge.minus", "Make the notes shorter and tighter.", true),
+                ("detail", "Add more detail", "text.badge.plus", "Expand the notes with more detail from the transcript.", false),
+                ("formal", "Make them more formal", "textformat", "Rewrite in a more formal, professional tone.", false),
+                ("bullets", "Turn them into bullet points", "list.bullet", "Convert the notes to concise bullet points under each heading.", false),
+                ("plain", "Use plain language", "text.bubble", "Rewrite in plain, simple language.", false),
+            ]
+            for reshape in reshapes {
+                actions.append(AskBarAction(
+                    id: reshape.id, title: reshape.title, symbol: reshape.symbol, group: .notes,
+                    enabled: !notesBusy, featured: reshape.featured,
+                    perform: { gatedReshape(reshape.instruction) }))
+            }
+        }
+        actions.append(AskBarAction(
+            id: "edit", title: "Edit the notes", symbol: "pencil", group: .notes,
+            enabled: !notesBusy && !editingNotes, hint: "⌘E",
+            shortcut: KeyboardShortcut("e", modifiers: .command), perform: beginEditingNotes))
+        if hasLines {
+            actions.append(AskBarAction(
+                id: "templates", title: "Manage templates…", symbol: "slider.horizontal.3", group: .notes,
+                perform: gatedManageTemplates))
+            actions.append(AskBarAction(
+                id: "actions", title: "Find action items", symbol: "checklist", group: .meeting,
+                enabled: !extractingActions, featured: true, perform: gatedExtractActions))
+            actions.append(AskBarAction(
+                id: "follow-up", title: followUp.isEmpty ? "Draft a follow-up email" : "Redraft the follow-up",
+                symbol: "envelope", group: .meeting, enabled: !draftingFollowUp, featured: true,
+                perform: gatedDraftFollowUp))
+        }
+        let transcriptShowing = companionVisible && companionTab.wrappedValue == .transcript
+        actions.append(AskBarAction(
+            id: "transcript", title: transcriptShowing ? "Hide the transcript" : "Show the transcript",
+            symbol: "waveform", group: .transcript, hint: "⇧⌘T",
+            perform: { toggleCompanion(.transcript) }))
+        if hasLines {
+            actions.append(AskBarAction(
+                id: "speakers", title: "Identify speakers…", symbol: "person.2", group: .transcript,
+                enabled: canIdentifySpeakers && !store.identifyingSpeakers.contains(meeting.id),
+                perform: gatedIdentifySpeakers))
+            actions.append(AskBarAction(
+                id: "improve", title: "Improve the transcript…", symbol: "wand.and.stars", group: .transcript,
+                enabled: store.hasAudio(for: meeting.id) && !polishing,
+                perform: gatedPolishTranscript))
+        }
+        actions.append(AskBarAction(
+            id: "copy", title: "Copy as Markdown", symbol: "doc.on.doc", group: .share,
+            perform: { MeetingExporter.copyMarkdown(meeting) }))
+        actions.append(AskBarAction(
+            id: "pdf", title: "Export as PDF…", symbol: "doc.richtext", group: .share, featured: true,
+            perform: { MeetingExporter.exportPDF(meeting) }))
+        actions.append(AskBarAction(
+            id: "markdown", title: "Export as Markdown…", symbol: "square.and.arrow.down", group: .share,
+            perform: { MeetingExporter.exportMarkdown(meeting) }))
+        actions.append(AskBarAction(
+            id: "word", title: "Export as Word…", symbol: "doc", group: .share,
+            perform: { gatedExport { AdvancedExporter.exportDocx(meeting) } }))
+        return actions
+    }
+
+    /// A question went from the bar: its answer streams in the companion, and
+    /// the box moves there with the cursor, ready for the follow-up.
+    private func showAnswers() {
+        guard !askOpen else { return }
+        AskStore.shared.draft(for: meeting.id).focusRequested = true
+        withAnimation(Self.spring) {
+            companionTab.wrappedValue = .ask
+            companionVisible = true
+        }
+    }
+
+    // MARK: - Share
+
+    /// The one control left in the toolbar: copying and exporting the meeting.
+    /// Everything the model can do lives in the Ask bar instead.
+    private var shareMenu: some View {
         Menu {
             Button("Copy as Markdown") { MeetingExporter.copyMarkdown(meeting) }
             Button("Copy transcript") { copyToPasteboard(meeting.transcriptText) }
@@ -538,8 +611,11 @@ struct MeetingDetailView: View {
             Divider()
             Button("Report a problem…") { showReportProblem = true }
         } label: {
-            Label("Export", systemImage: "square.and.arrow.up")
+            Label("Share", systemImage: "square.and.arrow.up")
+                .labelStyle(.titleAndIcon)
         }
+        .menuIndicator(.hidden)
+        .help("Copy or export this meeting")
     }
 
     private func proTitle(_ title: String, _ feature: ProFeature) -> String {
@@ -589,7 +665,7 @@ struct MeetingDetailView: View {
     }
 
     /// Opens the companion on `target`, or closes it when that tab is already
-    /// showing. Opening Ask puts the cursor in its composer.
+    /// showing.
     private func toggleCompanion(_ target: CompanionTab) {
         withAnimation(Self.spring) {
             if companionVisible && companionTab.wrappedValue == target {
@@ -597,7 +673,6 @@ struct MeetingDetailView: View {
             } else {
                 companionTab.wrappedValue = target
                 companionVisible = true
-                if target == .ask { askFocusPulse += 1 }
             }
         }
     }

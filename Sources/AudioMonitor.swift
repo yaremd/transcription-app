@@ -114,6 +114,13 @@ enum TranscriptionSpeed: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    static let defaultsKey = "transcriptionSpeed"
+
+    /// The speed last chosen in Settings; Fast until one is.
+    static var saved: TranscriptionSpeed {
+        UserDefaults.standard.string(forKey: defaultsKey).flatMap(TranscriptionSpeed.init(rawValue:)) ?? .fast
+    }
+
     var label: String {
         switch self {
         case .fast: return "Fast"
@@ -194,8 +201,13 @@ final class AudioMonitor: ObservableObject {
             Task { await transcriber.setLanguagePolicy(forced: lang.code, allowed: lang.allowedCodes) }
         }
     }
-    @Published var speed: TranscriptionSpeed = .fast {
-        didSet { Task { await transcriber.reset() } }   // reload the matching model on next Start
+    /// Chosen in Settings → Recording, and remembered. Never changed while a
+    /// recording runs: switching unloads the model the session is using.
+    @Published var speed: TranscriptionSpeed = .saved {
+        didSet {
+            UserDefaults.standard.set(speed.rawValue, forKey: TranscriptionSpeed.defaultsKey)
+            Task { await transcriber.reset() }   // reload the matching model on next Start
+        }
     }
 
     // Notes (Stage 3)
@@ -215,6 +227,12 @@ final class AudioMonitor: ObservableObject {
     /// Screen captures taken during this session, each already read into
     /// text, in time order.
     @Published var frames: [ScreenFrame] = []
+    /// Watches the call's window for new slides while recording.
+    private let slideCatcher = SlideCatcher()
+    /// The catcher's start, so a stop is never handled before it.
+    private var slideCatcherStart: Task<Void, Never>?
+    /// When each kind of moment was last starred on its own, this session.
+    private var lastAutoStar: [AutoStar.Reason: Date] = [:]
 
     /// The notes as plain text — what generation prompts and exports consume.
     var joinedNotes: String {
@@ -261,6 +279,8 @@ final class AudioMonitor: ObservableObject {
                     line += " (said around then: \"\(near.text.prefix(160))\")"
                 }
                 return line
+            case .flagged(let s):
+                return "★ IMPORTANT (flagged by Seal) — " + s
             }
         }.joined(separator: "\n")
     }
@@ -419,6 +439,17 @@ final class AudioMonitor: ObservableObject {
     func toggle() { isRunning ? stop() : start() }
 
     func start() {
+        #if DEBUG
+        // A demo run is a window put up for a screenshot, and whoever is at
+        // the Mac may click it or type into it while it is up. On 2026-10-14
+        // one stray click on New meeting recorded ten seconds of the room into
+        // a scratch container. Demo runs never capture; the scripted session
+        // (`beginDemoSession`) shows the live page without a microphone.
+        if DemoMode.isActive, ProcessInfo.processInfo.environment["SEAL_DEMO_ALLOW_CAPTURE"] != "1" {
+            showNotice("Demo run: recording is off.", for: 4)
+            return
+        }
+        #endif
         errorMessage = nil
         clearNotice()
         transcript = []
@@ -462,8 +493,10 @@ final class AudioMonitor: ObservableObject {
         }
         levels.mic = 0
         levels.system = 0
+        lastAutoStar = [:]
         isRunning = true
         statusMessage = "Getting ready…"
+        startSlideCatcher()
 
         // Load (and warm up) the model BEFORE capturing, so the first phrase
         // isn't lost and the first transcription isn't slow. After the first
@@ -710,6 +743,11 @@ final class AudioMonitor: ObservableObject {
     private func teardownCapture(flush: Bool) {
         isRunning = false   // set first so an in-flight model-load Task won't start capture
         isPaused = false
+        let starting = slideCatcherStart
+        Task { [slideCatcher] in
+            await starting?.value
+            await slideCatcher.stop()
+        }
         mic.stop()
         system.stop()
         micRecorder?.finish()
@@ -815,11 +853,43 @@ final class AudioMonitor: ObservableObject {
         }
     }
 
-    /// Reads the capture's text, writes the image beside the meeting, and
-    /// adds the frame to the session (and to the saved meeting, if it has
-    /// been saved yet).
-    private func file(_ image: CGImage, sourceApp: String?, at: Date, meetingID: UUID) async {
-        let text = (try? await ScreenTextReader.text(in: image)) ?? ""
+    /// Catches shared slides from the call's window while this recording runs
+    /// (see `SlideCatcher`), each filed like a snap. Never in a demo run: a
+    /// window put up for a screenshot must not read whatever call is on.
+    private func startSlideCatcher() {
+        let meetingID = currentMeetingID
+        slideCatcherStart = Task { [slideCatcher] in
+            await slideCatcher.start(
+                watching: { [weak self] in
+                    guard let self else { return false }
+                    #if DEBUG
+                    if DemoMode.isActive { return false }
+                    #endif
+                    return self.isRunning && !self.isPaused && self.currentMeetingID == meetingID
+                        && self.settings.catchSlides
+                        && EntitlementService.shared?.allows(.screenContext) == true
+                },
+                keep: { [weak self] caught in
+                    guard let self, self.currentMeetingID == meetingID else { return }
+                    Task {
+                        await self.file(caught.image, text: caught.text, sourceApp: caught.sourceApp,
+                                        at: caught.at, meetingID: meetingID, caught: true)
+                    }
+                })
+        }
+    }
+
+    /// Reads the capture's text (unless the catcher already has), writes the
+    /// image beside the meeting, and adds the frame to the session (and to
+    /// the saved meeting, if it has been saved yet).
+    private func file(_ image: CGImage, text known: String? = nil, sourceApp: String?, at: Date,
+                      meetingID: UUID, caught: Bool = false) async {
+        let text: String
+        if let known {
+            text = known
+        } else {
+            text = (try? await ScreenTextReader.text(in: image)) ?? ""
+        }
         let fileName = "\(Int(at.timeIntervalSince1970)).jpg"
         do {
             let directory = store.framesDirectory(for: meetingID)
@@ -829,18 +899,29 @@ final class AudioMonitor: ObservableObject {
             await MainActor.run { showNotice("Couldn't keep the screen capture: \(error.localizedDescription)", for: 8) }
             return
         }
-        let frame = ScreenFrame(at: at, text: text, sourceApp: sourceApp, fileName: fileName)
+        let frame = ScreenFrame(at: at, text: text, sourceApp: sourceApp, fileName: fileName,
+                                caught: caught ? true : nil)
         await MainActor.run {
             guard currentMeetingID == meetingID else { return }   // the session moved on
             frames.append(frame)
             frames.sort { $0.at < $1.at }
             if store.meetings.contains(where: { $0.id == meetingID }) { persistCurrentSession() }
             let lines = text.split(separator: "\n").count
-            diagnosticsLog?.write("screen: captured \(sourceApp ?? "display"), \(text.count) chars in \(lines) lines")
-            showNotice(text.isEmpty
-                       ? "Screen captured — nothing readable was on it, but the picture is kept."
-                       : "Screen captured — \(lines) line\(lines == 1 ? "" : "s") of text read into the meeting.", for: 5)
+            diagnosticsLog?.write("screen: \(caught ? "caught" : "captured") \(sourceApp ?? "display"), \(text.count) chars in \(lines) lines")
+            if caught, !settings.slideCatchIntroduced {
+                settings.slideCatchIntroduced = true
+                showNotice("Seal caught a shared slide on its own and read it into the meeting. "
+                           + "Settings → Recording turns this off.", for: 12)
+            } else if caught {
+                showNotice("Slide caught — \(lines) line\(lines == 1 ? "" : "s") read into the meeting.", for: 4)
+            } else {
+                showNotice(text.isEmpty
+                           ? "Screen captured — nothing readable was on it, but the picture is kept."
+                           : "Screen captured — \(lines) line\(lines == 1 ? "" : "s") of text read into the meeting.", for: 5)
+            }
         }
+        // A slide snapped by hand isn't caught again.
+        if !caught { await slideCatcher.noteSnapped(text: text) }
     }
 
     #if DEBUG
@@ -905,6 +986,7 @@ final class AudioMonitor: ObservableObject {
                 offset += 1.8
                 self.transcript.append(TranscriptLine(speaker: speaker, fragments: [text], at: now, end: now,
                                                       startOffset: offset, endOffset: offset + 1.5))
+                self.considerAutoStar(text, speaker: speaker, at: now)
                 self.levels.mic = speaker == you ? 0.55 : 0.08
                 self.levels.system = speaker == you ? 0.08 : 0.5
             }
@@ -1078,6 +1160,32 @@ final class AudioMonitor: ObservableObject {
                                       mergeGap: turnMergeGap, characterCap: turnMergeCharacterCap)
         recentCommits.append(RecentCommit(speaker: speaker, normalized: normalized,
                                           fragment: text, at: now, lineID: lineID))
+        considerAutoStar(text, speaker: speaker, at: timing.start)
+    }
+
+    /// Stars a moment worth finding again, on Seal's own (see `AutoStar`):
+    /// someone saying your name, a decision, a task with a deadline. Never a
+    /// cluster — one of a kind every minute and a half, none within 20 seconds
+    /// of another star, yours included — and at most 40 in a meeting.
+    private func considerAutoStar(_ text: String, speaker: String, at: Date) {
+        guard settings.autoStars, isRunning,
+              let hit = AutoStar.detect(text, fromOthers: speaker == speakerOthers, userName: settings.userName)
+        else { return }
+        var stars: [Date] = []
+        var flagged = 0
+        for block in noteBlocks {
+            switch NoteMark.parse(block.text) {
+            case .highlight: stars.append(block.at)
+            case .flagged: stars.append(block.at); flagged += 1
+            default: break
+            }
+        }
+        guard flagged < 40,
+              !stars.contains(where: { abs($0.timeIntervalSince(at)) < 20 }),
+              lastAutoStar[hit.reason].map({ at.timeIntervalSince($0) >= 90 }) ?? true else { return }
+        lastAutoStar[hit.reason] = at
+        noteBlocks.append(NoteBlock(text: AutoStar.noteText(for: hit), at: at))
+        diagnosticsLog?.write("star: \(hit.reason.rawValue)")
     }
 
     /// Pulls one echoed utterance back out of the transcript. Its turn may have

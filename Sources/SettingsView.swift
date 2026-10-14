@@ -499,6 +499,47 @@ private struct RecordingSettings: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            Section("While you record") {
+                Toggle("Catch shared slides", isOn: $settings.catchSlides)
+                Text("Seal looks only at the call's window — Zoom, Teams, a Meet tab — never the rest of your screen. When a new slide or page appears and holds still, it's captured and its text read into the meeting, on your Mac. The camera button still snaps anything else.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if settings.catchSlides && !ScreenSnapper.hasPermission {
+                    HStack {
+                        Text("Needs permission to capture the screen.")
+                            .font(.caption)
+                            .foregroundStyle(Theme.amber)
+                        Spacer()
+                        Button("Allow…") {
+                            if !ScreenSnapper.requestPermission() { NSWorkspace.shared.open(ScreenSnapper.settingsURL) }
+                        }
+                    }
+                }
+                Toggle("Star key moments", isOn: $settings.autoStars)
+                Text("When someone says your name, or a decision or a task with a deadline is said — in English or Ukrainian — the moment gets a ☆ in your notes with what was said, lighter than your own ★. Your name comes from General → You.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Section("Transcription") {
+                Picker("Speed", selection: $monitor.speed) {
+                    ForEach(TranscriptionSpeed.allCases) { speed in
+                        Text(speed.label).tag(speed)
+                    }
+                }
+                .pickerStyle(.segmented)
+                // Switching unloads the speech model the recording is using.
+                .disabled(monitor.isRunning)
+                Text(monitor.isRunning
+                     ? "You can switch once this recording stops."
+                     : "Fast shows your words sooner and is nearly as accurate. Accurate runs the full speech model, which takes longer. Applies from the next recording.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Section {
                 Toggle("Keep meeting audio", isOn: $settings.keepAudio)
                 Text("Saves each meeting's audio on your Mac, next to its transcript (~15 MB per hour). This powers \"Improve transcript\" — re-transcribing a finished meeting with the accurate model. Nothing ever leaves your Mac; deleting a meeting deletes its audio.")

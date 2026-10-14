@@ -263,6 +263,46 @@ extension View {
     }
 }
 
+// MARK: - Floating glass
+
+extension View {
+    /// The surface for controls that float over the page: the Ask bar, the
+    /// recording controls, and the list the bar opens. On macOS 26 it is
+    /// Liquid Glass, which the system lights and tints from whatever scrolls
+    /// beneath; before that, the raised surface with a hairline and a soft
+    /// shadow the recording bar always had.
+    ///
+    /// `frosted` is for a surface that is read rather than glanced at — the
+    /// bar's list of questions and actions — where the page showing through
+    /// clear glass would compete with the rows on it.
+    @ViewBuilder
+    func floatingGlass<S: InsettableShape>(in shape: S, frosted: Bool = false) -> some View {
+        if #available(macOS 26, *) {
+            glassEffect(frosted ? .regular.tint(Theme.background.opacity(0.86)) : .regular, in: shape)
+        } else {
+            background(Theme.surface, in: shape)
+                .overlay(shape.strokeBorder(Theme.border, lineWidth: 1))
+                .shadow(color: .black.opacity(0.10), radius: 8, y: 2)
+        }
+    }
+}
+
+/// Neighbouring glass shapes drawn as one material, so two capsules side by
+/// side read as a pair rather than two stacked panes. A plain container
+/// before macOS 26.
+struct FloatingGlassGroup<Content: View>: View {
+    var spacing: CGFloat = 8
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        if #available(macOS 26, *) {
+            GlassEffectContainer(spacing: spacing) { content() }
+        } else {
+            content()
+        }
+    }
+}
+
 // MARK: - Chips
 
 /// A small bordered chip with a colored dot: tags, statuses.

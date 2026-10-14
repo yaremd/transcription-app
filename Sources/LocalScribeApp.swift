@@ -25,6 +25,9 @@ struct LocalScribeApp: App {
     /// no business fetching the appcast, listening for meetings, or putting a
     /// floating panel on screen. (What actually blocked the runner was the
     /// Keychain read in `AppSettings.init`; see `Keychain.isUnderTest`.)
+    /// The library window's scene, so File → New Meeting can bring it back.
+    static let mainWindowID = "main"
+
     static var isRunningTests: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
@@ -63,7 +66,7 @@ struct LocalScribeApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: Self.mainWindowID) {
             RootView(monitor: monitor)
                 .environmentObject(store)
                 .environmentObject(settings)
@@ -88,6 +91,7 @@ struct LocalScribeApp: App {
                 }
         }
         .commands {
+            NewMeetingCommands(monitor: monitor)
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { updaterController.updater.checkForUpdates() }
                     .disabled(!updaterViewModel.canCheckForUpdates)
@@ -116,6 +120,32 @@ struct LocalScribeApp: App {
     }
 }
 
+/// File → New Meeting (⌘N). The page's own New meeting is the sidebar's first
+/// row, and a sidebar can be hidden, so the shortcut belongs to the menu. It
+/// replaces File → New Window: Seal is one library in one window. With that
+/// window closed, it starts listening and opens it on the live meeting.
+struct NewMeetingCommands: Commands {
+    let monitor: AudioMonitor
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("New Meeting") {
+                if RootView.onScreen > 0 {
+                    NotificationCenter.default.post(name: .sealNewMeeting, object: nil)
+                } else {
+                    if !monitor.isRunning {
+                        monitor.resetFinishedSession()
+                        monitor.start()
+                    }
+                    openWindow(id: LocalScribeApp.mainWindowID)
+                }
+            }
+            .keyboardShortcut("n", modifiers: .command)
+        }
+    }
+}
+
 /// Keeps the "Check for Updates…" menu item enabled only when Sparkle is
 /// actually able to check (updater started, not mid-check).
 final class CheckForUpdatesViewModel: ObservableObject {
@@ -125,19 +155,35 @@ final class CheckForUpdatesViewModel: ObservableObject {
     }
 }
 
-// MARK: - Floating recording pill
+// MARK: - Floating recording tab
 
-/// Shows a small always-on-top pill while a recording runs in the background
-/// (Seal not the active app) — the Zoom/Granola pattern: proof the app
-/// still hears you, a pause/resume button, and a click brings the app back.
-/// Hidden the moment the app becomes active or the recording stops.
+/// While a recording runs and Seal isn't in front, a tab waits against the
+/// edge of the screen: the seal peeking out, proof the app still hears you.
+/// Rest the pointer on it and it slides out with the time and the quick
+/// actions (see `EdgeTabView`); dragged by the seal, it settles on
+/// the nearer side and remembers the screen, the side and the height it was
+/// left at. Hidden the moment the app is visibly in front or the recording
+/// stops.
 final class FloatingPillController: ObservableObject {
-    private var panel: NSPanel?
+    private var panel: EdgeTabPanel?
     private let monitor: AudioMonitor
+    private let model: EdgeTabModel
     private var cancellables: [AnyCancellable] = []
+    private var collapseWork: DispatchWorkItem?
+    private var expandWork: DispatchWorkItem?
+    private var dragStart: (mouse: NSPoint, origin: NSPoint)?
+    /// The screen the tab is on: the one it was last dropped on, else the one
+    /// Seal's window is on.
+    private var screen: NSScreen?
+
+    private static let sideKey = "edgeTabSide"
+    private static let heightKey = "edgeTabHeight"
+    private static let screenKey = "edgeTabScreen"
+    private static let collapsedWidth = EdgeTabView.peekWidth
 
     init(monitor: AudioMonitor) {
         self.monitor = monitor
+        model = EdgeTabModel(side: EdgeSide(rawValue: UserDefaults.standard.string(forKey: Self.sideKey) ?? "") ?? .right)
         let center = NotificationCenter.default
         // App focus, window minimize/restore, and window close all change
         // whether the user can currently see the app — re-evaluate on each.
@@ -161,6 +207,16 @@ final class FloatingPillController: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] running in self?.refresh(running: running) }
             .store(in: &cancellables)
+        // The open face measured a new width (the time gained a digit): an
+        // open panel follows it.
+        model.$openWidth
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] width in
+                guard let self, self.model.expanded else { return }
+                self.place(width: width)
+            }
+            .store(in: &cancellables)
     }
 
     private var mainWindow: NSWindow? {
@@ -173,7 +229,7 @@ final class FloatingPillController: ObservableObject {
         refresh()
     }
 
-    /// The pill shows whenever a recording runs and the app isn't visibly in
+    /// The tab shows whenever a recording runs and the app isn't visibly in
     /// front of the user. "Visibly in front" is judged directly from window
     /// state: the app is active AND at least one real (titled) window is
     /// actually on screen — a minimized, hidden, or closed window is not.
@@ -183,9 +239,18 @@ final class FloatingPillController: ObservableObject {
     private func refresh(running: Bool? = nil) {
         let isRecording = running ?? monitor.isRunning
         // The Dock icon carries a REC badge for the whole session — visible
-        // reassurance even when the pill is hidden or on another screen.
+        // reassurance even when the tab is hidden or on another screen.
         NSApp.dockTile.badgeLabel = isRecording ? "REC" : nil
         guard isRecording else { hide(); return }
+        #if DEBUG
+        // Screenshot hook for an isolated demo run: show the tab even with the
+        // app in front, folded or (`expanded`) open.
+        if DemoMode.isActive, let mode = ProcessInfo.processInfo.environment["SEAL_DEMO_PILL"] {
+            show()
+            if mode == "expanded" { expand() }
+            return
+        }
+        #endif
         let visiblyInFront = NSApp.isActive && NSApp.windows.contains { window in
             !(window is NSPanel)
                 && window.styleMask.contains(.titled)
@@ -197,138 +262,183 @@ final class FloatingPillController: ObservableObject {
 
     private func show() {
         if panel == nil { panel = makePanel() }
+        screen = Self.savedScreen ?? mainWindow?.screen ?? NSScreen.main ?? NSScreen.screens.first
+        place(width: model.expanded ? model.openWidth : Self.collapsedWidth)
         panel?.orderFrontRegardless()
     }
 
     private func hide() {
+        collapseWork?.cancel()
+        expandWork?.cancel()
+        model.expanded = false
         panel?.orderOut(nil)
     }
 
-    private func makePanel() -> NSPanel {
-        let content = FloatingPillView(monitor: monitor, levels: monitor.levels) { [weak self] in
-            NSApp.activate(ignoringOtherApps: true)
-            if let window = self?.mainWindow {
-                if window.isMiniaturized { window.deminiaturize(nil) }
-                window.makeKeyAndOrderFront(nil)
-            }
-        }
+    private func makePanel() -> EdgeTabPanel {
+        let content = EdgeTabView(
+            model: model, monitor: monitor,
+            openApp: { [weak self] in
+                NSApp.activate(ignoringOtherApps: true)
+                if let window = self?.mainWindow {
+                    if window.isMiniaturized { window.deminiaturize(nil) }
+                    window.makeKeyAndOrderFront(nil)
+                }
+            },
+            hover: { [weak self] inside in self?.hover(inside) },
+            drag: { [weak self] phase in self?.drag(phase) })
         let hosting = NSHostingView(rootView: content)
-        var size = hosting.fittingSize
-        if size.width < 60 { size = NSSize(width: 180, height: 40) }
-        hosting.frame = NSRect(origin: .zero, size: size)
+        // The panel's size is this controller's to set; left to itself the
+        // hosting view would resize the window to its content on every change.
+        hosting.sizingOptions = []
 
         // Non-activating: its buttons work without stealing focus from the
         // app the user is actually in (the call, the browser).
-        let panel = NSPanel(contentRect: NSRect(origin: .zero, size: size),
-                            styleMask: [.borderless, .nonactivatingPanel],
-                            backing: .buffered, defer: false)
+        let size = NSSize(width: Self.collapsedWidth, height: EdgeTabView.faceHeight)
+        let panel = EdgeTabPanel(contentRect: NSRect(origin: .zero, size: size),
+                                 styleMask: [.borderless, .nonactivatingPanel],
+                                 backing: .buffered, defer: false)
+        hosting.frame = NSRect(origin: .zero, size: size)
+        hosting.autoresizingMask = [.width, .height]
         panel.contentView = hosting
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
-        panel.isMovableByWindowBackground = true
+        panel.isMovableByWindowBackground = false   // the face drags itself, and settles on an edge
+        panel.becomesKeyOnlyIfNeeded = true
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
-        if let screen = NSScreen.main {
-            let frame = screen.visibleFrame
-            panel.setFrameOrigin(NSPoint(x: frame.maxX - size.width - 18,
-                                         y: frame.maxY - size.height - 18))
-        }
         return panel
     }
-}
 
-/// The pill's face: mic glyph, live level dots, pause/resume. Clicking the
-/// glyph/dots area opens the app.
-private struct FloatingPillView: View {
-    @ObservedObject var monitor: AudioMonitor
-    @ObservedObject var levels: AudioLevels
-    let openApp: () -> Void
-
-    var body: some View {
-        HStack(spacing: 10) {
-            // Only the glyph and the pause control are buttons; everything
-            // else (dots, padding, capsule) is free surface, so the panel's
-            // isMovableByWindowBackground lets the user drag the pill
-            // anywhere on the screen.
-            Button(action: openApp) {
-                ZStack {
-                    Circle()
-                        .fill(Theme.accent)
-                        .frame(width: 22, height: 22)
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Theme.onAccent)
-                }
-                .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .help("Open Seal")
-
-            // Elapsed time — the same quiet reassurance as the in-app control
-            // bar. Reserved width so the panel never clips as digits grow.
-            if let start = monitor.recordingStart {
-                RecordingTimerLabel(start: start)
-                    .frame(minWidth: 44, alignment: .leading)
-                    .opacity(monitor.isPaused ? 0.5 : 1)
-            }
-
-            LevelDots(level: monitor.isPaused ? 0 : levels.mic,
-                      dimmed: monitor.isPaused)
-                .help("Drag to move")
-
-            Rectangle()
-                .fill(Theme.divider)
-                .frame(width: 1, height: 16)
-
-            Button {
-                monitor.addHighlight()
-            } label: {
-                Image(systemName: "star")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 20, height: 20)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("Star this moment — the notes will cover it")
-
-            Button {
-                monitor.pauseResume()
-            } label: {
-                Image(systemName: monitor.isPaused ? "play.fill" : "pause.fill")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 20, height: 20)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help(monitor.isPaused ? "Resume recording" : "Pause recording")
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .background(Capsule().fill(Theme.surface))
-        .overlay(Capsule().strokeBorder(Theme.border, lineWidth: 1))
-        .fixedSize()
+    /// Puts the panel against its side of its screen, at the height it was
+    /// left at (near the top the first time).
+    private func place(width: CGFloat, animate: Bool = false) {
+        guard let panel, let screen = screen ?? NSScreen.main ?? NSScreen.screens.first else { return }
+        model.side = Self.dockSide(on: screen, wanted: model.side)
+        let frame = screen.visibleFrame
+        let height = EdgeTabView.faceHeight
+        let fraction = UserDefaults.standard.object(forKey: Self.heightKey) as? Double ?? 0.8
+        let y = min(max(frame.minY + frame.height * CGFloat(fraction) - height / 2, frame.minY + 8),
+                    frame.maxY - height - 8)
+        let x = model.side == .right ? frame.maxX - width : frame.minX
+        panel.setFrame(NSRect(x: x, y: y, width: width, height: height), display: true, animate: animate)
+        panel.invalidateShadow()
     }
-}
 
-/// The "it hears you" dots: filled count follows the live mic level.
-private struct LevelDots: View {
-    let level: Float
-    var dimmed = false
+    /// The display a screen is, as the system numbers it.
+    private static func number(of screen: NSScreen) -> Int? {
+        (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.intValue
+    }
 
-    var body: some View {
-        HStack(spacing: 3) {
-            ForEach(0..<8, id: \.self) { index in
-                Circle()
-                    .fill(Float(index) < level * 8 ? Theme.accent : Theme.track)
-                    .frame(width: 4, height: 4)
-            }
+    /// The screen the tab was last dropped on, if it is still connected.
+    private static var savedScreen: NSScreen? {
+        guard let saved = UserDefaults.standard.object(forKey: screenKey) as? Int else { return nil }
+        return NSScreen.screens.first { number(of: $0) == saved }
+    }
+
+    /// The side of a screen the tab docks on: the one wanted, unless another
+    /// display sits against it and not against the other side — the tab
+    /// never hangs in the seam the pointer crosses between two screens.
+    private static func dockSide(on screen: NSScreen, wanted: EdgeSide) -> EdgeSide {
+        let f = screen.frame
+        let beside = NSScreen.screens.filter { $0 != screen }.map(\.frame)
+            .filter { $0.maxY > f.minY && $0.minY < f.maxY }
+        let rightShared = beside.contains { abs($0.minX - f.maxX) < 2 }
+        let leftShared = beside.contains { abs($0.maxX - f.minX) < 2 }
+        switch wanted {
+        case .right: return rightShared && !leftShared ? .left : .right
+        case .left: return leftShared && !rightShared ? .right : .left
         }
-        .opacity(dimmed ? 0.4 : 1)
-        .animation(.linear(duration: 0.08), value: level)
+    }
+
+    // MARK: Opening and folding
+
+    /// Opens after a moment's rest, not on contact: the pointer crossing on
+    /// its way to another screen leaves it folded, and a quick grab drags the
+    /// folded tab instead of opening it.
+    private func hover(_ inside: Bool) {
+        expandWork?.cancel()
+        if inside {
+            collapseWork?.cancel()
+            let work = DispatchWorkItem { [weak self] in self?.expand() }
+            expandWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
+        } else {
+            scheduleCollapse()
+        }
+    }
+
+    /// The panel grows first, then the face opens inside it, so nothing is
+    /// ever drawn outside the window. Not while it is pressed or dragged.
+    private func expand() {
+        guard !model.expanded, !model.dragging, NSEvent.pressedMouseButtons & 1 == 0 else { return }
+        place(width: model.openWidth)
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) { model.expanded = true }
+    }
+
+    private func scheduleCollapse(after delay: TimeInterval = 0.7) {
+        collapseWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.collapse() }
+        collapseWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    /// The face folds first, then the panel shrinks to the seal. Never while
+    /// the tab is being dragged.
+    private func collapse() {
+        #if DEBUG
+        if DemoMode.isActive, ProcessInfo.processInfo.environment["SEAL_DEMO_PILL"] == "expanded" { return }
+        #endif
+        guard model.expanded, !model.dragging else { return }
+        withAnimation(.easeOut(duration: 0.16)) { model.expanded = false }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
+            guard let self, !self.model.expanded else { return }
+            self.place(width: Self.collapsedWidth)
+        }
+    }
+
+    // MARK: Dragging
+
+    /// Follows the pointer anywhere; let go, it settles on the nearer side of
+    /// the screen it was dropped on (the outer one, if the nearer is shared
+    /// with another display), at that height, and remembers all three.
+    private func drag(_ phase: EdgeTabDrag) {
+        guard let panel else { return }
+        let mouse = NSEvent.mouseLocation
+        switch phase {
+        case .changed:
+            if dragStart == nil {
+                dragStart = (mouse, panel.frame.origin)
+                model.dragging = true
+                collapseWork?.cancel()
+                expandWork?.cancel()
+            }
+            guard let start = dragStart else { return }
+            panel.setFrameOrigin(NSPoint(x: start.origin.x + mouse.x - start.mouse.x,
+                                         y: start.origin.y + mouse.y - start.mouse.y))
+        case .ended:
+            dragStart = nil
+            model.dragging = false
+            guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? panel.screen else { return }
+            self.screen = screen
+            let frame = screen.visibleFrame
+            let nearer: EdgeSide = panel.frame.midX < frame.midX ? .left : .right
+            let side = Self.dockSide(on: screen, wanted: nearer)
+            let fraction = min(max((panel.frame.midY - frame.minY) / frame.height, 0.05), 0.95)
+            UserDefaults.standard.set(side.rawValue, forKey: Self.sideKey)
+            UserDefaults.standard.set(Double(fraction), forKey: Self.heightKey)
+            if let number = Self.number(of: screen) {
+                UserDefaults.standard.set(number, forKey: Self.screenKey)
+            }
+            model.side = side
+            let width = panel.frame.width
+            let y = frame.minY + frame.height * fraction - panel.frame.height / 2
+            let x = side == .right ? frame.maxX - width : frame.minX
+            panel.setFrame(NSRect(x: x, y: y, width: width, height: panel.frame.height), display: true, animate: true)
+            panel.invalidateShadow()
+            scheduleCollapse(after: 1.2)
+        }
     }
 }

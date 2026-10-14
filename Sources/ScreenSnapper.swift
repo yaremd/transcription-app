@@ -6,8 +6,9 @@ import AppKit
 /// Captures what the user is looking at, once, on demand: the call app's
 /// window when one is on screen, otherwise the display — never Seal's own
 /// windows, which are left out of the picture so a capture made from the
-/// recording page shows what is behind it. Nothing is captured without a
-/// click or a shortcut, and nothing streams.
+/// recording page shows what is behind it. Nothing streams. (Slides that
+/// change during a call are caught from the call's window alone by
+/// `SlideCatcher`, when Settings → Recording allows it.)
 enum ScreenSnapper {
     struct SnapError: LocalizedError {
         let message: String

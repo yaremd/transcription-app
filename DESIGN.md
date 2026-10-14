@@ -52,12 +52,63 @@ real document app runs 15–17pt on a 480–700pt measure. Side panels (transcri
 - Buttons: `LinearButtonStyle` — `.linearPrimary` / `.linearQuiet` / `.linearDestructive` (+`Compact` variants). 6pt radius, hairline border, hover wash, 0.97 press dip.
 - Panels: `.insetPanel(radius: 8)` for wells (transcript, editors); `.surfacePanel()` for raised tiles/cards.
 - Inputs: `.linearField()`; plain TextFields inside composed rows.
-- Ask composer: `AskComposer` — a `surface` well (radius 8) whose text grows from one line to eight, then scrolls;
-  Return sends, ⇧↩ breaks the line, ↑ in an empty box recalls the last question. Files go beside the question by
-  the paperclip menu (file, or what's on the screen), by paste, or by drop — each listed as an `inset` row above
-  the text with its size, read into text on the Mac before the question can go. The border takes the accent at
-  45% on focus and fully while a drop hovers. The text view is AppKit (`ComposerTextView`): SwiftUI's field
-  can't be asked who pressed Return, what was pasted, or what was dropped.
+- Ask bar: `AskBar` — the one place to talk to Seal about a meeting. It lives where the answers are: under
+  the document while the companion is closed or on Transcript, and at the foot of the Ask tab while that is
+  open (no transcript button there; ⇧⌘T still works), sharing one `AskDraft` per meeting so a half-typed
+  question and its files move with it, and a question sent from under the notes hands the cursor to the box
+  beside its answer. With Ask open, the live page keeps only the recording chip under the notes. It is a 30pt transcript button (lit with an accent wash while the transcript shows; ⇧⌘T), then a box that
+  grows from one line to six. Typed text is a question (Return asks; the answer streams into the companion's
+  Ask tab, which opens); a leading "/" turns it into a command that filters the page's `AskBarAction`s (command
+  word first, then a title word, then anywhere — `AskBarMatch`). Focused and empty, it lists three starter
+  questions and the featured actions above itself, on frosted glass; ↑↓ move, ↩ runs, esc puts the list away,
+  ↑ in a quiet box recalls the last question. Files go beside a question by the paperclip, paste, or drop,
+  each an `inset` row above the text, read into text on the Mac first. ⌘J focuses it. Its text view
+  (`ComposerTextView`, AppKit) takes focus only from a click, Tab, or ⌘J — never because the window became
+  key — so the cursor waits in the notes, not in Ask.
+- Floating glass: `.floatingGlass(in:)` for anything that floats over the page (the Ask bar and the bar's list)
+  — Liquid Glass on macOS 26, `surface` + hairline + soft shadow before; `frosted: true` tints it for surfaces
+  that are read, not glanced at. `FloatingGlassGroup` draws neighbouring glass as one material.
+- Recording chip: `RecordingChip` — the live session's only control, first in the Ask bar: a `BreathingDot`
+  (red, with a halo that swells with the louder of you or the call; grey and still when paused), the running
+  time, and a pause button (⏸, ▶ when paused; neutral, never red, so it can't read as Stop) on one red 10%
+  wash. Pause acts at once; the dot and time open one panel: Stop and save (⇧⌘R), Star (⇧⌘H), Snap (⇧⌘S),
+  then a row each for the microphone and the language naming the one in use (`ChoiceRow` — a click drops a
+  native menu of the choices below the row, as wide as it, the current one ticked; a choice applies to this
+  recording at once and the panel stays open), then Discard set apart. Speed swaps the speech model, so it
+  can't change mid-meeting and isn't a session control: it is a preference, Settings → Recording →
+  Transcription (remembered as `transcriptionSpeed`, locked while recording). Pause and Stop are also in the
+  bar's "/".
+- Edge tab: `EdgeTabView` in an `EdgeTabPanel` (borderless, non-activating) — shown while a recording runs
+  and Seal isn't in front. Folded, a 44pt tab with the seal peeking out of the screen's edge — the listening
+  render, ears up (the sleeping one while paused), facing into the screen (mirrored on the left), its body cut
+  off by the edge — and the recording dot off its head. After the pointer rests 0.3s (not on contact, so
+  crossing to another screen leaves it folded) it slides out, laid out from the edge outwards: the seal and
+  the time, then the quick actions — pause, stop, snap, star. No note box: notes are typed on the page. The
+  open width is measured off the face itself (`openWidth`), so it fits its contents and grows a digit at a
+  time. The seal is the handle in both states: a click opens Seal, a press that travels drags the tab
+  (folded or open). The panel grows before the face opens and shrinks after it folds, so nothing draws
+  outside the window. Dropped, it settles on the nearer side of the screen it is dropped on — never a side
+  another display sits against, so it doesn't hang in the seam between two screens; screen, side and height
+  persist (`edgeTabScreen`, `edgeTabSide`, `edgeTabHeight`). Never folds while dragged, never opens while
+  pressed.
+- Caught slides: `SlideCatcher` (an actor) watches the call's window only — a call app's biggest window, or a
+  browser window titled like a meeting, never the rest of the screen — as a 320pt thumbnail every 1.5s,
+  reduced to a 64 × 36 grey `Thumbprint`. `SettleWatch` learns the cells that keep changing (video tiles) and
+  leaves them out, so a picture counts as settled once the rest holds still for two glances (~3s) after a
+  change. A settled, unread picture is captured in full and read (at most every 8s); it is kept only if its
+  content lines — the call app's top and bottom bars left out — read like content (two lines of three
+  words, or one of five, not name labels) and a third of their words weren't in the last three kept. At most
+  one every 20s, 150 a meeting. Filed like a snap with `caught: true` ("· CAUGHT" on its transcript row); a
+  hand snap counts as caught. On by default (`catchSlides`, Settings → Recording → While you record); the
+  first catch says so once (`slideCatchIntroduced`). Never in a demo run.
+- Seal's own stars: `AutoStar` — phrase cues in English and Ukrainian, no model call, run on every committed
+  utterance: your first name from the call's side (as typed, whole word; in the other alphabet, the stem with
+  Ukrainian case endings — "Дмитре", "Дмитра"), a decision ("we decided", "let's go with", "домовились"), or a
+  task (an explicit "action item"/"дедлайн", or an ask or a commitment with a deadline — "by Friday", "до
+  п'ятниці"; a bare "tomorrow" only with a direct ask). Filed as a "☆ Reason: “quote”" note (`NoteMark.flagged`):
+  an outlined amber star and quieter text, below the user's filled ★; clicking the star keeps it as the
+  user's own. The notes model reads both as IMPORTANT. One of a kind per 90s, none within 20s of another
+  star, 40 a meeting (`autoStars`, on by default).
 - Chips: `TagChip` (dot + 11pt label + optional ✕).
 - Icon buttons: `.buttonStyle(.plain)`, 11pt SF Symbol, `.secondary` — and always a `.help()` tooltip.
 - Icon menus: `Menu { … }` + `.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(…)`.
@@ -69,15 +120,27 @@ One page for the live recording and every saved meeting, so nothing is learned t
 action items, a follow-up once drafted) with a companion column beside it — Transcript or Ask —
 that the page reflows next to, never an overlay that hides what it refers to. The companion is
 360pt, narrowing to 280 so the document keeps ~350 at the window's minimum; its visibility and tab
-are one shared preference (`CompanionPrefs`). Toolbar: Transcript (⇧⌘T) and Ask (⌘J) as separate
-items (grouped buttons fuse into one capsule), then the one `Seal AI` menu — everything the model
-can do for the page lives there, nowhere else — then Export. Transcript-only actions (identify
-speakers, improve) live on the transcript's own ⋯ menu. Live-only chrome is the floating control
-bar, docked under the document column; it goes compact (no waveform, no star) under 480pt and
-never wraps. Title and notes edit in place on click and save on focus loss — no Edit/Save pair.
+are one shared preference (`CompanionPrefs`). The companion runs from the window's top edge: its
+divider reaches up through the toolbar, and its Transcript and Ask tabs (plain text, the one that's
+on resting on a `hover` wash, inset 12pt from the divider like the column's own content) and a bare ✕
+(its glyph over the column's trailing icons) are toolbar items with no glass behind them
+(`sharedBackgroundVisibility(.hidden)`, `CompanionToolbar`), stretched across the column's width, so the page's own toolbar
+item — Share, on a saved meeting — ends just left of the column, over the document it belongs to.
+Nothing else is in the toolbar; on macOS 26 the window title is removed from it (the page shows the
+title in large type right below), and a flexible `ToolbarSpacer` keeps the items trailing
+(`meetingPageToolbar`). The document column clips itself so its text never scrolls into the toolbar
+strip. (SwiftUI's `.inspector` was tried for the column and rejected: nested in the split view's
+detail it sat under the toolbar, pushed every item to the far right and shifted the document under the
+sidebar.) New meeting is the sidebar's first row (⌘N is File → New Meeting, so it works with the
+sidebar hidden); while recording that row becomes the live meeting with its running time. Everything
+the model can do for the page — rewrite, write as a template, reshape, action items, follow-up,
+identify speakers, improve the transcript, export — runs from the Ask bar's "/" list.
+Transcript-only actions also stay on the transcript's own ⋯ menu. The live page's only bar is the Ask
+bar with the recording chip first in it. Title and notes edit in place on click and save on focus loss
+— no Edit/Save pair.
 
 ## Rules
-- Radii: 4 chips · 6 buttons/fields · 8 panels · 10 chat bubbles · capsule for the control bar and pills.
+- Radii: 4 chips · 6 buttons/fields · 8 panels · 10 chat bubbles · 14 the Ask bar's list · 22 the Ask bar (its 30pt button plus a 7pt inset, so one line is a capsule) · 22 the open edge tab, 12 folded, square against the screen edge · capsule for the recording chip and pills.
 - Spacing rhythm: 6/8/10/12/14/16/24.
 - Motion: `.spring(response: 0.3, dampingFraction: 1.0)` for panel/section collapse; `.easeOut(0.12–0.2)` for hover/press; nothing decorative; honor Reduce Motion (`PulsingDot` holds steady).
 - Copy: sentence case everywhere including menu items; "…" on actions that ask or confirm; no em dashes in UI copy.
