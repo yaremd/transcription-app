@@ -78,13 +78,37 @@ real document app runs 15–17pt on a 480–700pt measure. Side panels (transcri
   can't change mid-meeting and isn't a session control: it is a preference, Settings → Recording →
   Transcription (remembered as `transcriptionSpeed`, locked while recording). Pause and Stop are also in the
   bar's "/".
-- Edge tab: `EdgeTabView` in an `EdgeTabPanel` (borderless, non-activating, but can take the keyboard) —
-  shown while a recording runs and Seal isn't in front. Folded, an 18pt sliver with the dot against the
-  screen's edge; under the pointer it slides out to 420pt: dot and time (open Seal), pause, stop, star, snap,
-  and "Jot a note" (Return files a timestamped note without leaving the call; esc gives the keyboard back).
-  The panel grows before the face opens and shrinks after it folds, so nothing draws outside the window.
-  Dragged, it settles on the nearer side of the screen it is dropped on; side and height persist
-  (`edgeTabSide`, `edgeTabHeight`). Never folds while a note is being typed or it is being dragged.
+- Edge tab: `EdgeTabView` in an `EdgeTabPanel` (borderless, non-activating) — shown while a recording runs
+  and Seal isn't in front. Folded, a 44pt tab with the seal peeking out of the screen's edge — the listening
+  render, ears up (the sleeping one while paused), facing into the screen (mirrored on the left), its body cut
+  off by the edge — and the recording dot off its head. After the pointer rests 0.3s (not on contact, so
+  crossing to another screen leaves it folded) it slides out, laid out from the edge outwards: the seal and
+  the time, then the quick actions — pause, stop, snap, star. No note box: notes are typed on the page. The
+  open width is measured off the face itself (`openWidth`), so it fits its contents and grows a digit at a
+  time. The seal is the handle in both states: a click opens Seal, a press that travels drags the tab
+  (folded or open). The panel grows before the face opens and shrinks after it folds, so nothing draws
+  outside the window. Dropped, it settles on the nearer side of the screen it is dropped on — never a side
+  another display sits against, so it doesn't hang in the seam between two screens; screen, side and height
+  persist (`edgeTabScreen`, `edgeTabSide`, `edgeTabHeight`). Never folds while dragged, never opens while
+  pressed.
+- Caught slides: `SlideCatcher` (an actor) watches the call's window only — a call app's biggest window, or a
+  browser window titled like a meeting, never the rest of the screen — as a 320pt thumbnail every 1.5s,
+  reduced to a 64 × 36 grey `Thumbprint`. `SettleWatch` learns the cells that keep changing (video tiles) and
+  leaves them out, so a picture counts as settled once the rest holds still for two glances (~3s) after a
+  change. A settled, unread picture is captured in full and read (at most every 8s); it is kept only if its
+  content lines — the call app's top and bottom bars left out — read like content (two lines of three
+  words, or one of five, not name labels) and a third of their words weren't in the last three kept. At most
+  one every 20s, 150 a meeting. Filed like a snap with `caught: true` ("· CAUGHT" on its transcript row); a
+  hand snap counts as caught. On by default (`catchSlides`, Settings → Recording → While you record); the
+  first catch says so once (`slideCatchIntroduced`). Never in a demo run.
+- Seal's own stars: `AutoStar` — phrase cues in English and Ukrainian, no model call, run on every committed
+  utterance: your first name from the call's side (as typed, whole word; in the other alphabet, the stem with
+  Ukrainian case endings — "Дмитре", "Дмитра"), a decision ("we decided", "let's go with", "домовились"), or a
+  task (an explicit "action item"/"дедлайн", or an ask or a commitment with a deadline — "by Friday", "до
+  п'ятниці"; a bare "tomorrow" only with a direct ask). Filed as a "☆ Reason: “quote”" note (`NoteMark.flagged`):
+  an outlined amber star and quieter text, below the user's filled ★; clicking the star keeps it as the
+  user's own. The notes model reads both as IMPORTANT. One of a kind per 90s, none within 20s of another
+  star, 40 a meeting (`autoStars`, on by default).
 - Chips: `TagChip` (dot + 11pt label + optional ✕).
 - Icon buttons: `.buttonStyle(.plain)`, 11pt SF Symbol, `.secondary` — and always a `.help()` tooltip.
 - Icon menus: `Menu { … }` + `.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(…)`.
@@ -116,7 +140,7 @@ bar with the recording chip first in it. Title and notes edit in place on click 
 — no Edit/Save pair.
 
 ## Rules
-- Radii: 4 chips · 6 buttons/fields · 8 panels · 10 chat bubbles · 14 the Ask bar's list · 22 the Ask bar (its 30pt button plus a 7pt inset, so one line is a capsule) · 22 the open edge tab, 10 folded, square against the screen edge · capsule for the recording chip and pills.
+- Radii: 4 chips · 6 buttons/fields · 8 panels · 10 chat bubbles · 14 the Ask bar's list · 22 the Ask bar (its 30pt button plus a 7pt inset, so one line is a capsule) · 22 the open edge tab, 12 folded, square against the screen edge · capsule for the recording chip and pills.
 - Spacing rhythm: 6/8/10/12/14/16/24.
 - Motion: `.spring(response: 0.3, dampingFraction: 1.0)` for panel/section collapse; `.easeOut(0.12–0.2)` for hover/press; nothing decorative; honor Reduce Motion (`PulsingDot` holds steady).
 - Copy: sentence case everywhere including menu items; "…" on actions that ask or confirm; no em dashes in UI copy.

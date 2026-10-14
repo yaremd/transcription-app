@@ -279,6 +279,13 @@ struct ScreenFrameRow: View {
                 Text(frame.label.uppercased())
                     .font(.system(size: 10, weight: .semibold))
                     .tracking(0.6)
+                if frame.caught == true {
+                    Text("· CAUGHT")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(0.6)
+                        .foregroundStyle(.tertiary)
+                        .help("Caught by Seal as the shared screen changed")
+                }
             }
             .foregroundStyle(.secondary)
 

@@ -28,13 +28,15 @@ struct NoteBlock: Codable, Identifiable, Hashable {
 
 /// The lightweight formatting a note's text can carry, encoded in the text
 /// itself — so it survives as plain text everywhere (userNotes, exports,
-/// older versions of the app): "- " bullets, "[ ] " / "[x] " checkboxes, and
-/// "★" highlights stamped by the record-time star button.
+/// older versions of the app): "- " bullets, "[ ] " / "[x] " checkboxes,
+/// "★" highlights stamped by the record-time star button, and "☆" moments
+/// Seal starred on its own (`AutoStar`), with why and what was said.
 enum NoteMark {
     case plain(String)
     case bullet(String)
     case task(done: Bool, body: String)
     case highlight(String)
+    case flagged(String)
 
     static func parse(_ text: String) -> NoteMark {
         let s = text.trimmingCharacters(in: .whitespaces)
@@ -48,6 +50,7 @@ enum NoteMark {
         if s == "[]" || s == "[ ]" { return .task(done: false, body: "") }
         if s.hasPrefix("- ") { return .bullet(String(s.dropFirst(2))) }
         if s.hasPrefix("★") { return .highlight(String(s.dropFirst()).trimmingCharacters(in: .whitespaces)) }
+        if s.hasPrefix("☆") { return .flagged(String(s.dropFirst()).trimmingCharacters(in: .whitespaces)) }
         return .plain(text)
     }
 
@@ -354,6 +357,8 @@ extension Meeting {
                     line += " (said around then: \"\(quote)\")"
                 }
                 return line
+            case .flagged(let s):
+                return "★ IMPORTANT (flagged by Seal) — " + s
             }
         }.joined(separator: "\n")
     }

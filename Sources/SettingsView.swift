@@ -499,6 +499,30 @@ private struct RecordingSettings: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            Section("While you record") {
+                Toggle("Catch shared slides", isOn: $settings.catchSlides)
+                Text("Seal looks only at the call's window — Zoom, Teams, a Meet tab — never the rest of your screen. When a new slide or page appears and holds still, it's captured and its text read into the meeting, on your Mac. The camera button still snaps anything else.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if settings.catchSlides && !ScreenSnapper.hasPermission {
+                    HStack {
+                        Text("Needs permission to capture the screen.")
+                            .font(.caption)
+                            .foregroundStyle(Theme.amber)
+                        Spacer()
+                        Button("Allow…") {
+                            if !ScreenSnapper.requestPermission() { NSWorkspace.shared.open(ScreenSnapper.settingsURL) }
+                        }
+                    }
+                }
+                Toggle("Star key moments", isOn: $settings.autoStars)
+                Text("When someone says your name, or a decision or a task with a deadline is said — in English or Ukrainian — the moment gets a ☆ in your notes with what was said, lighter than your own ★. Your name comes from General → You.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Section("Transcription") {
                 Picker("Speed", selection: $monitor.speed) {
                     ForEach(TranscriptionSpeed.allCases) { speed in

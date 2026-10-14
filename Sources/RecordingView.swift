@@ -297,10 +297,12 @@ struct RecordingView: View {
 // MARK: - A jotted note
 
 /// One editable timestamped note — the live page and the saved page share
-/// it. A note carries its formatting in its own text ("- ", "[ ]", "★" — see
-/// NoteMark): bullets get a dot, checkboxes a real toggle that strikes the
-/// text, starred moments an amber star. The marker stays in the stored text,
-/// so plain-text exports and older versions read naturally.
+/// it. A note carries its formatting in its own text ("- ", "[ ]", "★", "☆" —
+/// see NoteMark): bullets get a dot, checkboxes a real toggle that strikes the
+/// text, starred moments an amber star, and moments Seal starred an outlined
+/// one with its reason and the quote, quieter — click that star to make it
+/// yours. The marker stays in the stored text, so plain-text exports and
+/// older versions read naturally.
 struct EditableNoteRow: View {
     @Binding var block: NoteBlock
     let onJump: (Date) -> Void
@@ -343,6 +345,19 @@ struct EditableNoteRow: View {
                           text: highlightBodyBinding(), axis: .vertical)
                     .textFieldStyle(.plain)
                     .font(Theme.docBody)
+            case .flagged(let body):
+                Button { block.text = "★ " + body } label: {
+                    Image(systemName: "star")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Theme.amber)
+                }
+                .buttonStyle(.plain)
+                .help("Starred by Seal — click to keep it as your own star")
+                Text(body)
+                    .font(Theme.docBody)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             case .plain:
                 TextField("", text: $block.text, axis: .vertical)
                     .textFieldStyle(.plain)
