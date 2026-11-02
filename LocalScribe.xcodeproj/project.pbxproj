@@ -21,6 +21,7 @@
 		1D8A9E562D07C88DB4B12752 /* AskBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FB09440E87B906E79C81982 /* AskBar.swift */; };
 		1DFC21B9579079CDAEB4F832 /* AudioMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E16FA4DA148CA831E4FF2A4 /* AudioMonitor.swift */; };
 		2FC33F9F31B44A8B1EA6A4B8 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 04B6867BF1C79F03A9FDF417 /* MLXLMCommon */; };
+		A1C7E3F05B2D4E6F8A9B0C11 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = A1C7E3F05B2D4E6F8A9B0C12 /* MLX */; };
 		31327098069896D14F86113E /* UpgradeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D6AD9ADD2342B2558A3E921 /* UpgradeSheet.swift */; };
 		32B79032B90EDEE643208825 /* ScreenContextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB601BEEA2C793B6634A5C8A /* ScreenContextTests.swift */; };
 		32CD6076FF5495F9D041F5B8 /* MeetingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11FC4766A1C5EE5B062A709E /* MeetingDetector.swift */; };
@@ -220,6 +221,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				86B8CBD7061CDD8A1BAA14F6 /* WhisperKit in Frameworks */,
+				A1C7E3F05B2D4E6F8A9B0C11 /* MLX in Frameworks */,
 				78E4E20C27F9A10013E81FF9 /* MLXLLM in Frameworks */,
 				2FC33F9F31B44A8B1EA6A4B8 /* MLXLMCommon in Frameworks */,
 				B8DBF5070182B786CC5AE11E /* MLXHuggingFace in Frameworks */,
@@ -382,6 +384,7 @@
 			name = LocalScribe;
 			packageProductDependencies = (
 				E41A8103CF6ADC9DA41EBC50 /* WhisperKit */,
+				A1C7E3F05B2D4E6F8A9B0C12 /* MLX */,
 				C913E189926AE6B1BBE7C16E /* MLXLLM */,
 				04B6867BF1C79F03A9FDF417 /* MLXLMCommon */,
 				E2B13DCBC9DCF8E96808527D /* MLXHuggingFace */,
@@ -444,6 +447,7 @@
 				E26DF9D92A5E3EDA622881E3 /* XCRemoteSwiftPackageReference "FluidAudio" */,
 				415D1BC7DCA16B32848CFFD1 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				AD04386541DA6A36CD422562 /* XCRemoteSwiftPackageReference "WhisperKit" */,
+				A1C7E3F05B2D4E6F8A9B0C13 /* XCRemoteSwiftPackageReference "mlx-swift" */,
 				AD0878222BE6FE9FD912FF06 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
 				F622B566148BABBF8BE650E6 /* XCRemoteSwiftPackageReference "swift-transformers" */,
 			);
@@ -835,6 +839,14 @@
 				minimumVersion = 0.9.0;
 			};
 		};
+		A1C7E3F05B2D4E6F8A9B0C13 /* XCRemoteSwiftPackageReference "mlx-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ml-explore/mlx-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.31.4;
+			};
+		};
 		AD0878222BE6FE9FD912FF06 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm";
@@ -876,6 +888,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = F622B566148BABBF8BE650E6 /* XCRemoteSwiftPackageReference "swift-transformers" */;
 			productName = Hub;
+		};
+		A1C7E3F05B2D4E6F8A9B0C12 /* MLX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1C7E3F05B2D4E6F8A9B0C13 /* XCRemoteSwiftPackageReference "mlx-swift" */;
+			productName = MLX;
 		};
 		1F1FD165948384EAFBBB906F /* FluidAudio */ = {
 			isa = XCSwiftPackageProductDependency;
