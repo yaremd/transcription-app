@@ -36,7 +36,7 @@ jobs:
         run: xcodebuild -showComponent MetalToolchain || xcodebuild -downloadComponent MetalToolchain
 
       - name: Cache Swift packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.SOURCE_PACKAGES }}
           key: spm-${{ runner.os }}-${{ hashFiles('LocalScribe.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
