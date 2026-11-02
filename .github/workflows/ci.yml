@@ -1,0 +1,87 @@
+name: Build and test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DERIVED_DATA: ${{ github.workspace }}/.build/DerivedData
+  SOURCE_PACKAGES: ${{ github.workspace }}/.build/SourcePackages
+
+jobs:
+  test:
+    # mlx-swift-lm's macros need Swift 6.2, i.e. Xcode 26.
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      # MLX compiles Metal shaders, and Xcode 26 ships the Metal Toolchain as
+      # a separate component (DISTRIBUTION.md, "Build gotchas").
+      - name: Install the Metal Toolchain
+        run: xcodebuild -showComponent MetalToolchain || xcodebuild -downloadComponent MetalToolchain
+
+      - name: Cache Swift packages
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.SOURCE_PACKAGES }}
+          key: spm-${{ runner.os }}-${{ hashFiles('LocalScribe.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      # Builds the committed project at the versions pinned in Package.resolved.
+      #
+      # Hosted runners have no signing identity for the team, so the build is
+      # signed ad hoc. Hardened Runtime is off here only: with ad-hoc
+      # signatures its library validation would refuse to load the test
+      # bundle into the app. Release builds keep it (scripts/release.sh).
+      - name: Build for testing
+        run: |
+          xcodebuild build-for-testing -quiet \
+            -project LocalScribe.xcodeproj -scheme LocalScribe \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            -clonedSourcePackagesDirPath "$SOURCE_PACKAGES" \
+            -disableAutomaticPackageResolution \
+            -skipPackagePluginValidation -skipMacroValidation \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= \
+            ENABLE_HARDENED_RUNTIME=NO
+
+      # Skipped here: the tests that run the real on-device language model.
+      # They download 2-4 GB of weights and need a Metal GPU that GitHub's
+      # virtualised Macs don't provide (MLX runs its own tests on real
+      # hardware). Run them locally on Apple silicon. Tests that need the
+      # mic, system audio, a saved recording or a cached speech model skip
+      # themselves.
+      - name: Test
+        run: |
+          xcodebuild test-without-building \
+            -project LocalScribe.xcodeproj -scheme LocalScribe \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            -clonedSourcePackagesDirPath "$SOURCE_PACKAGES" \
+            -resultBundlePath TestResults.xcresult \
+            -skip-testing:LocalScribeTests/MLXEngineSmokeTests \
+            -skip-testing:LocalScribeTests/MLXEngineIdleUnloadTests \
+            -skip-testing:LocalScribeTests/AskStreamSmokeTests
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults.xcresult
+          retention-days: 7
