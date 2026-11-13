@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#04110D">
 <meta name="google-site-verification" content="s8Xl_KUmEKinPH7iwqQckrdbbJVcafCTPzd3Ud_tSOQ">
 <title>Private AI Meeting Notes for Mac — 100% On-Device | Seal</title>
 <meta name="description" content="Seal records, transcribes, and writes up your meetings entirely on your Mac. Free. No cloud, no bot in the call, no account, no subscription. Works offline.">
@@ -63,7 +63,7 @@
       "operatingSystem": "macOS 14.0 or later",
       "applicationCategory": "BusinessApplication",
       "applicationSubCategory": "Meeting transcription and AI note-taking",
-      "softwareVersion": "0.24",
+      "softwareVersion": "1.5",
       "description": "Private meeting notes for macOS. Recording, transcription, and AI notes run entirely on your Mac — no cloud, no bots, no account. Works offline.",
       "url": "https://sealformac.com/",
       "downloadUrl": "https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg",
@@ -136,366 +136,191 @@
   ]
 }
 </script>
-<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/site.css">
+<script src="/site.js" defer></script>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="seal" viewBox="0 0 240 240"><path fill="currentColor" fill-rule="evenodd" d="M200 120C200 164.18 164.18 200 120 200C75.82 200 40 164.18 40 120C40 75.82 75.82 40 120 40C164.18 40 200 75.82 200 120ZM99 104C99 113.94 90.94 122 81 122C71.06 122 63 113.94 63 104C63 94.06 71.06 86 81 86C90.94 86 99 94.06 99 104ZM177 104C177 113.94 168.94 122 159 122C149.06 122 141 113.94 141 104C141 94.06 149.06 86 159 86C168.94 86 177 94.06 177 104ZM104 142Q104 134 112.5 134Q117 134 120 139Q123 134 127.5 134Q136 134 136 142Q136 150.5 125.5 156.5Q120 159.5 114.5 156.5Q104 150.5 104 142ZM94.53 144.04C81.7 146.06 69.21 149.1 57.05 153.15C55.48 153.68 54.63 155.38 55.15 156.95C55.68 158.52 57.38 159.37 58.95 158.85C70.79 154.9 82.96 151.94 95.47 149.96C97.1 149.7 98.22 148.17 97.96 146.53C97.7 144.9 96.17 143.78 94.53 144.04ZM95.51 154.4C86.04 159.81 77.57 165.57 70.1 171.68C68.82 172.73 68.63 174.62 69.68 175.9C70.73 177.18 72.62 177.37 73.9 176.32C81.1 170.43 89.3 164.86 98.49 159.6C99.93 158.78 100.43 156.95 99.6 155.51C98.78 154.07 96.95 153.57 95.51 154.4ZM144.53 149.96C157.04 151.94 169.21 154.9 181.05 158.85C182.62 159.37 184.32 158.52 184.85 156.95C185.37 155.38 184.52 153.68 182.95 153.15C170.79 149.1 158.3 146.06 145.47 144.04C143.83 143.78 142.3 144.9 142.04 146.53C141.78 148.17 142.9 149.7 144.53 149.96ZM141.51 159.6C150.7 164.86 158.9 170.43 166.1 176.32C167.38 177.37 169.27 177.18 170.32 175.9C171.37 174.62 171.18 172.73 169.9 171.68C162.43 165.57 153.96 159.81 144.49 154.4C143.05 153.57 141.22 154.07 140.4 155.51C139.57 156.95 140.07 158.78 141.51 159.6Z"/></symbol>
+    <symbol id="i-down" viewBox="0 0 20 20"><path d="M10 3.5v9.2M6 9l4 4 4-4M4 16.5h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
 
-<header class="site">
-  <div class="wrap bar">
-    <a class="brand" href="#download" aria-label="Seal — back to top">
-      <img src="/app-icon.png" width="30" height="30" alt="">
-      Seal
-    </a>
-    <nav class="links" aria-label="Site">
-      <a href="#features">Features</a>
-      <a href="#privacy">Privacy</a>
-      <a href="#compare">Compare</a>
-      <a href="#faq">FAQ</a>
-    </nav>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="/" aria-label="Seal home"><svg aria-hidden="true"><use href="#seal"/></svg>Seal</a>
+    <nav class="nav-links" aria-label="Site"><a href="#features">How it works</a><a href="#privacy">Privacy</a><a href="#compare">Compare</a><a href="#faq">FAQ</a></nav>
     <a data-placement="nav" class="btn small" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download free</a>
   </div>
 </header>
 
-<main>
-
-  <!-- ============ HERO ============ -->
-  <!-- ============ HERO + PRODUCT (one section, white fading into the band) ============ -->
-  <div class="heroband">
-  <div class="wrap hero" id="download">
-    <div class="hero-copy">
-      <h1>Meeting notes that <span class="hl">never leave</span> your&nbsp;Mac</h1>
-      <p class="sub">Seal records, transcribes, and writes up your meetings — all of it locally. No cloud, no bots in your calls, no account.</p>
-      <div class="cta">
-        <a data-placement="hero" class="btn" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac <span class="tag">— free</span></a>
-        <a class="btn ghost" href="#features">See how it works</a>
-      </div>
-      <div class="trustrow" aria-label="Highlights">
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg> 100% on-device</span>
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg> No account required</span>
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg> Works offline</span>
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg> macOS 14+, Apple silicon</span>
-      </div>
-    </div>
-    <img class="hero-seal" src="/seal-hero.png" width="410" height="387" fetchpriority="high"
-         alt="Seal, the app's mascot: a small spotted seal pup sitting up, facing you.">
-  </div>
-
-  <!-- ============ PRODUCT ============ -->
-  <div class="band">
+<main id="main">
+  <section class="hero" aria-labelledby="hero-h">
+    <div class="grid-bg" aria-hidden="true"></div>
     <div class="wrap">
-      <div class="stage-wrap">
-        <div class="proof p1" aria-hidden="true"><b>0 bytes</b><span>leave your Mac</span></div>
-        <div class="proof p2" aria-hidden="true"><b>No account</b><span>nothing to sign up for</span></div>
-        <div class="proof p3" aria-hidden="true"><b>35,000 ft</b><span>still works, offline</span></div>
-        <figure class="app" role="img" aria-label="The Seal app during a meeting: the sidebar shows a recording in progress, notes build themselves in the middle, and the live transcript appears on the right — everything on this Mac." style="margin: 0;">
-          <div class="tbar" aria-hidden="true">
-            <i class="tl-r"></i><i class="tl-y"></i><i class="tl-g"></i>
-            <span class="ttl">Weekly sync — Acme × Nova</span>
-          </div>
-          <div class="cols" aria-hidden="true">
-            <aside class="side">
-              <div class="recrow"><span class="dot"></span> Recording <em>12:38</em></div>
-              <div class="slabel">Today</div>
-              <div class="mrow sel">Weekly sync — Acme × Nova</div>
-              <div class="mrow">Design review</div>
-              <div class="slabel">Yesterday</div>
-              <div class="mrow">1:1 with Maya</div>
-              <div class="mrow">Sprint planning</div>
-            </aside>
-            <div class="main">
-              <div class="plabel">Notes</div>
-              <div class="nrow" style="--d:3.3s"><span class="nt">14:02</span><span><b>Launch:</b> Thursday, pending tomorrow's QA pass</span></div>
-              <div class="nrow" style="--d:7.1s"><span class="nt">14:09</span><span><b>Ads:</b> spend holds until launch week</span></div>
-              <div class="nrow" style="--d:10.3s"><span class="cb"></span><span>Run QA first thing tomorrow — <b>you</b></span></div>
-            </div>
-            <div class="tx">
-              <div class="plabel">Transcript</div>
-              <p class="line" style="--d:.7s"><span class="who other">Maya</span> Before we wrap — can we lock the launch date?</p>
-              <p class="line" style="--d:1.9s"><span class="who you">You</span> Thursday works, if the build passes QA tomorrow.</p>
-              <p class="line" style="--d:4.1s"><span class="who other">Maya</span>
-                <span class="w" style="--d:4.3s">Perfect.</span>
-                <span class="w" style="--d:4.62s">Then</span>
-                <span class="w" style="--d:4.94s">ad</span>
-                <span class="w" style="--d:5.26s">spend</span>
-                <span class="w" style="--d:5.58s">holds</span>
-                <span class="w" style="--d:5.9s">until</span>
-                <span class="w" style="--d:6.22s">launch</span>
-                <span class="w" style="--d:6.54s">week.</span>
-              </p>
-              <p class="line" style="--d:8.1s"><span class="who you">You</span>
-                <span class="w" style="--d:8.3s">Deal.</span>
-                <span class="w" style="--d:8.62s">I'll</span>
-                <span class="w" style="--d:8.94s">get</span>
-                <span class="w" style="--d:9.26s">QA</span>
-                <span class="w" style="--d:9.58s">on</span>
-                <span class="w" style="--d:9.9s">it</span>
-                <span class="w" style="--d:10.22s">first</span>
-                <span class="w" style="--d:10.54s">thing.</span><span class="caret"></span>
-              </p>
-            </div>
-          </div>
-          <div class="cbar" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4h3.5v16H7zM13.5 4H17v16h-3.5z"/></svg>
-            <span class="time">12<span class="colon">:</span>38</span>
-            <span class="rdot"></span>
-            <span class="stop">Stop</span>
-          </div>
-        </figure>
+      <div class="hero-top">
+        <div class="hero-copy">
+          <span class="kicker load-in" style="--delay:.05s">On-device meeting notes for Mac</span>
+          <h1 class="display load-in" id="hero-h" style="--delay:.12s">Meeting notes that never leave your&nbsp;Mac.</h1>
+          <p class="lead load-in" style="--delay:.22s">Seal hears both sides of the call, writes the notes and answers your questions, all on your Mac. No bot joins the call. Nothing goes to a cloud. There's no account.</p>
+          <div class="cta-row load-in" style="--delay:.3s"><a data-placement="hero" class="btn" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg"><svg aria-hidden="true"><use href="#i-down"/></svg>Download for Mac <span class="tag">Free</span></a><a class="btn ghost" href="#features">See how it works</a></div>
+          <p class="fine load-in" style="--delay:.38s">macOS 14 or later · Apple silicon · about 3–6 GB of models, downloaded once</p>
+        </div>
+        <aside class="spec load-in" style="--delay:.3s" aria-label="What runs where">
+          <div class="spec-h"><span>Seal · on this Mac</span><b>● works offline</b></div>
+          <dl>
+            <dt>Speech</dt><dd>Whisper large-v3 turbo</dd><dd class="where">on device</dd>
+            <dt>Notes</dt><dd>Qwen 2.5 · MLX</dd><dd class="where">on device</dd>
+            <dt>Speakers</dt><dd>pyannote · FluidAudio</dd><dd class="where">on device</dd>
+            <dt>Library</dt><dd>Files in your user folder</dd><dd class="where">on device</dd>
+          </dl>
+          <div class="sent"><span class="dim">meetings sent</span><svg viewBox="0 0 200 22" preserveAspectRatio="none" aria-hidden="true"><path class="flat" d="M0 15H200"/><circle class="tick" cx="196" cy="15" r="2.5"/></svg><b>0 B</b></div>
+        </aside>
       </div>
     </div>
-  </div>
-
-  </div><!-- /.heroband -->
-
-  <!-- ============ STATEMENT ============ -->
-  <div class="wrap statement">
-    <p>We keep <span class="kw">your audio</span>, <span class="kw">your transcript</span>, and <span class="kw">your notes</span> on one machine: <span class="kw-strong">yours</span>. So every meeting is captured, written up — and still nobody's business but your own.</p>
-    <div class="pillars">
-      <div class="pillar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5v3M7.5 7v10M12 3.5v17M16.5 7v10M21 10.5v3"/></svg>
-        <b>Transcription that stays put</b>
-        <p>On-device Whisper hears you and the call, live — the audio never leaves the machine.</p>
-      </div>
-      <div class="pillar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8.5L13.5 3z"/><path d="M13.5 3v5.5H19"/><path d="M9 13h6M9 16.5h4"/></svg>
-        <b>Notes written on your Mac</b>
-        <p>A private model writes the summary and titles each meeting — no API keys, no setup.</p>
-      </div>
-      <div class="pillar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"/><path d="M8.8 12.2l2.2 2.2 4.4-4.6"/></svg>
-        <b>Free, and yours</b>
-        <p>Every feature is free. No account, no subscription, no licence keys — the app is simply yours.</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============ CAPABILITIES (tabbed) ============ -->
-  <section id="features">
-    <div class="wrap">
-      <div class="shead-l">
-        <div>
-          <span class="eyebrow">Capabilities</span>
-          <h2>Everything happens on your machine</h2>
-          <p class="lede">The parts other tools send to the cloud — your audio, your transcript, your notes — Seal keeps on your Mac. Here's what that looks like across a meeting.</p>
-        </div>
-        <a class="sidelink" href="#faq">Questions →</a>
-      </div>
-
-      <div class="tabs" id="capabilities">
-        <div class="tablist" role="tablist" aria-label="What Seal does">
-          <button type="button" role="tab" id="tab-capture" aria-controls="panel-capture" aria-selected="true">Capture</button>
-          <button type="button" role="tab" id="tab-writeup" aria-controls="panel-writeup" aria-selected="false">Write-up</button>
-          <button type="button" role="tab" id="tab-ask" aria-controls="panel-ask" aria-selected="false">Ask</button>
-        </div>
-
-        <!-- Capture -->
-        <div class="tpanel" role="tabpanel" id="panel-capture" aria-labelledby="tab-capture" tabindex="0">
-          <div>
-            <h3>It notices the meeting, then gets out of the way</h3>
-            <p>When Zoom, Meet, or Teams starts using your microphone, Seal offers to record — and stops by itself when the call ends. Nothing is captured without your say-so.</p>
-            <ul>
-              <li>Hears both you and the call, transcribed live</li>
-              <li>On-device Whisper — audio never leaves the Mac</li>
-              <li>English, Ukrainian, and mixed conversations</li>
-              <li>Teach it names it should spell correctly</li>
-              <li>Pick your microphone, including Bluetooth</li>
-              <li>Speaker split — who said what</li>
-            </ul>
-          </div>
-          <figure class="app mini" style="margin:0" role="img" aria-label="Seal recording: input meters for your microphone and the call's audio, with the live transcript building underneath.">
-            <div class="tbar" aria-hidden="true"><i class="tl-r"></i><i class="tl-y"></i><i class="tl-g"></i><span class="ttl">Recording — 12:38</span></div>
-            <div class="pane" aria-hidden="true">
-              <div class="plabel">Input</div>
-              <div class="meter"><span style="width:96px">You · mic</span><i style="--lvl:62%; --c:var(--a-accent)"></i></div>
-              <div class="meter" style="margin-bottom:20px"><span style="width:96px">The call</span><i style="--lvl:38%; --c:var(--a-green)"></i></div>
-              <div class="plabel">Transcript</div>
-              <p style="margin:0 0 10px; font-size:12.5px; color:var(--a-muted)"><span class="who other">Maya</span> Before we wrap — can we lock the launch date?</p>
-              <p style="margin:0; font-size:12.5px; color:var(--a-muted)"><span class="who you">You</span> Thursday works, if the build passes QA tomorrow.</p>
-            </div>
-          </figure>
-        </div>
-
-        <!-- Write-up -->
-        <div class="tpanel" role="tabpanel" id="panel-writeup" aria-labelledby="tab-writeup" tabindex="0" hidden>
-          <div>
-            <h3>The write-up is ready when you stop</h3>
-            <p>Structured notes, a name for the meeting, and the promises people made — written by a model running on your Mac. No API keys, no setup, no upload.</p>
-            <ul>
-              <li>AI notes and meeting titles, fully on-device</li>
-              <li>Your rough jots, completed from the transcript</li>
-              <li>Action items tracked across every meeting</li>
-              <li>Markdown and PDF export, always free</li>
-              <li>Reshape notes into another format</li>
-              <li>Your own note templates</li>
-            </ul>
-          </div>
-          <figure class="app mini" style="margin:0" role="img" aria-label="Seal's notes pane: timestamped notes and an action item with a checkbox.">
-            <div class="tbar" aria-hidden="true"><i class="tl-r"></i><i class="tl-y"></i><i class="tl-g"></i><span class="ttl">Weekly sync — Acme × Nova</span></div>
-            <div class="pane" aria-hidden="true">
-              <div class="plabel">Notes</div>
-              <div class="nrow"><span class="nt">14:02</span><span><b>Launch:</b> Thursday, pending tomorrow's QA pass</span></div>
-              <div class="nrow"><span class="nt">14:09</span><span><b>Ads:</b> spend holds until launch week</span></div>
-              <div class="nrow"><span class="nt">14:15</span><span><b>Owner:</b> Maya picks up the pricing page copy</span></div>
-              <div class="plabel" style="margin-top:20px">Action items</div>
-              <div class="nrow"><span class="cb"></span><span>Run QA first thing tomorrow — <b>you</b></span></div>
-              <div class="nrow"><span class="cb"></span><span>Send the launch note to the team — <b>Maya</b></span></div>
-            </div>
-          </figure>
-        </div>
-
-        <!-- Ask -->
-        <div class="tpanel" role="tabpanel" id="panel-ask" aria-labelledby="tab-ask" tabindex="0" hidden>
-          <div>
-            <h3>Ask the meeting — while it's happening, or months later</h3>
-            <p>Query any transcript, draft the follow-up, or search every meeting you've ever recorded by meaning rather than keyword. Locally, and offline.</p>
-            <ul>
-              <li>Answers drawn from the transcript, during the meeting or after</li>
-              <li>Put a plan, a slide or a photo of the whiteboard beside your question — read on your Mac, never uploaded</li>
-              <li>Follow-up drafts, written locally</li>
-              <li>Meeting memory — search by meaning</li>
-              <li>A maximum-accuracy re-pass</li>
-              <li>Full-text search across your history, free</li>
-              <li>Cloud notes with your own key, only if you choose</li>
-            </ul>
-          </div>
-          <figure class="app mini" style="margin:0" role="img" aria-label="Asking a question about a meeting, during it or after, and getting an answer drawn from the transcript.">
-            <div class="tbar" aria-hidden="true"><i class="tl-r"></i><i class="tl-y"></i><i class="tl-g"></i><span class="ttl">Ask this meeting</span></div>
-            <div class="pane" aria-hidden="true">
-              <div class="plabel">Ask</div>
-              <div class="bubble">What did we agree about ad spend?</div>
-              <div class="reply">Ad spend <b>holds until launch week</b>. Maya raised it at 14:09, right after the launch date was set for Thursday — conditional on the QA pass.</div>
-              <div style="margin-top:18px"><span class="askbar">Ask this meeting</span></div>
-            </div>
-          </figure>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ PRIVACY (dark, inset) ============ -->
-  <div class="darkwrap">
-    <section class="dark" id="privacy" style="padding-top: 84px;">
+    <div class="rise">
+      <svg class="rings" viewBox="0 0 2400 2400" aria-hidden="true"><circle cx="1200" cy="1200" r="780" style="--i:0"/><circle cx="1200" cy="1200" r="860" style="--i:1"/><circle cx="1200" cy="1200" r="950" style="--i:2"/><circle cx="1200" cy="1200" r="1050" style="--i:3"/></svg>
+      <div class="halo" aria-hidden="true"></div>
+      <svg class="waves left" viewBox="0 0 500 220" preserveAspectRatio="none" aria-hidden="true"><path class="w1" data-wave="0 120 260 230 500 150 20 7 0" style="--wd:.7s"/><path class="w2" data-wave="0 170 260 240 500 170 13 9 1.4" style="--wd:.9s"/></svg>
+      <svg class="waves right" viewBox="0 0 500 220" preserveAspectRatio="none" aria-hidden="true"><path class="w2" data-wave="0 110 260 230 500 150 18 7.5 .7" style="--wd:.8s"/><path class="w1" data-wave="0 165 260 240 500 172 12 9.5 2" style="--wd:1s"/></svg>
+      <span class="label l1" aria-hidden="true">your microphone</span>
+      <span class="label l2" aria-hidden="true">the call's audio</span>
       <div class="wrap">
-        <div class="privacy-head">
-        <div class="shead-c">
-          <span class="eyebrow on-dark">Private by design</span>
-          <h2>Private by architecture, not by promise</h2>
-          <p class="lede">Seal doesn't have a server to send your meetings to. There's no account to create and nothing to opt out of. If you ever turn on a cloud model yourself, only the transcript text is sent — never your audio — and transcription always stays on your Mac. <a href="/privacy/" style="color: var(--lime);">Every connection the app makes, listed →</a></p>
-        </div>
-        <img class="notes-seal" src="/seal-notes.png" width="310" height="202" loading="lazy"
-             alt="Seal, the app's mascot, holding a handful of meeting notes.">
-        </div><!-- /.privacy-head -->
-        <div class="flow" role="group" aria-label="Where your audio goes: your voice and the call's audio go to your Mac, are transcribed and summarized there, and are saved as a sealed note on your Mac. There are no servers — nothing leaves.">
-          <div class="fnode">
-            <div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg> Your voice</div>
-            <div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5H4z"/><path d="M15.5 9a4.3 4.3 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"/></svg> The call's audio</div>
-          </div>
-          <span class="arr across" aria-hidden="true"><svg viewBox="0 0 48 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h39m0 0-7.5-6.5M42 12l-7.5 6.5"/></svg></span>
-          <span class="arr down" aria-hidden="true"><svg viewBox="0 0 24 48" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v39m0 0-6.5-7.5M12 42l6.5-7.5"/></svg></span>
-          <div class="macnode">
-            <div class="nocloud" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2.5 3"><path d="M7.2 18.5a4.7 4.7 0 0 1-.5-9.4 6.2 6.2 0 0 1 11.9-1 4.2 4.2 0 0 1-.8 8.4H7.2z"/></svg>
-              No servers. Nothing leaves.
-            </div>
-            <div class="mini" aria-hidden="true"><i></i><i></i><i></i></div>
-            <b>Your Mac</b>
-            <span>Transcribed &amp; summarized right here — Whisper and a local AI, even offline.</span>
-          </div>
-          <span class="arr across" aria-hidden="true"><svg viewBox="0 0 48 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h39m0 0-7.5-6.5M42 12l-7.5 6.5"/></svg></span>
-          <span class="arr down" aria-hidden="true"><svg viewBox="0 0 24 48" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v39m0 0-6.5-7.5M12 42l6.5-7.5"/></svg></span>
-          <div class="notenode">
-            <div class="doc" aria-hidden="true">
-              <i></i><i></i><i></i><i></i>
-              <svg class="stamp" viewBox="48 48 144 144"><g><circle cx="176.0" cy="135.0" r="10" fill="#C9503C"/><circle cx="161.0" cy="161.0" r="10" fill="#C9503C"/><circle cx="135.0" cy="176.0" r="10" fill="#C9503C"/><circle cx="105.0" cy="176.0" r="10" fill="#C9503C"/><circle cx="79.0" cy="161.0" r="10" fill="#C9503C"/><circle cx="64.0" cy="135.0" r="10" fill="#C9503C"/><circle cx="64.0" cy="105.0" r="10" fill="#C9503C"/><circle cx="79.0" cy="79.0" r="10" fill="#C9503C"/><circle cx="105.0" cy="64.0" r="10" fill="#C9503C"/><circle cx="135.0" cy="64.0" r="10" fill="#C9503C"/><circle cx="161.0" cy="79.0" r="10" fill="#C9503C"/><circle cx="176.0" cy="105.0" r="10" fill="#C9503C"/><circle cx="120" cy="120" r="64.8" fill="#C9503C"/><circle cx="120" cy="120" r="52.8" fill="#B03E2E"/><path fill="#F2E4D8" fill-rule="evenodd" transform="translate(66,66) scale(0.45)" d="M200 120C200 164.18 164.18 200 120 200C75.82 200 40 164.18 40 120C40 75.82 75.82 40 120 40C164.18 40 200 75.82 200 120ZM99 104C99 116.15 89.15 126 77 126C64.85 126 55 116.15 55 104C55 91.85 64.85 82 77 82C89.15 82 99 91.85 99 104ZM185 104C185 116.15 175.15 126 163 126C150.85 126 141 116.15 141 104C141 91.85 150.85 82 163 82C175.15 82 185 91.85 185 104ZM97 141Q97 131 108 131Q115 131 120 138Q125 131 132 131Q143 131 143 141Q143 152 128 160Q120 164.5 112 160Q97 152 97 141Z"/></g></svg>
-            </div>
-            <b>Your sealed note</b>
-            <span>Saved on your Mac. Yours to keep, export, or delete.</span>
-          </div>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <!-- ============ COMPARE ============ -->
-  <section id="compare">
-    <div class="wrap">
-      <div class="shead-l">
-        <div>
-          <span class="eyebrow">The honest comparison</span>
-          <h2>No bot in your call. No copy in their cloud.</h2>
-          <p class="lede">Most AI note-takers are cloud services wearing an app. Seal is a Mac app — the difference shows up everywhere. Named comparisons: <a href="/granola-alternative/">Granola</a>, <a href="/otter-ai-alternative/">Otter.ai</a>, or <a href="/meeting-notes-without-bots/">note-takers that put a bot in the call</a>.</p>
-        </div>
-      </div>
-      <div class="cmp-scroll">
-        <table class="cmp" role="table">
-          <caption>Cloud note-takers compared as a category — details vary by product.</caption>
-          <thead>
-            <tr role="row">
-              <th scope="col" role="columnheader" aria-label="Criterion"></th>
-              <th scope="col" role="columnheader" class="sealcol">Seal</th>
-              <th scope="col" role="columnheader">Cloud note-takers</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr role="row">
-              <th scope="row" role="rowheader">Where your audio is processed</th>
-              <td role="cell" class="sealcol">On your Mac</td>
-              <td role="cell">On their servers</td>
-            </tr>
-            <tr role="row">
-              <th scope="row" role="rowheader">A bot in your call</th>
-              <td role="cell" class="sealcol">Never — Seal listens from your own Mac</td>
-              <td role="cell">Usually a visible bot participant</td>
-            </tr>
-            <tr role="row">
-              <th scope="row" role="rowheader">Account required</th>
-              <td role="cell" class="sealcol">None</td>
-              <td role="cell">Sign-up first</td>
-            </tr>
-            <tr role="row">
-              <th scope="row" role="rowheader">Works offline</th>
-              <td role="cell" class="sealcol">Fully</td>
-              <td role="cell">Needs a connection</td>
-            </tr>
-            <tr role="row">
-              <th scope="row" role="rowheader">Your meeting history</th>
-              <td role="cell" class="sealcol">Files on your Mac — export anytime</td>
-              <td role="cell">Held in their cloud</td>
-            </tr>
-            <tr role="row">
-              <th scope="row" role="rowheader">What you pay</th>
-              <td role="cell" class="sealcol">Nothing — every feature is free</td>
-              <td role="cell">A subscription, forever</td>
-            </tr>
-            <tr role="row">
-              <th scope="row" role="rowheader">If the company disappears</th>
-              <td role="cell" class="sealcol">The app keeps working</td>
-              <td role="cell">The service usually stops</td>
-            </tr>
-          </tbody>
-        </table>
+        <figure class="shot glow load-in" style="--delay:.4s"><img src="/assets/saved.webp" width="2400" height="1500" alt="A finished meeting in Seal: notes with a summary, decisions and next steps, action items, and the transcript with named speakers on the right." fetchpriority="high"></figure>
       </div>
     </div>
   </section>
 
-  <!-- ============ FREE + FAQ ============ -->
-  <section id="faq" style="padding-top: 0;">
+  <section class="tl" id="features" aria-labelledby="tl-h">
     <div class="wrap">
-      <div class="shead-l">
-        <div>
-          <span class="eyebrow">Free, and yours</span>
-          <h2>Nothing to buy. Nothing to cancel.</h2>
-          <p class="lede">Seal has no servers, so it costs nothing to run — and nothing to use. Every feature, every meeting, free. No account, no trial, no subscription.</p>
+      <div class="tl-head" data-reveal>
+        <span class="kicker">A meeting with Seal</span>
+        <h2 class="h2" id="tl-h">Thursday, 11:00. A pilot review with Northwind.</h2>
+        <p class="lead">Follow one meeting from the moment the call starts to the moment the notes are sealed. Every screen below is the actual app.</p>
+      </div>
+      <div class="tl-body" data-progress>
+        <div class="tl-rail" aria-hidden="true"></div>
+
+        <article class="moment" data-reveal>
+          <div class="m-time">10:59<small>Before</small></div>
+          <div class="m-body">
+            <h3 class="h3">Zoom turns on your microphone.</h3>
+            <p class="copy">Seal notices and offers to record. A small tab waits at the edge of your screen: pause, stop, snap a slide, star a moment. Nothing joins the call.</p>
+            <div class="m-media two"><div class="pillstage"><img src="/assets/pill.webp" width="426" height="88" alt="Seal's edge tab, open, with pause, stop, snap and star buttons." loading="lazy"></div><div class="crop"><img src="/assets/crop-chip.webp" width="1220" height="540" alt="The recording menu: stop and save, star this moment, snap the screen, microphone and language." loading="lazy"></div></div>
+          </div>
+        </article>
+
+        <article class="moment" data-reveal>
+          <div class="m-time">11:00<small>Listening</small></div>
+          <div class="m-body">
+            <h3 class="h3">Both sides, transcribed as they speak.</h3>
+            <p class="copy">Your microphone and the call's audio, on your Mac. English, Ukrainian, or both in the same call. Voices are told apart, so the notes say Dana and Marcus.</p>
+            <div class="m-media"><figure class="shot glow"><img src="/assets/live.webp" width="2400" height="1500" alt="Seal during the call: the live transcript of both sides, with a slide caught from Zoom." loading="lazy"></figure></div>
+          </div>
+        </article>
+
+        <article class="moment" data-reveal>
+          <div class="m-time">11:01<small>A slide</small></div>
+          <div class="m-body">
+            <h3 class="h3">Dana shares the week-two numbers.</h3>
+            <p class="copy">When a new slide appears on the call, Seal reads it and keeps it beside the transcript, so the notes can use it. Video tiles are ignored. Decisions and tasks get a star on their own.</p>
+            <div class="m-media two"><div class="crop"><img src="/assets/crop-frame.webp" width="715" height="475" alt="The slide caught from Zoom, beside the transcript." loading="lazy"></div><div class="starline"><span class="st" aria-hidden="true">☆</span><span><span class="t">11:01</span> Decision: “Let's keep the rollout to support for now”</span></div></div>
+          </div>
+        </article>
+
+        <article class="moment" data-reveal>
+          <div class="m-time">11:04<small>A question</small></div>
+          <div class="m-body">
+            <h3 class="h3">“What did we agree about the rollout?”</h3>
+            <p class="copy">You missed a sentence while answering a message. Ask, and the answer comes from what was said, in seconds, without leaving the Mac. It works during the call and months later.</p>
+            <div class="m-media two"><div class="crop"><img src="/assets/crop-answer.webp" width="715" height="380" alt="Seal answering: we agreed to aim for the twenty-fifth for the support rollout, with IT signing off on the install by Wednesday." loading="lazy"></div><div class="quote"><span class="who">The answer, in seconds</span><p>“We agreed to aim for the twenty-fifth for the support rollout, with IT needing to sign off on the install by Wednesday.”</p></div></div>
+          </div>
+        </article>
+
+        <article class="moment wax" data-reveal>
+          <div class="m-time">11:28<small>Stop</small></div>
+          <div class="m-body">
+            <h3 class="h3">You press Stop. The notes are sealed.</h3>
+            <p class="copy">A summary, the decisions, next steps and action items, written on your Mac. Your own lines stay in your ink and the model's in a quieter one, so you always know who wrote what.</p>
+            <div class="m-media"><div class="sealbox"><div class="crop"><img src="/assets/crop-notes.webp" width="1500" height="1510" alt="The finished notes: your jotted lines, then the summary, decisions, next steps and action items." loading="lazy"></div><span class="sealed-tag">Sealed · 11:28 · on this Mac</span>
+              <svg class="stamp" data-stamp viewBox="0 0 240 240" aria-hidden="true"><g><circle cx="176" cy="135" r="10" fill="#C9503C"/><circle cx="161" cy="161" r="10" fill="#C9503C"/><circle cx="135" cy="176" r="10" fill="#C9503C"/><circle cx="105" cy="176" r="10" fill="#C9503C"/><circle cx="79" cy="161" r="10" fill="#C9503C"/><circle cx="64" cy="135" r="10" fill="#C9503C"/><circle cx="64" cy="105" r="10" fill="#C9503C"/><circle cx="79" cy="79" r="10" fill="#C9503C"/><circle cx="105" cy="64" r="10" fill="#C9503C"/><circle cx="135" cy="64" r="10" fill="#C9503C"/><circle cx="161" cy="79" r="10" fill="#C9503C"/><circle cx="176" cy="105" r="10" fill="#C9503C"/><circle cx="120" cy="120" r="64.8" fill="#C9503C"/><circle cx="120" cy="120" r="52.8" fill="#B03E2E"/><path fill="#F2E4D8" fill-rule="evenodd" transform="translate(66 66) scale(0.45)" d="M200 120C200 164.18 164.18 200 120 200C75.82 200 40 164.18 40 120C40 75.82 75.82 40 120 40C164.18 40 200 75.82 200 120ZM99 104C99 116.15 89.15 126 77 126C64.85 126 55 116.15 55 104C55 91.85 64.85 82 77 82C89.15 82 99 91.85 99 104ZM185 104C185 116.15 175.15 126 163 126C150.85 126 141 116.15 141 104C141 91.85 150.85 82 163 82C175.15 82 185 91.85 185 104ZM97 141Q97 131 108 131Q115 131 120 138Q125 131 132 131Q143 131 143 141Q143 152 128 160Q120 164.5 112 160Q97 152 97 141Z"/></g></svg></div></div>
+          </div>
+        </article>
+
+        <article class="moment" id="privacy" data-reveal>
+          <div class="m-time">11:29<small>Privacy</small></div>
+          <div class="m-body">
+            <h3 class="h3">Nothing left your Mac. Not a byte.</h3>
+            <p class="copy">Seal has no server to send your meetings to, and it works with Wi-Fi off. Try it below, then check the list: every connection the app ever makes, so you can confirm it with any network monitor.</p>
+            <div class="m-media two top">
+              <div class="wifi" data-wifi>
+                <div class="wifi-bar"><span>Live transcript</span><button class="switch" type="button" aria-pressed="false" data-wifi-toggle><span class="track" aria-hidden="true"></span><span data-wifi-label>Wi-Fi on</span></button></div>
+                <div class="wifi-body" data-wifi-lines aria-live="polite">
+                  <div class="ln"><span class="who">Dana</span><span>Legal asked for a one-page summary of what stays on the device.</span></div>
+                  <div class="ln"><span class="who you">You</span><span>I'll have it to you by Thursday.</span></div>
+                </div>
+                <div class="wifi-foot"><span data-wifi-state>Connected · nothing is being sent</span><b>0 B out</b></div>
+              </div>
+              <div class="netlog">
+                <div class="netlog-head"><span class="live"></span>Every connection Seal makes<span class="total">meetings: 0 B</span></div>
+                <ul>
+                  <li><span class="when">Periodic</span><span class="host">sealformac.com/appcast.xml</span><span class="what">Update check. A public list of versions, nothing about you.</span></li>
+                  <li><span class="when">Once</span><span class="host">huggingface.co</span><span class="what">The speech and notes models, downloaded on first run. Nothing is uploaded.</span></li>
+                  <li class="off"><span class="when">Off</span><span class="host">Your own AI provider</span><span class="what">Cloud notes, only if you add your own key. Transcript text only, never audio.</span></li>
+                  <li class="off"><span class="when">On send</span><span class="host">Problem report</span><span class="what">Only when you press Send, after reading exactly what goes.</span></li>
+                </ul>
+                <div class="netlog-foot"><span>Audio, transcripts and notes</span><b>0 B · always</b></div>
+              </div>
+            </div>
+            <a class="m-link" href="/privacy/">Every connection, and how to check it yourself →</a>
+          </div>
+        </article>
+
+        <article class="moment" data-reveal>
+          <div class="m-time">Later<small>Next week</small></div>
+          <div class="m-body">
+            <h3 class="h3">Find it again, or ask it again.</h3>
+            <p class="copy">Search every meeting by meaning, file them in folders, draft the follow-up, export to Markdown, PDF, Word, SRT or VTT. Your notes are plain files you own.</p>
+            <div class="m-media"><figure class="shot glow"><img src="/assets/askfocus.webp" width="2400" height="1500" alt="The Ask bar offering starter questions and actions for a finished meeting: summarize, what was decided, draft a follow-up email, export as PDF." loading="lazy"></figure></div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="split-sec" id="compare" aria-labelledby="cmp-h">
+    <div class="wrap split">
+      <div class="copy-col" data-reveal>
+        <span class="kicker">The honest comparison</span>
+        <h2 class="h2" id="cmp-h">No bot in your call. No copy in their cloud.</h2>
+        <p class="copy">Most AI note-takers are cloud services wearing an app. Seal is a Mac app, and the difference shows up everywhere. Named comparisons: <a href="/granola-alternative/">Granola</a>, <a href="/otter-ai-alternative/">Otter.ai</a>, or <a href="/meeting-notes-without-bots/">note-takers that put a bot in the call</a>.</p>
+      </div>
+      <div data-reveal style="--delay:.08s">
+        <div class="table-scroll">
+          <table class="compare">
+            <thead><tr><th scope="col"><span class="vh">Question</span></th><th scope="col" class="us">Seal</th><th scope="col">Cloud note-takers</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Where your audio is processed</th><td class="us">On your Mac</td><td>On their servers</td></tr>
+              <tr><th scope="row">A bot in your call</th><td class="us">Never. Seal listens from your own Mac</td><td>Usually a visible bot participant</td></tr>
+              <tr><th scope="row">Account required</th><td class="us">None</td><td>Sign-up first</td></tr>
+              <tr><th scope="row">Works offline</th><td class="us">Fully</td><td>Needs a connection</td></tr>
+              <tr><th scope="row">Your meeting history</th><td class="us">Files on your Mac, export anytime</td><td>Held in their cloud</td></tr>
+              <tr><th scope="row">What you pay</th><td class="us">Nothing, every feature is free</td><td>A subscription, forever</td></tr>
+              <tr><th scope="row">If the company disappears</th><td class="us">The app keeps working</td><td>The service usually stops</td></tr>
+            </tbody>
+          </table>
         </div>
+        <p class="compare-note">Cloud note-takers compared as a category; details vary by product.</p>
       </div>
-      <div class="strip">
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>No account</span>
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>No subscription required</span>
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>Works fully offline</span>
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>Your notes never lock behind a paywall</span>
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>Open formats — your data outlives any app</span>
-      </div>
-      <div class="faq">
+    </div>
+  </section>
+
+  <section class="split-sec" id="faq" aria-labelledby="faq-h">
+    <div class="wrap split">
+      <div class="copy-col" data-reveal><span class="kicker">Questions</span><h2 class="h2" id="faq-h">Asked often</h2></div>
+      <div class="faq" data-reveal style="--delay:.08s">
         <details>
           <summary>Does Seal send my meetings to the cloud?</summary>
           <p>No. Recording, transcription, and note generation all run on your Mac, and Seal has no server to send meetings to. There is no account and nothing to opt out of. If you choose to turn on a cloud model with your own API key, only transcript text is sent — never your audio — and transcription always stays on-device.</p>
@@ -504,7 +329,7 @@
           <summary>What do I need to run it, and how big is the download?</summary>
           <p>macOS 14 or later, and an Apple-silicon Mac for the on-device notes. The app itself is small, but the models it runs are not: the first time you record, Seal fetches a speech model, and the first time you make notes it fetches a language model — together roughly 3–6&nbsp;GB, once. Macs with 12&nbsp;GB of memory or more get the larger, better notes model; smaller Macs get a lighter one automatically. After that first download, nothing needs the network again.</p>
         </details>
-        <details>
+        <details id="pricing">
           <summary>Is Seal really free?</summary>
           <p>Yes — all of it. Recording, live transcription at full accuracy, on-device notes, speaker split, asking the meeting questions, follow-up drafts, action items, templates, and every export. No meeting limits, no trial, no account, no subscription, nothing to cancel.</p>
         </details>
@@ -516,118 +341,45 @@
     </div>
   </section>
 
-  <!-- ============ FOOTER BAND ============ -->
-  <div class="footband">
+  <section class="closing" id="download" aria-labelledby="close-h">
     <div class="wrap">
-      <div class="top">
+      <div class="close-band" data-reveal>
         <div>
-          <h2>What's said here stays here.</h2>
-          <p>Free to download. Free to use forever. Sealed by design.</p>
-          <div class="ctas">
-            <a data-placement="closing-cta" class="btn lime" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac <span class="tag">— free</span></a>
-          </div>
+          <span class="kicker">Free · macOS 14+ · Apple silicon</span>
+          <h2 class="h2" id="close-h" style="margin-top:16px">What's said here stays&nbsp;here.</h2>
+          <p class="lead" style="margin-top:16px">Free to download. Free to use forever. Sealed by design.</p>
+          <div class="cta-row" style="margin-top:28px"><a data-placement="closing-cta" class="btn" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg"><svg aria-hidden="true"><use href="#i-down"/></svg>Download for Mac <span class="tag">Free</span></a><a class="btn ghost" href="https://github.com/yaremd/transcription-app">Read the source</a></div>
+          <section class="notify" id="notify" hidden aria-labelledby="notify-h">
+            <div class="notify-copy">
+              <h2 id="notify-h">Know when Seal updates</h2>
+              <p>One short email when a new version ships, what changed, nothing else. This list belongs to the website, not the app: Seal itself still never asks who you are.</p>
+            </div>
+            <form class="notify-form" method="post" novalidate>
+              <label class="sr-only" for="notify-email">Email address</label>
+              <input id="notify-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+              <button class="btn" type="submit">Keep me posted</button>
+              <p class="notify-status" role="status" aria-live="polite"></p>
+            </form>
+          </section>
         </div>
-        <img class="shieldimg" src="/seal-shield.png" width="300" height="251" loading="lazy"
-             alt="Seal, the app's mascot, holding a metal shield engraved “Sealed by design” with the Seal mark stamped in its centre.">
+        <img class="pup" src="/assets/pup.png" width="660" height="622" alt="The Seal pup, holding a shield." loading="lazy">
       </div>
-
-      <!-- Release-notes list. Sits after the download CTA on purpose: it is the
-           next thing you see once you've decided, never a gate in front of the
-           download. Hidden until NEWSLETTER_ENDPOINT is set, so a half-configured
-           form can never ship. -->
-      <section class="notify" id="notify" hidden aria-labelledby="notify-h">
-        <div class="notify-copy">
-          <h2 id="notify-h">Know when Seal updates</h2>
-          <p>One short email when a new version ships — what changed, nothing else.
-             This list belongs to the website, not the app: Seal itself still never
-             asks who you are.</p>
-        </div>
-        <form class="notify-form" method="post" novalidate>
-          <label class="sr-only" for="notify-email">Email address</label>
-          <input id="notify-email" name="email" type="email" autocomplete="email"
-                 placeholder="you@example.com" required>
-          <button class="btn lime" type="submit">Keep me posted</button>
-          <p class="notify-status" role="status" aria-live="polite"></p>
-        </form>
-      </section>
-
-      <div class="footgrid">
-        <div>
-          <div class="fbrand">
-            <img src="/app-icon.png" width="26" height="26" alt="">
-            Seal
-          </div>
-          <p>Private meeting notes for macOS. Recording, transcription, and notes run entirely on your Mac.</p>
-        </div>
-        <div class="fcols">
-          <div class="fcol">
-            <b>Product</b>
-            <a href="#features">Features</a>
-            <a href="#compare">Compare</a>
-            <a href="#faq">FAQ</a>
-          </div>
-          <div class="fcol">
-            <b>Compare</b>
-            <a href="/granola-alternative/">vs Granola</a>
-            <a href="/otter-ai-alternative/">vs Otter.ai</a>
-            <a href="/meeting-notes-without-bots/">Without bots</a>
-            <a href="/local-meeting-notes-mac/">Local notes on Mac</a>
-          </div>
-          <div class="fcol">
-            <b>Privacy</b>
-            <a href="/privacy/">What Seal sends</a>
-            <a href="#privacy">How it stays private</a>
-          </div>
-          <div class="fcol">
-            <b>Get Seal</b>
-            <a data-placement="footer-link" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac</a>
-          </div>
-        </div>
-      </div>
-      <p class="legal">Seal · Private meeting notes for macOS. Requires macOS 14 or later; on-device AI notes need an Apple-silicon Mac.</p>
     </div>
-  </div>
-
+  </section>
 </main>
 
-<script>
-// Progressive enhancement: without this the tab strip stays hidden and all
-// three panels render stacked, so every capability is still readable.
-(function () {
-  var tabs = document.getElementById('capabilities');
-  if (!tabs) return;
-  var buttons = Array.prototype.slice.call(tabs.querySelectorAll('[role="tab"]'));
-  if (!buttons.length) return;
-
-  function select(button, focus) {
-    buttons.forEach(function (b) {
-      var panel = document.getElementById(b.getAttribute('aria-controls'));
-      var on = b === button;
-      b.setAttribute('aria-selected', on ? 'true' : 'false');
-      b.tabIndex = on ? 0 : -1;
-      if (panel) panel.hidden = !on;
-    });
-    if (focus) button.focus();
-  }
-
-  buttons.forEach(function (b, i) {
-    b.addEventListener('click', function () { select(b, false); });
-    b.addEventListener('keydown', function (e) {
-      var step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
-      if (step) {
-        e.preventDefault();
-        select(buttons[(i + step + buttons.length) % buttons.length], true);
-      } else if (e.key === 'Home' || e.key === 'End') {
-        e.preventDefault();
-        select(buttons[e.key === 'Home' ? 0 : buttons.length - 1], true);
-      }
-    });
-  });
-
-  tabs.classList.add('js');
-  select(buttons[0], false);
-}());
-</script>
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div><a class="brand" href="/"><svg aria-hidden="true"><use href="#seal"/></svg>Seal</a><p class="about">Private meeting notes for macOS. Recording, transcription and notes run entirely on your Mac.</p></div>
+      <div><h4>Product</h4><ul><li><a href="#features">How it works</a></li><li><a href="#privacy">Privacy</a></li><li><a href="#compare">Compare</a></li><li><a href="#faq">FAQ</a></li></ul></div>
+      <div><h4>Compare</h4><ul><li><a href="/granola-alternative/">vs Granola</a></li><li><a href="/otter-ai-alternative/">vs Otter.ai</a></li><li><a href="/meeting-notes-without-bots/">Without bots</a></li><li><a href="/local-meeting-notes-mac/">Local notes on Mac</a></li></ul></div>
+      <div><h4>Privacy</h4><ul><li><a href="/privacy/">What Seal sends</a></li><li><a href="#privacy">How it stays private</a></li></ul></div>
+      <div><h4>Get Seal</h4><ul><li><a data-placement="footer-link" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac</a></li><li><a href="https://github.com/yaremd/transcription-app">Source on GitHub</a></li></ul></div>
+    </div>
+    <div class="legal"><span>Seal · Private meeting notes for macOS</span><span>Requires macOS 14 or later; on-device AI notes need an Apple-silicon Mac.</span></div>
+  </div>
+</footer>
 
 <script>
 // ---------------------------------------------------------------------------
@@ -677,7 +429,6 @@ function sealTrack(event, props) {
   if (window.posthog && POSTHOG_KEY) posthog.capture(event, props || {});
 }
 </script>
-
 <script>
 (function () {
   // Which CTA earns the download. Every button links straight to the DMG, so
@@ -702,7 +453,6 @@ function sealTrack(event, props) {
 
 }());
 </script>
-
 <script>
 (function () {
   var block = document.getElementById('notify');
