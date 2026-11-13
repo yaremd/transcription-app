@@ -1,0 +1,7 @@
+Fonts self-hosted on sealformac.com (served from this folder, never from a third party):
+
+Instrument Sans  — SIL Open Font License 1.1 — https://github.com/Instrument/instrument-sans
+JetBrains Mono   — SIL Open Font License 1.1 — https://github.com/JetBrains/JetBrainsMono
+
+Licence text: https://openfontlicense.org/open-font-license-official-text/
+Each font file carries its own copyright and licence notice.

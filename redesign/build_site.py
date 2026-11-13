@@ -119,6 +119,8 @@ def build_article(rel):
 <head>
 {head}
 <link rel="stylesheet" href="/site.css">
+<link rel="preload" href="/fonts/instrument-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
 </head>
 <body>
 {article_nav(current)}
