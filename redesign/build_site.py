@@ -61,7 +61,7 @@ def article_nav(current):
     return f'''<a class="skip" href="#main">Skip to content</a>
 <header class="nav">
   <div class="wrap nav-in">
-    <a class="brand" href="/" aria-label="Seal home"><svg aria-hidden="true"><use href="#seal"/></svg>Seal</a>
+    <a class="brand" href="/" aria-label="Seal home"><img src="/assets/seal-icon.png" width="34" height="34" alt="">Seal</a>
     <nav class="nav-links" aria-label="Site">{items}</nav>
     <a class="btn small" href="{DMG}">Download free</a>
   </div>
@@ -71,7 +71,7 @@ def article_nav(current):
 FOOTER = f'''<footer class="footer">
   <div class="wrap">
     <div class="footer-grid">
-      <div><a class="brand" href="/"><svg aria-hidden="true"><use href="#seal"/></svg>Seal</a><p class="about">Private meeting notes for macOS. Recording, transcription and notes run entirely on your Mac.</p></div>
+      <div><a class="brand" href="/"><img src="/assets/seal-icon.png" width="34" height="34" alt="">Seal</a><p class="about">Private meeting notes for macOS. Recording, transcription and notes run entirely on your Mac.</p></div>
       <div><h4>Product</h4><ul><li><a href="/#features">How it works</a></li><li><a href="/#privacy">Privacy</a></li><li><a href="/#compare">Compare</a></li><li><a href="/#faq">FAQ</a></li></ul></div>
       <div><h4>Compare</h4><ul><li><a href="/granola-alternative/">vs Granola</a></li><li><a href="/otter-ai-alternative/">vs Otter.ai</a></li><li><a href="/meeting-notes-without-bots/">Without bots</a></li><li><a href="/local-meeting-notes-mac/">Local notes on Mac</a></li></ul></div>
       <div><h4>Privacy</h4><ul><li><a href="/privacy/">What Seal sends</a></li><li><a href="/#privacy">How it stays private</a></li></ul></div>
@@ -121,7 +121,6 @@ def build_article(rel):
 <link rel="stylesheet" href="/site.css">
 </head>
 <body>
-{SPRITE}
 {article_nav(current)}
 
 <main id="main" class="article">{main}</main>
@@ -134,7 +133,49 @@ def build_article(rel):
     print(f"{rel}: restyled, content kept ({len(main)} chars of <main>)")
 
 
+# Content corrections, applied after the restyle and each checked to match exactly as often as expected.
+# The privacy page still described Seal's paid era (0.21, "if you buy Pro", a Purchase row), and said the
+# website runs no analytics script — untrue since the home page started counting visits on 2026-08-19.
+CONTENT_FIXES = {
+    "privacy/index.html": [
+        ("Applies to Seal 0.21 for macOS. Last updated 13 August 2026.",
+         "Applies to Seal 1.5 for macOS. Last updated 13 November 2026.", 1),
+        ("It does touch the network for three unremarkable things: update checks, a one-time model download, and licence activation if you buy Pro. None of them carry your meetings.",
+         "It does touch the network for two unremarkable things: update checks and a one-time model download. Neither carries your meetings.", 1),
+        ("Seal's complete outbound network behaviour, as of version 0.21.",
+         "Seal's complete outbound network behaviour, as of version 1.5.", 1),
+        ("""            <tr>
+              <th scope="row">Purchase</th>
+              <td class="sealcol">Handled entirely by Freemius in your browser — we never see card details</td>
+              <td>Only if you choose to buy. Freemius is the merchant of record.</td>
+            </tr>
+""", "", 1),
+        ("<strong>No analytics or telemetry.</strong>", "<strong>No analytics or telemetry in the app.</strong>", 1),
+        ("sealformac.com is a set of static pages on GitHub Pages. There is no analytics script, no tag manager, no advertising pixel, and no cookie banner — because there are no cookies to consent to. GitHub serves the files and, like any web host, sees standard request logs. The download link points at GitHub Releases; the buy buttons hand you to Freemius, which has its own privacy policy covering the purchase.",
+         "sealformac.com is a set of static pages on GitHub Pages. The home page runs one analytics script, PostHog, to count visits and download clicks. It stores nothing on your device (no cookies, no local storage), so there is no cookie banner; visitors stay anonymous; and its session replays mask every input and every line of text on the page. The other pages, this one included, run no scripts at all. There is no tag manager and no advertising pixel. GitHub serves the files and, like any web host, sees standard request logs. The download link points at GitHub Releases, and the optional update emails are sent by Buttondown, only if you sign up.", 1),
+        ("Three, none of which carry meeting content: a check for app updates against the public appcast on sealformac.com; a one-time download of the speech and language models from Hugging Face on first run; and, if you buy Pro, a single licence activation against Freemius. A fourth exists only if you deliberately turn on cloud notes with your own API key, in which case transcript text — never audio — is sent to that provider.",
+         "Two, neither of which carries meeting content: a check for app updates against the public appcast on sealformac.com, and a one-time download of the speech and language models from Hugging Face on first run. A third exists only if you deliberately turn on cloud notes with your own API key, in which case transcript text — never audio — is sent to that provider. A licence key from Seal's paid era, if you enter one, is checked once against Freemius.", 2),
+        ("the app contacts the network only for update checks, first-run model downloads, and one-time licence activation.",
+         "the app contacts the network only for update checks and first-run model downloads.", 1),
+    ],
+}
+
+
+def apply_content_fixes():
+    for rel, pairs in CONTENT_FIXES.items():
+        path = DOCS / rel
+        text = path.read_text(encoding="utf-8")
+        for old, new, expected in pairs:
+            found = text.count(old)
+            if found != expected:
+                sys.exit(f"build_site: {rel}: expected {expected} of {old[:60]!r}, found {found}")
+            text = text.replace(old, new)
+        path.write_text(text, encoding="utf-8")
+        print(f"{rel}: {len(pairs)} content corrections applied")
+
+
 if __name__ == "__main__":
     build_home()
     for rel in ARTICLES:
         build_article(rel)
+    apply_content_fixes()
