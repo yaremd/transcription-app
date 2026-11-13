@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Seal · Option 3 · Timeline</title>
+<meta name="description" content="Seal records, transcribes and writes up your meetings on your Mac. No bot, no cloud, no account. Free.">
+<meta name="theme-color" content="#04110D">
+<link rel="stylesheet" href="base.css">
+<style>
+/* Option 3 · Timeline — the sketch you approved, made real: headline left, the app inside the seal right.
+   Then the page follows one meeting minute by minute down a rail that fills as you read.
+   Set in the Mac's own system font (SF Pro / SF Mono): zero font downloads, native on every Mac. */
+:root { --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif; --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.display { letter-spacing: -.04em; font-weight: 650; }
+.h2 { letter-spacing: -.03em; font-weight: 650; }
+
+.hero { position: relative; overflow: hidden; padding-block: clamp(48px, 7vw, 96px) clamp(40px, 6vw, 72px); }
+.hero::before { content: ""; position: absolute; inset: 0; z-index: -3; background: radial-gradient(36% 46% at 72% 52%, rgba(211, 243, 107, .16), transparent 72%), radial-gradient(40% 50% at 6% 100%, rgba(30, 92, 70, .55), transparent 70%), radial-gradient(46% 50% at 104% -6%, rgba(20, 81, 60, .35), transparent 70%); }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 4.6fr) minmax(0, 7.4fr); gap: clamp(24px, 3vw, 48px); align-items: center; }
+.hero-copy { display: grid; gap: 22px; position: relative; z-index: 2; }
+.hero-copy .display { font-size: clamp(2.6rem, 4.7vw, 4.4rem); }
+.stagebox { position: relative; aspect-ratio: 1 / .86; container-type: inline-size; }
+.stagebox .rings { position: absolute; left: 50%; top: 50%; width: 170cqw; height: 170cqw; transform: translate(-50%, -50%); z-index: -1; }
+.stagebox .halo { position: absolute; left: 50%; top: 50%; --d: 82cqw; width: 82cqw; transform: translate(-50%, -50%); }
+.stagebox .shot { position: absolute; left: -2cqw; right: -12cqw; top: 50%; transform: translateY(-46%); z-index: 2; }
+.stagebox .tag { position: absolute; z-index: 3; display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 11px; font: 500 12.5px/1 var(--f-mono); color: var(--ink-2); background: rgba(6, 22, 15, .78); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px var(--line-2), 0 16px 34px -12px rgba(0, 0, 0, .7); }
+.stagebox .tag b { color: var(--lime); font-weight: 600; }
+.stagebox .t1 { right: 2cqw; top: 3cqw; }
+.stagebox .t2 { left: -2cqw; bottom: 6cqw; }
+.stagebox .rec { width: 8px; height: 8px; border-radius: 50%; background: var(--rec); box-shadow: 0 0 10px var(--rec); }
+.hero .waves { position: absolute; left: 0; bottom: 6%; width: 52%; height: 180px; z-index: 0; }
+@media (max-width: 960px) { .hero-grid { grid-template-columns: 1fr; } .hero .waves { display: none; } .stagebox { margin-top: 12px; } .stagebox .shot { right: 0; } }
+
+/* the timeline */
+.tl { position: relative; padding-block: clamp(56px, 8vw, 104px) clamp(72px, 9vw, 120px); }
+.tl-head { display: grid; gap: 16px; max-width: 760px; margin-bottom: clamp(40px, 6vw, 80px); }
+.tl-body { position: relative; --railx: 112px; }
+.tl-rail { position: absolute; left: var(--railx); top: 0; bottom: 0; width: 2px; background: var(--line-2); border-radius: 2px; }
+.tl-rail::after { content: ""; position: absolute; left: 0; top: 0; width: 2px; height: calc(var(--p, 1) * 100%); border-radius: 2px; background: linear-gradient(180deg, var(--mint), var(--lime)); box-shadow: 0 0 14px var(--lime), 0 0 3px var(--lime); }
+.moment { position: relative; display: grid; grid-template-columns: var(--railx) minmax(0, 1fr); column-gap: 44px; padding-bottom: clamp(64px, 9vw, 120px); }
+.moment:last-child { padding-bottom: 0; }
+.m-time { position: relative; text-align: right; padding-right: 22px; font: 600 clamp(1.15rem, 1.6vw, 1.4rem)/1.1 var(--f-mono); letter-spacing: -.02em; color: var(--ink); padding-top: 4px; }
+.m-time small { display: block; margin-top: 6px; font: 500 11.5px/1.2 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.m-time::after { content: ""; position: absolute; right: -7px; top: 9px; width: 14px; height: 14px; border-radius: 50%; background: var(--night); box-shadow: inset 0 0 0 2px var(--lime), 0 0 14px var(--lime-a40); }
+.moment.wax .m-time::after { box-shadow: inset 0 0 0 2px var(--wax), 0 0 14px rgba(201, 80, 60, .45); }
+.m-body { display: grid; gap: 14px; min-width: 0; }
+.m-body .h3 { font-size: clamp(1.45rem, 2.4vw, 2rem); letter-spacing: -.025em; }
+.m-body .copy { font-size: 17px; }
+.m-media { margin-top: 10px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.m-media.two { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); align-items: center; }
+.pillstage { border-radius: var(--r-l); padding: clamp(24px, 4vw, 48px); background: radial-gradient(60% 80% at 50% 50%, rgba(211, 243, 107, .12), transparent 70%), rgba(6, 22, 15, .7); box-shadow: inset 0 0 0 1px var(--line); display: grid; place-items: center; }
+.pillstage img { width: min(440px, 100%); filter: drop-shadow(0 26px 40px rgba(0, 0, 0, .6)); }
+.quote { border-radius: var(--r-l); padding: 22px 24px; background: rgba(6, 22, 15, .7); box-shadow: inset 0 0 0 1px var(--line); display: grid; gap: 10px; }
+.quote .who { font: 600 12px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--mint); }
+.quote p { font-size: 1.15rem; line-height: 1.45; color: var(--ink); }
+.starline { display: flex; gap: 12px; align-items: baseline; padding: 16px 18px; border-radius: 14px; background: rgba(211, 243, 107, .06); box-shadow: inset 0 0 0 1px var(--lime-a24); font-size: 1.05rem; }
+.starline .st { color: var(--lime); font-size: 1.2rem; }
+.starline .t { font: 500 12.5px var(--f-mono); color: var(--lime); }
+.sealbox { position: relative; }
+.sealbox .stamp { position: absolute; right: -12px; bottom: -22px; --s: clamp(104px, 12vw, 160px); z-index: 3; }
+.sealbox .sealed-tag { position: absolute; left: 18px; bottom: 18px; z-index: 3; }
+@media (max-width: 760px) {
+  .tl-body { --railx: 0px; }
+  .tl-rail { left: 6px; }
+  .moment { grid-template-columns: 1fr; padding-left: 28px; row-gap: 14px; }
+  .m-time { text-align: left; padding-right: 0; }
+  .m-time::after { left: -28px; right: auto; }
+  .m-media.two { grid-template-columns: 1fr; }
+}
+
+.compare-sec, .faq-sec { padding-block: clamp(72px, 9vw, 120px); border-top: 1px solid var(--line); }
+.split { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: clamp(28px, 5vw, 72px); align-items: start; }
+.split .copy-col { display: grid; gap: 18px; }
+@media (max-width: 960px) { .split { grid-template-columns: 1fr; } }
+.closing { padding-block: 24px clamp(72px, 9vw, 120px); }
+
+.optbar { position: fixed; z-index: 90; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 4px; padding: 5px; border-radius: 14px; background: rgba(4, 17, 13, .82); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: inset 0 0 0 1px var(--line-2), 0 20px 40px -10px rgba(0, 0, 0, .7); font: 500 13px/1 var(--f-mono); }
+.optbar a { color: var(--ink-2); text-decoration: none; padding: 10px 12px; border-radius: 10px; white-space: nowrap; }
+.optbar a[aria-current] { background: var(--lime); color: var(--lime-ink); }
+@media (max-width: 480px) { .optbar a span { display: none; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="seal" viewBox="0 0 240 240"><path fill="currentColor" fill-rule="evenodd" d="M200 120C200 164.18 164.18 200 120 200C75.82 200 40 164.18 40 120C40 75.82 75.82 40 120 40C164.18 40 200 75.82 200 120ZM99 104C99 113.94 90.94 122 81 122C71.06 122 63 113.94 63 104C63 94.06 71.06 86 81 86C90.94 86 99 94.06 99 104ZM177 104C177 113.94 168.94 122 159 122C149.06 122 141 113.94 141 104C141 94.06 149.06 86 159 86C168.94 86 177 94.06 177 104ZM104 142Q104 134 112.5 134Q117 134 120 139Q123 134 127.5 134Q136 134 136 142Q136 150.5 125.5 156.5Q120 159.5 114.5 156.5Q104 150.5 104 142ZM94.53 144.04C81.7 146.06 69.21 149.1 57.05 153.15C55.48 153.68 54.63 155.38 55.15 156.95C55.68 158.52 57.38 159.37 58.95 158.85C70.79 154.9 82.96 151.94 95.47 149.96C97.1 149.7 98.22 148.17 97.96 146.53C97.7 144.9 96.17 143.78 94.53 144.04ZM95.51 154.4C86.04 159.81 77.57 165.57 70.1 171.68C68.82 172.73 68.63 174.62 69.68 175.9C70.73 177.18 72.62 177.37 73.9 176.32C81.1 170.43 89.3 164.86 98.49 159.6C99.93 158.78 100.43 156.95 99.6 155.51C98.78 154.07 96.95 153.57 95.51 154.4ZM144.53 149.96C157.04 151.94 169.21 154.9 181.05 158.85C182.62 159.37 184.32 158.52 184.85 156.95C185.37 155.38 184.52 153.68 182.95 153.15C170.79 149.1 158.3 146.06 145.47 144.04C143.83 143.78 142.3 144.9 142.04 146.53C141.78 148.17 142.9 149.7 144.53 149.96ZM141.51 159.6C150.7 164.86 158.9 170.43 166.1 176.32C167.38 177.37 169.27 177.18 170.32 175.9C171.37 174.62 171.18 172.73 169.9 171.68C162.43 165.57 153.96 159.81 144.49 154.4C143.05 153.57 141.22 154.07 140.4 155.51C139.57 156.95 140.07 158.78 141.51 159.6Z"/></symbol>
+    <symbol id="i-down" viewBox="0 0 20 20"><path d="M10 3.5v9.2M6 9l4 4 4-4M4 16.5h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="Seal home"><svg aria-hidden="true"><use href="#seal"/></svg>Seal</a>
+    <nav class="nav-links" aria-label="Main"><a href="#how">A meeting with Seal</a><a href="#privacy">Privacy</a><a href="#compare">Compare</a><a href="#faq">FAQ</a></nav>
+    <a class="btn btn-primary btn-sm" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download free</a>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero" id="top" aria-labelledby="hero-h">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <span class="kicker load-in" style="--delay:.05s">On-device meeting notes for Mac</span>
+        <h1 class="display load-in" id="hero-h" style="--delay:.12s">Meeting notes that never leave your&nbsp;Mac.</h1>
+        <p class="lead load-in" style="--delay:.22s">Seal hears both sides of the call, writes the notes and answers your questions, all on your Mac. No bot, no cloud, no account.</p>
+        <div class="cta-row load-in" style="--delay:.3s"><a class="btn btn-primary" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg"><svg aria-hidden="true"><use href="#i-down"/></svg>Download for Mac <span class="tag">Free</span></a><a class="btn btn-ghost" href="#how">Follow a meeting</a></div>
+        <p class="fine load-in" style="--delay:.38s">macOS 14+ · Apple silicon · <b>0 bytes</b> sent</p>
+      </div>
+      <div class="stagebox load-in" style="--delay:.2s">
+        <svg class="rings" viewBox="0 0 1000 1000" aria-hidden="true"><circle cx="500" cy="500" r="250" style="--i:0"/><circle cx="500" cy="500" r="290" style="--i:1"/><circle cx="500" cy="500" r="335" style="--i:2"/><circle cx="500" cy="500" r="385" style="--i:3"/><circle cx="500" cy="500" r="440" style="--i:4"/><circle cx="500" cy="500" r="498" style="--i:5"/></svg>
+        <div class="halo" aria-hidden="true"></div>
+        <figure class="shot glow" style="margin:0"><img src="assets/live.webp" width="2400" height="1500" alt="Seal during a call: the live transcript of both sides, a slide caught from the call, and the Ask bar with the recording timer." fetchpriority="high"></figure>
+        <span class="tag t1" aria-hidden="true">sent out · <b>0 B</b></span>
+        <span class="tag t2" aria-hidden="true"><span class="rec"></span>Recording · both sides</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="tl" id="how" aria-labelledby="tl-h">
+    <div class="wrap">
+      <div class="tl-head" data-reveal>
+        <span class="kicker">A meeting with Seal</span>
+        <h2 class="h2" id="tl-h">Thursday, 11:00. A pilot review with Northwind.</h2>
+        <p class="lead">Follow one real-looking meeting from the moment the call starts to the moment the notes are sealed. Every screen below is the actual app.</p>
+      </div>
+      <div class="tl-body" data-progress>
+        <div class="tl-rail" aria-hidden="true"></div>
+
+        <article class="moment" data-reveal>
+          <div class="m-time">10:59<small>Before</small></div>
+          <div class="m-body">
+            <h3 class="h3">Zoom turns on your microphone.</h3>
+            <p class="copy">Seal notices and offers to record. A small tab waits at the edge of your screen: pause, stop, snap a slide, star a moment. Nothing joins the call.</p>
+            <div class="m-media two"><div class="pillstage"><img src="assets/pill.webp" width="426" height="88" alt="Seal's edge tab, open, with pause, stop, snap and star buttons." loading="lazy"></div><div class="crop"><img src="assets/crop-chip.webp" width="1220" height="540" alt="The recording menu: stop and save, star this moment, snap the screen, microphone and language." loading="lazy"></div></div>
+          </div>
+        </article>
+
+        <article class="moment" data-reveal>
+          <div class="m-time">11:00<small>Listening</small></div>
+          <div class="m-body">
+            <h3 class="h3">Both sides, transcribed as they speak.</h3>
+            <p class="copy">Your microphone and the call's audio, on your Mac. English, Ukrainian, or both in the same call. Voices are told apart, so the notes say Dana and Marcus.</p>
+            <div class="m-media"><figure class="shot glow" style="margin:0"><img src="assets/live.webp" width="2400" height="1500" alt="The live transcript of both sides during the call." loading="lazy"></figure></div>
+          </div>
+        </article>
+
+        <article class="moment" data-reveal>
+          <div class="m-time">11:01<small>A slide</small></div>
+          <div class="m-body">
+            <h3 class="h3">Dana shares the week-two numbers.</h3>
+            <p class="copy">When a new slide appears on the call, Seal reads it and keeps it beside the transcript, so the notes can use it. Video tiles are ignored.</p>
+            <div class="m-media two"><div class="crop"><img src="assets/crop-frame.webp" width="715" height="475" alt="The slide caught from Zoom beside the transcript." loading="lazy"></div><div class="starline"><span class="st" aria-hidden="true">☆</span><span><span class="t">11:01</span> Decision: “Let's keep the rollout to support for now”</span></div></div>
+          </div>
+        </article>
+
+        <article class="moment" data-reveal>
+          <div class="m-time">11:04<small>A question</small></div>
+          <div class="m-body">
+            <h3 class="h3">“What did we agree about the rollout?”</h3>
+            <p class="copy">You missed a sentence while answering a message. Ask, and the answer comes from everything said so far, in seconds, without leaving the Mac.</p>
+            <div class="m-media two"><div class="crop"><img src="assets/crop-answer.webp" width="715" height="380" alt="Seal answering: we agreed to aim for the twenty-fifth for the support rollout, with IT signing off on the install by Wednesday." loading="lazy"></div><div class="quote"><span class="who">The answer, in seconds</span><p>“We agreed to aim for the twenty-fifth for the support rollout, with IT needing to sign off on the install by Wednesday.”</p></div></div>
+          </div>
+        </article>
+
+        <article class="moment wax" data-reveal>
+          <div class="m-time">11:28<small>Stop</small></div>
+          <div class="m-body">
+            <h3 class="h3">You press Stop. The notes are sealed.</h3>
+            <p class="copy">A summary, the decisions, next steps and action items, written on your Mac. Your own lines stay in your ink and the model's in a quieter one, so you always know who wrote what.</p>
+            <div class="m-media"><div class="sealbox"><figure class="shot glow" style="margin:0"><img src="assets/saved.webp" width="2400" height="1500" alt="The finished notes: summary, decisions, next steps and action items." loading="lazy"></figure><span class="sealed-tag">Sealed · 11:28 · on this Mac</span>
+              <svg class="stamp" data-stamp viewBox="0 0 240 240" aria-hidden="true"><g><circle cx="176" cy="135" r="10" fill="#C9503C"/><circle cx="161" cy="161" r="10" fill="#C9503C"/><circle cx="135" cy="176" r="10" fill="#C9503C"/><circle cx="105" cy="176" r="10" fill="#C9503C"/><circle cx="79" cy="161" r="10" fill="#C9503C"/><circle cx="64" cy="135" r="10" fill="#C9503C"/><circle cx="64" cy="105" r="10" fill="#C9503C"/><circle cx="79" cy="79" r="10" fill="#C9503C"/><circle cx="105" cy="64" r="10" fill="#C9503C"/><circle cx="135" cy="64" r="10" fill="#C9503C"/><circle cx="161" cy="79" r="10" fill="#C9503C"/><circle cx="176" cy="105" r="10" fill="#C9503C"/><circle cx="120" cy="120" r="64.8" fill="#C9503C"/><circle cx="120" cy="120" r="52.8" fill="#B03E2E"/><path fill="#F2E4D8" fill-rule="evenodd" transform="translate(66 66) scale(0.45)" d="M200 120C200 164.18 164.18 200 120 200C75.82 200 40 164.18 40 120C40 75.82 75.82 40 120 40C164.18 40 200 75.82 200 120ZM99 104C99 116.15 89.15 126 77 126C64.85 126 55 116.15 55 104C55 91.85 64.85 82 77 82C89.15 82 99 91.85 99 104ZM185 104C185 116.15 175.15 126 163 126C150.85 126 141 116.15 141 104C141 91.85 150.85 82 163 82C175.15 82 185 91.85 185 104ZM97 141Q97 131 108 131Q115 131 120 138Q125 131 132 131Q143 131 143 141Q143 152 128 160Q120 164.5 112 160Q97 152 97 141Z"/></g></svg></div></div>
+          </div>
+        </article>
+
+        <article class="moment" id="privacy" data-reveal>
+          <div class="m-time">11:29<small>Privacy</small></div>
+          <div class="m-body">
+            <h3 class="h3">Nothing left your Mac. Not a byte.</h3>
+            <p class="copy">Seal has no server to send your meetings to, and it works with Wi-Fi off. Here is every connection the app makes, so you can check it with any network monitor.</p>
+            <div class="m-media"><div class="netlog">
+              <div class="netlog-head"><span class="live"></span>Seal · every connection it makes<span class="total">meetings: 0 B</span></div>
+              <ul>
+                <li><span class="when">Periodic</span><span class="host">sealformac.com/appcast.xml</span><span class="what">Update check. A public list of versions, nothing about you.</span></li>
+                <li><span class="when">Once</span><span class="host">huggingface.co</span><span class="what">The speech and notes models, downloaded on first run. Nothing is uploaded.</span></li>
+                <li class="off"><span class="when">Off</span><span class="host">Your own AI provider</span><span class="what">Cloud notes, only if you add your own key. Transcript text only, never audio.</span></li>
+                <li class="off"><span class="when">On send</span><span class="host">Problem report</span><span class="what">Only when you press Send, after reading exactly what goes.</span></li>
+              </ul>
+              <div class="netlog-foot"><span>Audio, transcripts and notes</span><b>0 B · always</b></div>
+            </div></div>
+          </div>
+        </article>
+
+        <article class="moment" data-reveal>
+          <div class="m-time">Later<small>Next week</small></div>
+          <div class="m-body">
+            <h3 class="h3">Find it again, or ask it again.</h3>
+            <p class="copy">Search every meeting by meaning, file them in folders, draft the follow-up, export to Markdown, PDF, Word, SRT or VTT. Your notes are plain files you own.</p>
+            <div class="m-media"><figure class="shot glow" style="margin:0"><img src="assets/askfocus.webp" width="2400" height="1500" alt="The Ask bar offering starter questions and actions for a finished meeting." loading="lazy"></figure></div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="compare-sec" id="compare" aria-labelledby="cmp-h">
+    <div class="wrap split">
+      <div class="copy-col" data-reveal><span class="kicker">The honest comparison</span><h2 class="h2" id="cmp-h">No bot in your call. No copy in their cloud.</h2><p class="copy">Most AI note-takers are cloud services wearing an app. Seal is a Mac app. Named comparisons: <a href="#compare">Granola</a>, <a href="#compare">Otter.ai</a>.</p></div>
+      <div class="table-scroll" data-reveal style="--delay:.08s">
+        <table class="compare">
+          <thead><tr><th scope="col"><span class="vh">Question</span></th><th scope="col" class="us">Seal</th><th scope="col">Cloud note-takers</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Where your audio is processed</th><td class="us">On your Mac</td><td>On their servers</td></tr>
+            <tr><th scope="row">A bot in your call</th><td class="us">Never</td><td>Usually a visible participant</td></tr>
+            <tr><th scope="row">Account required</th><td class="us">None</td><td>Sign-up first</td></tr>
+            <tr><th scope="row">Works offline</th><td class="us">Fully</td><td>Needs a connection</td></tr>
+            <tr><th scope="row">Your meeting history</th><td class="us">Files on your Mac</td><td>Held in their cloud</td></tr>
+            <tr><th scope="row">What you pay</th><td class="us">Nothing</td><td>A monthly subscription</td></tr>
+            <tr><th scope="row">If the company disappears</th><td class="us">The app keeps working</td><td>The service usually stops</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq-sec" id="faq" aria-labelledby="faq-h">
+    <div class="wrap split">
+      <div class="copy-col" data-reveal><span class="kicker">Questions</span><h2 class="h2" id="faq-h">Asked often</h2></div>
+      <div class="faq" data-reveal style="--delay:.08s">
+        <details><summary>Does Seal send my meetings to the cloud?<span class="pm" aria-hidden="true"></span></summary><p class="a">No. Recording, transcription and notes all run on your Mac, and Seal has no server to send meetings to. If you choose to turn on a cloud model with your own API key, only transcript text is sent, never your audio, and transcription always stays on the Mac.</p></details>
+        <details><summary>What do I need, and how big is the download?<span class="pm" aria-hidden="true"></span></summary><p class="a">macOS 14 or later and an Apple-silicon Mac. The models download once, roughly 3 to 6 GB together, the first time you record and make notes. After that nothing needs the network.</p></details>
+        <details><summary>Is Seal really free?<span class="pm" aria-hidden="true"></span></summary><p class="a">Yes, all of it. No meeting limits, no trial, no account, no subscription.</p></details>
+        <details><summary>Why is it free?<span class="pm" aria-hidden="true"></span></summary><p class="a">Seal runs on your Mac, so it costs nothing when you use it. Cloud note-takers charge monthly because every minute you record costs them money; Seal doesn't have that meter.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="closing" aria-labelledby="close-h">
+    <div class="wrap">
+      <div class="close-band" data-reveal>
+        <div>
+          <span class="kicker">Free · macOS 14+ · Apple silicon</span>
+          <h2 class="h2" id="close-h" style="margin-top:16px">What's said here stays&nbsp;here.</h2>
+          <p class="lead" style="margin-top:16px">Free to download. Free to use. Sealed by design.</p>
+          <div class="cta-row" style="margin-top:28px"><a class="btn btn-primary" href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg"><svg aria-hidden="true"><use href="#i-down"/></svg>Download for Mac <span class="tag">Free</span></a><a class="btn btn-ghost" href="https://github.com/yaremd/transcription-app">Read the source</a></div>
+          <div class="notify"><b>Know when Seal updates</b><p class="dim" style="font-size:15px">One short email when a new version ships. This list belongs to the website; the app never asks who you are.</p><form data-prototype><label class="vh" for="em3">Email address</label><input id="em3" type="email" placeholder="you@example.com" autocomplete="email"><button class="btn btn-ghost" type="submit">Keep me posted</button></form><p class="fine" data-form-note aria-live="polite"></p></div>
+        </div>
+        <img class="pup" src="assets/pup.png" width="420" height="395" alt="The Seal pup, holding a shield." loading="lazy">
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div><a class="brand" href="#top"><svg aria-hidden="true"><use href="#seal"/></svg>Seal</a><p style="margin-top:14px;max-width:26em">Private meeting notes for macOS. Recording, transcription and notes run entirely on your Mac.</p></div>
+      <div><h4>Product</h4><ul><li><a href="#how">A meeting with Seal</a></li><li><a href="#compare">Compare</a></li><li><a href="#faq">FAQ</a></li></ul></div>
+      <div><h4>Compare</h4><ul><li><a href="#compare">vs Granola</a></li><li><a href="#compare">vs Otter.ai</a></li><li><a href="#compare">Without bots</a></li><li><a href="#compare">Local notes on Mac</a></li></ul></div>
+      <div><h4>Privacy</h4><ul><li><a href="#privacy">What Seal sends</a></li><li><a href="#privacy">How it stays private</a></li></ul></div>
+      <div><h4>Get Seal</h4><ul><li><a href="https://github.com/yaremd/transcription-app/releases/latest/download/Seal.dmg">Download for Mac</a></li><li><a href="https://github.com/yaremd/transcription-app">Source on GitHub</a></li></ul></div>
+    </div>
+    <div class="legal"><span>Seal · Private meeting notes for macOS</span><span>Requires macOS 14 or later; on-device AI notes need an Apple-silicon Mac.</span></div>
+  </div>
+</footer>
+
+<nav class="optbar" aria-label="Prototype options"><a href="index.html">All</a><a href="halo.html">1 <span>Halo</span></a><a href="console.html">2 <span>Console</span></a><a href="timeline.html" aria-current="page">3 <span>Timeline</span></a></nav>
+<script src="base.js"></script>
+</body>
+</html>

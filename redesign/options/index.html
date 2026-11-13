@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Seal Landing Options</title>
+<meta name="theme-color" content="#04110D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap">
+<link rel="stylesheet" href="base.css">
+<style>
+/* The review page for step 2: three landing page options in the approved Sealed Glass direction. */
+.top { padding-block: clamp(48px, 7vw, 88px) 32px; display: grid; gap: 18px; }
+.top .display { font-size: clamp(2.4rem, 5vw, 4.2rem); max-width: 15ch; }
+.howto { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.opts { display: grid; gap: 22px; padding-bottom: 40px; }
+.opt { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 0; border-radius: var(--r-xl); overflow: hidden; background: linear-gradient(180deg, rgba(15, 51, 40, .5), rgba(6, 22, 15, .6)); box-shadow: inset 0 0 0 1px var(--line-2); text-decoration: none; color: inherit; transition: box-shadow .3s var(--ease), transform .3s var(--ease); }
+.opt:hover { box-shadow: inset 0 0 0 1px var(--lime-a40), 0 30px 70px -30px rgba(211, 243, 107, .25); transform: translateY(-2px); }
+.opt img { width: 100%; height: 100%; object-fit: cover; object-position: top center; aspect-ratio: 16 / 10; border-right: 1px solid var(--line); }
+.opt-b { padding: clamp(22px, 3vw, 36px); display: grid; gap: 14px; align-content: start; }
+.opt-b .num { font: 500 13px var(--f-mono); color: var(--lime); letter-spacing: .06em; }
+.opt-b .h2 { font-size: clamp(1.8rem, 3vw, 2.6rem); }
+.opt-b dl { margin: 6px 0 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 16px; font-size: 15px; }
+.opt-b dt { font: 500 11.5px/1.6 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.opt-b dd { margin: 0; color: var(--ink-2); }
+.opt-b .go { margin-top: 8px; display: inline-flex; align-items: center; gap: 8px; color: var(--lime); font-weight: 600; }
+.opt-b .go svg { width: 18px; height: 18px; }
+@media (max-width: 860px) { .opt { grid-template-columns: 1fr; } .opt img { border-right: 0; border-bottom: 1px solid var(--line); } }
+.notes { padding-block: 24px 96px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.note { border-radius: var(--r-l); padding: 22px; box-shadow: inset 0 0 0 1px var(--line); display: grid; gap: 8px; align-content: start; }
+.note p { color: var(--muted); font-size: 15px; }
+@media (max-width: 860px) { .notes { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="i-arrow" viewBox="0 0 20 20"><path d="M4 10h11M11 5.5 15.5 10 11 14.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol></defs></svg>
+<main class="wrap">
+  <header class="top">
+    <span class="kicker">sealformac.com redesign · step 2 of 4 · Sealed Glass</span>
+    <h1 class="display">Three ways to build Sealed Glass</h1>
+    <p class="lead">All three use the approved direction: night forest, lime as light, the glass seal, and real screenshots of Seal 1.5 taken from a made-up meeting. They differ in layout, type and the signature moment. Open each one and scroll to the end; motion plays as you scroll, once, then rests.</p>
+    <div class="howto"><span class="chip">Real app screenshots</span><span class="chip">Works on phones</span><span class="chip">Reduced motion respected</span><span class="chip">Fonts and sections can be mixed</span></div>
+  </header>
+
+  <section class="opts" aria-label="Options">
+    <a class="opt" href="halo.html">
+      <img src="assets/thumb-halo.webp" width="1440" height="900" alt="Option 1, Halo: a centred headline inside a large glass seal, with the app rising out of it.">
+      <div class="opt-b">
+        <span class="num">Option 1</span>
+        <h2 class="h2">Halo</h2>
+        <p class="copy">Centred and cinematic. The headline sits inside the seal, sound flows in from both sides, and the app rises out of it. Then one sticky stage follows a meeting from the call starting to the wax stamp.</p>
+        <dl><dt>Feels like</dt><dd>Apple keynote, Raycast</dd><dt>Type</dt><dd>Geist + Geist Mono</dd><dt>Signature</dt><dd>The seal behind the headline; the stamp pressing onto the finished notes</dd></dl>
+        <span class="go">Open Halo <svg aria-hidden="true"><use href="#i-arrow"/></svg></span>
+      </div>
+    </a>
+    <a class="opt" href="console.html">
+      <img src="assets/thumb-console.webp" width="1440" height="900" alt="Option 2, Console: a left-aligned headline beside a spec readout, with the full app rising from the seal below.">
+      <div class="opt-b">
+        <span class="num">Option 2</span>
+        <h2 class="h2">Console</h2>
+        <p class="copy">Product-first and precise. A spec readout beside the headline says what runs where, the whole app rises out of the seal, features sit in a grid of real crops, and a Wi-Fi switch lets visitors test the privacy claim.</p>
+        <dl><dt>Feels like</dt><dd>Linear, a pro tool</dd><dt>Type</dt><dd>Instrument Sans + JetBrains Mono</dd><dt>Signature</dt><dd>“0 B sent” readout; the Wi-Fi-off test</dd></dl>
+        <span class="go">Open Console <svg aria-hidden="true"><use href="#i-arrow"/></svg></span>
+      </div>
+    </a>
+    <a class="opt" href="timeline.html">
+      <img src="assets/thumb-timeline.webp" width="1440" height="900" alt="Option 3, Timeline: headline on the left, the app inside the seal on the right, as in the approved sketch.">
+      <div class="opt-b">
+        <span class="num">Option 3</span>
+        <h2 class="h2">Timeline</h2>
+        <p class="copy">The approved sketch, made real. Then the page follows one meeting minute by minute down a rail that glows as you read: 10:59 the call starts, 11:28 you press Stop, 11:29 nothing has left the Mac.</p>
+        <dl><dt>Feels like</dt><dd>A story, told in real time</dd><dt>Type</dt><dd>The Mac's own SF Pro + SF Mono, no font download</dd><dt>Signature</dt><dd>The glowing timeline; “Sealed · 11:28”</dd></dl>
+        <span class="go">Open Timeline <svg aria-hidden="true"><use href="#i-arrow"/></svg></span>
+      </div>
+    </a>
+  </section>
+
+  <section class="notes" aria-label="Notes">
+    <div class="note"><h3 class="h3">What's shared</h3><p>Colours, the glass seal, the waves, the wax stamp, the network list, comparison table, FAQ and the closing band with the pup. Whichever you pick, the other six pages get the same system.</p></div>
+    <div class="note"><h3 class="h3">What's not final yet</h3><p>Copy is close to final but not polished. Links to the comparison and privacy pages point inside the prototype. The update-email form doesn't send.</p></div>
+    <div class="note"><h3 class="h3">How to answer</h3><p>Pick one, or combine: for example "Timeline, with Halo's hero". Comments on anything you'd change are welcome.</p></div>
+  </section>
+</main>
+</body>
+</html>
