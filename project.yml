@@ -11,6 +11,11 @@ packages:
   mlx-swift-lm:
     url: https://github.com/ml-explore/mlx-swift-lm
     from: "3.31.3"
+  # Already pulled in by mlx-swift-lm; named here so MLXEngine can import MLX
+  # itself, for its GPU buffer cache limit.
+  mlx-swift:
+    url: https://github.com/ml-explore/mlx-swift
+    from: "0.31.4"
   swift-transformers:
     url: https://github.com/huggingface/swift-transformers
     minorVersion: 1.1.6
@@ -37,6 +42,8 @@ targets:
       - path: Support/Assets.xcassets
     dependencies:
       - package: WhisperKit
+      - package: mlx-swift
+        product: MLX
       - package: mlx-swift-lm
         product: MLXLLM
       - package: mlx-swift-lm

@@ -2,6 +2,7 @@ import Foundation
 import OSLog
 import Hub
 import Tokenizers
+import MLX
 import MLXLLM
 import MLXLMCommon
 import MLXHuggingFace
@@ -90,6 +91,35 @@ actor MLXEngine {
 
     /// Whether the model weights are already loaded in memory (no download/UI needed).
     var isReady: Bool { container != nil }
+
+    // MARK: - GPU buffer cache
+
+    /// MLX keeps every GPU buffer it frees in a cache of its own, to reuse it,
+    /// and by default that cache may grow to 1.5 × the Mac's GPU working set:
+    /// in effect, without limit. A model's memory is mostly buffers that are
+    /// freed and never reused at the same size — the Ask conversation's KV
+    /// cache grows 256 tokens at a time, each step a new, larger buffer
+    /// replacing the last, and every prefill window over a longer transcript
+    /// is a new shape — so the cache only ever grows. In 1.5 Seal held 36 GB
+    /// of GPU memory within 50 minutes of launch, and releasing the model gave
+    /// none of it back: the weights' buffers went into the same cache.
+    ///
+    /// Capped, MLX returns anything beyond this to the system as it is freed.
+    /// It is plenty for the buffers one decode step reuses, so generation is
+    /// no slower. A quarter to a half GB, scaled down on small Macs.
+    static var bufferCacheLimit: Int {
+        let ram = Int(clamping: ProcessInfo.processInfo.physicalMemory)
+        return min(512 * 1_048_576, ram / 32)
+    }
+
+    /// Applied once, before the first model load.
+    private static let configureBufferCache: Void = {
+        Memory.cacheLimit = bufferCacheLimit
+    }()
+
+    /// GPU memory MLX holds right now, live arrays and cached buffers — for
+    /// tests and the diagnostics log.
+    var gpuMemory: (active: Int, cached: Int) { (Memory.activeMemory, Memory.cacheMemory) }
 
     /// Generate a completion for a system + user prompt. One-shot: a fresh
     /// `ChatSession` per call so unrelated jobs (titles, notes) never share
@@ -253,6 +283,8 @@ actor MLXEngine {
         if let container, loadedModelID == modelID { return container }
         if let loadTask, loadedModelID == modelID { return try await loadTask.value }
 
+        _ = Self.configureBufferCache
+
         // Free other resident big models (the Whisper speech model on a
         // memory-tight Mac) before we pull this one into RAM.
         await preLoadHook?()
@@ -352,6 +384,10 @@ actor MLXEngine {
     /// Drops the model and every Ask conversation (each pins its own cache of
     /// the model's state). The weights stay on disk, so the next job reloads
     /// in seconds and the UI's "ready" state is still true.
+    ///
+    /// Freed, the weights' buffers land in MLX's buffer cache rather than
+    /// going back to the system, so the cache is emptied too — otherwise a
+    /// release frees nothing anyone can see.
     private func release() {
         idleUnloadTask?.cancel()
         idleUnloadTask = nil
@@ -359,6 +395,7 @@ actor MLXEngine {
         container = nil
         loadedModelID = nil
         loadTask = nil          // the completed load task also retains the model — drop it
+        Memory.clearCache()
     }
 
     /// Whether a model's weights are already in the local download folder.
