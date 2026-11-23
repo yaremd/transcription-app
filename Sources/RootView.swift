@@ -180,8 +180,15 @@ struct RootView: View {
         }
         // Reaching the record pane always presents a fresh screen — a
         // finished session is already saved in the library.
-        .onChange(of: selection) { _, newSelection in
+        .onChange(of: selection) { oldSelection, newSelection in
             if newSelection == .record { monitor.resetFinishedSession() }
+            // Leaving a meeting's page lets its Ask conversation, and the
+            // memory it holds, go — see `MLXEngine.conversationToRelease`.
+            if let id = MLXEngine.conversationToRelease(
+                leaving: askMeetingID(oldSelection), entering: askMeetingID(newSelection),
+                recording: monitor.isRunning ? monitor.currentMeetingID : nil) {
+                Task { await MLXEngine.shared.dropConversation(for: id) }
+            }
         }
         .onAppear {
             #if DEBUG
@@ -461,6 +468,17 @@ struct RootView: View {
                 .frame(width: 8, height: 8)
                 .shadow(color: Theme.red.opacity(monitor.isPaused ? 0 : 0.45), radius: 3)
                 .frame(width: 16, height: 16)
+        }
+    }
+
+    /// The meeting whose Ask a pane shows: a saved meeting's page, or the live
+    /// page while it records. Nothing for the welcome screen, Action Items, or
+    /// a record pane that isn't recording.
+    private func askMeetingID(_ panel: Panel?) -> UUID? {
+        switch panel {
+        case .meeting(let id): return id
+        case .record: return monitor.isRunning ? monitor.currentMeetingID : nil
+        default: return nil
         }
     }
 
