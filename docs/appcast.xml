@@ -13,6 +13,30 @@
          `gh api repos/yaremd/transcription-app/pages/builds/latest`. A commit
          touching this directory queues a fresh one. -->
     <item>
+      <title>Version 1.6</title>
+      <sparkle:version>31</sparkle:version>
+      <sparkle:shortVersionString>1.6</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Tue, 24 Nov 2026 18:16:30 +0000</pubDate>
+      <description><![CDATA[
+        <h3>Seal 1.6</h3>
+        <h3>Seal gives its memory back</h3>
+        <p>Writing a meeting's notes, or answering a question about one,
+        takes several gigabytes of memory while the model works. Seal used to
+        keep that memory when the work was done, and held on to more after
+        every meeting, so a Seal left open for days kept growing until it
+        could slow your whole Mac down. Now it hands the memory back to your
+        Mac as soon as each job finishes.</p>
+        <p>Ask also lets go of what it was holding for a meeting when you
+        leave that meeting's page. The meeting you're recording keeps its
+        conversation, so questions during the call stay quick.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/yaremd/transcription-app/releases/download/v1.6/Seal.dmg"
+        sparkle:edSignature="aArdWtrtohxI5U0s+ZmE0c51P+17GR+zqdp/oSao97jH6TTD1tDyfSz9s6H4QsO1vd7x73J6Hla02Dnm3vvxAA==" length="20302091"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 1.5</title>
       <sparkle:version>30</sparkle:version>
       <sparkle:shortVersionString>1.5</sparkle:shortVersionString>
