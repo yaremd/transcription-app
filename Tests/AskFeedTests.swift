@@ -76,4 +76,33 @@ final class AskFeedTests: XCTestCase {
         XCTAssertEqual(AskTranscriptFeed.stamp(3725), "[1:02:05]")
         XCTAssertEqual(AskTranscriptFeed.stamp(-4), "[00:00]")
     }
+
+    // MARK: - Letting a conversation go
+
+    /// Each conversation holds the model's memory of a whole meeting, so the
+    /// page the user leaves gives it back.
+    func testLeavingAMeetingLetsItsConversationGo() {
+        let old = UUID(), next = UUID()
+        XCTAssertEqual(MLXEngine.conversationToRelease(leaving: old, entering: next, recording: nil), old)
+        XCTAssertEqual(MLXEngine.conversationToRelease(leaving: old, entering: nil, recording: nil), old,
+                       "the welcome screen or Action Items count as leaving")
+    }
+
+    /// Stop moves the window from the live page to the saved one — the same
+    /// meeting, whose conversation is meant to carry over.
+    func testTheLivePageBecomingTheSavedPageKeepsTheConversation() {
+        let meeting = UUID()
+        XCTAssertNil(MLXEngine.conversationToRelease(leaving: meeting, entering: meeting, recording: nil))
+    }
+
+    /// Asking during the meeting is what the conversation is for; a glance at
+    /// an older meeting mid-call must not cost the fast follow-ups.
+    func testTheMeetingBeingRecordedKeepsItsConversation() {
+        let live = UUID()
+        XCTAssertNil(MLXEngine.conversationToRelease(leaving: live, entering: UUID(), recording: live))
+    }
+
+    func testNothingToLetGoWhenNoMeetingWasShown() {
+        XCTAssertNil(MLXEngine.conversationToRelease(leaving: nil, entering: UUID(), recording: nil))
+    }
 }

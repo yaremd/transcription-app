@@ -2,6 +2,7 @@ import Foundation
 import OSLog
 import Hub
 import Tokenizers
+import MLX
 import MLXLLM
 import MLXLMCommon
 import MLXHuggingFace
@@ -43,6 +44,30 @@ actor MLXEngine {
         return false
         #endif
     }
+
+    /// MLX keeps memory it has finished with in a buffer cache of its own,
+    /// ready to hand to the next array of the same size, and by default gives
+    /// it back to macOS only past 95% of the GPU's working set — about 36 GB on
+    /// a 48 GB Mac. Almost nothing in it is used again: the model's memory of
+    /// what it has read (its KV cache) grows in steps, each outgrown copy goes
+    /// into the cache, and a cached buffer is only reused for a request within
+    /// 32 KB of its own size. Measured on 2026-11-23: one job on a half-hour
+    /// meeting's transcript (about 8,000 tokens) left 10 GB in the cache — the
+    /// model's 4.3 GB plus 5.7 GB of leftovers — and Seal's footprint stayed at
+    /// 10.4 GB after the idle unload. After four days of ordinary use it held
+    /// 22 GB, and macOS had swapped 35 GB to disk to make room. With the cap
+    /// and the emptying below, the same job leaves nothing behind and the
+    /// footprint falls to about 240 MB once the model is let go
+    /// (`MLXEngineIdleUnloadTests`).
+    ///
+    /// So the cache is capped, and emptied whenever a job ends or the model is
+    /// let go. 256 MB still holds everything one layer works with while the
+    /// model reads a 512-token piece of a prompt, so buffers are reused inside
+    /// a job as before; what no longer survives is what a job leaves behind.
+    static let bufferCacheLimit = 256 * 1024 * 1024
+    /// Set before the first model load; nothing touches MLX until then, so an
+    /// Intel Mac (or a Mac that never makes notes) never initializes it.
+    private var bufferCacheLimited = false
 
     private var container: ModelContainer?
     private var loadedModelID: String?
@@ -108,23 +133,11 @@ actor MLXEngine {
             throw EngineError(message: "On-device notes need an Apple-silicon Mac. Turn on a cloud model in Settings to use notes here.")
         }
         lastUsedAt = Date()   // keeps the model from being released mid-session
-        let container = try await ensureLoaded(modelID: modelID)
-        let session = ChatSession(
-            container,
-            instructions: system,
-            generateParameters: GenerateParameters(maxTokens: maxTokens, temperature: temperature))
-        let output: String
-        if let onPartial {
-            var text = ""
-            for try await chunk in session.streamResponse(to: user) {
-                text += chunk
-                onPartial(text)
-            }
-            output = text
-        } else {
-            output = try await session.respond(to: user)
-        }
-        touch()
+        // What the job worked in is spare once `respond` returns — on a
+        // failure too — and `touch()` hands it back.
+        defer { touch() }
+        let output = try await respond(system: system, user: user, maxTokens: maxTokens,
+                                       temperature: temperature, modelID: modelID, onPartial: onPartial)
         let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw EngineError(message: "The on-device model returned an empty response. Try again.")
@@ -132,12 +145,45 @@ actor MLXEngine {
         return trimmed
     }
 
-    /// Marks the model as in use right now: the idle clock restarts. Jobs
-    /// call it as they start and finish; a streamed Ask answer's consumer
-    /// calls it when the last token lands.
+    /// One prompt through a fresh session. Everything the job holds — the
+    /// model, the session, the KV cache it builds while reading the prompt —
+    /// lives only inside this call, so by the time it returns, that memory is
+    /// spare and can be handed back. That includes the weights of a model the
+    /// idle unload let go of while a long job was still using it: they are
+    /// only freed when the job's own hold on them ends, here.
+    private func respond(system: String, user: String, maxTokens: Int, temperature: Float,
+                         modelID: String, onPartial: (@Sendable (String) -> Void)?) async throws -> String {
+        let container = try await ensureLoaded(modelID: modelID)
+        let session = ChatSession(
+            container,
+            instructions: system,
+            generateParameters: GenerateParameters(maxTokens: maxTokens, temperature: temperature))
+        guard let onPartial else { return try await session.respond(to: user) }
+        var text = ""
+        for try await chunk in session.streamResponse(to: user) {
+            text += chunk
+            onPartial(text)
+        }
+        return text
+    }
+
+    /// Marks the model as in use right now: the idle clock restarts, and what
+    /// the last job finished with goes back to macOS. Jobs call it as they
+    /// start and finish; a streamed Ask answer's consumer calls it when the
+    /// last token lands.
     func touch() {
         lastUsedAt = Date()
+        returnSpareMemory()
         if container != nil { scheduleIdleUnload() }
+    }
+
+    /// Hands MLX's buffer cache back to macOS. The cache only ever holds
+    /// memory no array is using, so this cannot disturb a job in progress; it
+    /// keeps a finished job's leftovers, and a released model's weights, from
+    /// staying inside Seal. See `bufferCacheLimit`.
+    private func returnSpareMemory() {
+        guard bufferCacheLimited else { return }   // MLX never used: nothing to return
+        Memory.clearCache()
     }
 
     /// Pre-download / warm the model without generating (for onboarding).
@@ -226,9 +272,30 @@ actor MLXEngine {
     }
 
     /// Forgets a meeting's conversation — after a failed answer, so the next
-    /// question starts from a clean exchange rather than a half-recorded one.
+    /// question starts from a clean exchange rather than a half-recorded one,
+    /// and when the user leaves the meeting's page (`conversationToRelease`).
+    /// The memory it held goes back to macOS; an answer still streaming keeps
+    /// its own until it finishes.
     func dropConversation(for meetingID: UUID) {
-        conversations[meetingID] = nil
+        guard conversations.removeValue(forKey: meetingID) != nil else { return }
+        returnSpareMemory()
+    }
+
+    /// The conversation to let go of when the window moves from one page to
+    /// another: the meeting just left, unless it is the one being recorded.
+    ///
+    /// Each conversation keeps the model's memory of the meeting it has read —
+    /// up to about 0.75 GB for a long one — and a page the user has left will
+    /// not be asked anything soon; coming back costs one re-read of the
+    /// transcript, a few seconds. The meeting being recorded keeps its own:
+    /// asking during the meeting is what the conversation is for, and a glance
+    /// at an older meeting mid-call shouldn't cost the fast follow-ups. Moving
+    /// from the live page to the saved one after Stop is the same meeting, so
+    /// nothing is let go.
+    static func conversationToRelease(leaving left: UUID?, entering entered: UUID?,
+                                      recording: UUID?) -> UUID? {
+        guard let left, left != entered, left != recording else { return nil }
+        return left
     }
 
     private func isRestart(_ step: AskTranscriptFeed.Step) -> Bool {
@@ -250,6 +317,7 @@ actor MLXEngine {
     /// Load the model once, downloading on first use. Concurrent callers share a
     /// single in-flight load task.
     private func ensureLoaded(modelID: String) async throws -> ModelContainer {
+        limitBufferCache()
         if let container, loadedModelID == modelID { return container }
         if let loadTask, loadedModelID == modelID { return try await loadTask.value }
 
@@ -296,6 +364,14 @@ actor MLXEngine {
         progressObserver?(fraction)
     }
 
+    /// Caps MLX's buffer cache before the first array exists — see
+    /// `bufferCacheLimit`. The limit is process-wide, so it is set once.
+    private func limitBufferCache() {
+        guard !bufferCacheLimited else { return }
+        Memory.cacheLimit = Self.bufferCacheLimit
+        bufferCacheLimited = true
+    }
+
     // MARK: - Memory scheduling
 
     /// Begins watching for system memory pressure once a model is loaded (a
@@ -321,7 +397,13 @@ actor MLXEngine {
     /// stay on disk, so the next generate reloads without re-downloading. Ask
     /// conversations go with it — each one pins its own cache of the model's
     /// state, and the next question simply re-reads the transcript.
+    ///
+    /// Spare memory goes back first, on every event. That used to wait behind
+    /// "nothing loaded, nothing to do" — which, with the model already gone, is
+    /// exactly when everything left was spare memory, so Seal sat on gigabytes
+    /// through every warning while macOS swapped to make room.
     private func handleMemoryPressure(critical: Bool) {
+        returnSpareMemory()
         guard container != nil else { return }   // nothing loaded (or a load is mid-flight)
         if !critical && Date().timeIntervalSince(lastUsedAt) < Self.idleUnloadSeconds { return }
         release()
@@ -350,8 +432,10 @@ actor MLXEngine {
     }
 
     /// Drops the model and every Ask conversation (each pins its own cache of
-    /// the model's state). The weights stay on disk, so the next job reloads
-    /// in seconds and the UI's "ready" state is still true.
+    /// the model's state), and hands their memory back to macOS — without
+    /// that last step the weights only moved into MLX's buffer cache and
+    /// stayed in Seal. The weights stay on disk, so the next job reloads in
+    /// seconds and the UI's "ready" state is still true.
     private func release() {
         idleUnloadTask?.cancel()
         idleUnloadTask = nil
@@ -359,6 +443,7 @@ actor MLXEngine {
         container = nil
         loadedModelID = nil
         loadTask = nil          // the completed load task also retains the model — drop it
+        returnSpareMemory()
     }
 
     /// Whether a model's weights are already in the local download folder.
